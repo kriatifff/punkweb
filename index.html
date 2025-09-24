@@ -1,0 +1,947 @@
+# Create a single-file index.html that runs the latest canvas app in the browser using React UMD + Babel.
+# The app code is adapted to work without bundlers (no imports/exports).
+html = r"""<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Панквеб FTE Planner</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body, #root { height: 100%; }
+    /* Nice system font stack */
+    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+  </style>
+</head>
+<body class="bg-[#F7F8FA]">
+  <div id="root"></div>
+
+  <!-- React 18 UMD + ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel to transpile TS + JSX in the browser (ok for quick hosting/preview) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel" data-presets="typescript,react">
+// =============================================
+// Панквеб FTE Planner — Preview App (React/TS)
+// Single-file build for drag&drop hosting
+// =============================================
+
+// Pull React hooks from global React (no imports needed)
+const { useEffect, useMemo, useRef, useState } = React;
+
+// ---------- Config ----------
+const MAX_FTE = 1.2;
+const WEEK_COL_PX = 72;
+const TEAM_BAR_COLOR = "#22c55e"; // зелёный бар на странице Команда
+
+// ---------- Persistence ----------
+const LS_KEY = "fteplanner.v1";
+function loadJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return fallback;
+    const all = JSON.parse(raw);
+    return key in all ? all[key] : fallback;
+  } catch { return fallback; }
+}
+function saveJSON(patch) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+    localStorage.setItem(LS_KEY, JSON.stringify({ ...all, ...patch }));
+  } catch {}
+}
+
+// ---------- Date/format helpers ----------
+const fmtISO = (date) => date.toISOString().slice(0, 10);
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); x.setHours(0,0,0,0); return x; };
+const pad2 = (n) => (n < 10 ? \`0\${n}\` : String(n));
+const fmtDM = (d) => \`\${pad2(d.getDate())}.\${pad2(d.getMonth() + 1)}\`;
+const RU_MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
+const ruMonthShort = (m) => RU_MONTHS[m] ?? "";
+const startOfISOWeek = (d) => { const day = d.getDay(); const diff = (day === 0 ? -6 : 1) - day; const m = new Date(d); m.setDate(d.getDate() + diff); m.setHours(0,0,0,0); return m; };
+const addWeeks = (m, n) => { const d = new Date(m); d.setDate(d.getDate() + n * 7); d.setHours(0,0,0,0); return d; };
+const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+const scaleRatio = (v, max = MAX_FTE) => clamp(v / max, 0, 1);
+const weekLabelParts = (iso) => { const d = new Date(iso); const w = 1 + Math.floor((d.getDate() - 1) / 7); return { top: \`\${w} нед\`, bot: ruMonthShort(d.getMonth()) }; };
+const weekRangeLabel = (iso) => { const d = new Date(iso); const end = addDays(d, 6); return \`\${fmtDM(d)}–\${fmtDM(end)}\`; };
+const rndId = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+const fmtFTE1 = (n) => (Math.round(n * 10) / 10).toFixed(1); // 0.0..1.2 (точка)
+const yearWeekMondays = (year) => { let m = startOfISOWeek(new Date(year,0,1)); const end = new Date(year,11,31); end.setHours(0,0,0,0); const list=[]; while(m<=end){ list.push(fmtISO(m)); m = addDays(m,7);} return list; };
+
+// ---------- Seed data ----------
+const base = startOfISOWeek(new Date());
+const initialWeeks = Array.from({ length: 16 }, (_, i) => fmtISO(addWeeks(base, i - 4))); // 4 назад + 12 вперёд
+const seedPeople = [
+  { id: "p1", name: "Саша", role: "manager", capacityPerWeek: 1, active: true },
+  { id: "p2", name: "Катя К.", role: "designer", capacityPerWeek: 1, active: true },
+];
+const seedProjects = [
+  { id: "pr1", name: "HR Подкасты", status: "active", color: "#3b82f6" },
+  { id: "pr2", name: "Арктика Медиа", status: "active", color: "#f43f5e" },
+  { id: "pr3", name: "Падел-теннис", status: "planned", color: "#06b6d4" },
+];
+const seedAssignments = [
+  { id: "a1", personId: "p1", projectId: "pr1", weekStart: initialWeeks[4], fte: 0.3 },
+  { id: "a2", personId: "p1", projectId: "pr2", weekStart: initialWeeks[4], fte: 0.2 },
+  { id: "a3", personId: "p2", projectId: "pr2", weekStart: initialWeeks[5], fte: 0.4 },
+];
+const seedRoles = ["designer", "dev", "manager", "pm", "other"];
+
+// ---------- Aggregations ----------
+const personWeekTotal = (as, pid, w) => as.filter(a => a.personId === pid && a.weekStart === w).reduce((s, a) => s + a.fte, 0);
+const fteFor = (as, pid, pr, w) => as.filter(a => a.personId === pid && a.projectId === pr && a.weekStart === w).reduce((s, a) => s + a.fte, 0);
+const mergeOrder = (existing, nextIds) => { const seen = new Set(); const res = []; for (const id of existing || []) if (nextIds.includes(id) && !seen.has(id)) { res.push(id); seen.add(id);} for (const id of nextIds) if (!seen.has(id)){ res.push(id); seen.add(id);} return res; };
+
+// ---------- UI atoms ----------
+function StatusIcon({ status }) {
+  const common = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "white" };
+  if (status === "active") return (<svg {...common}><polygon points="8,5 19,12 8,19" /></svg>);
+  if (status === "onhold") return (<svg {...common}><rect x="6" y="5" width="4" height="14" /><rect x="14" y="5" width="4" height="14" /></svg>);
+  if (status === "done") return (<svg {...common}><rect x="6" y="6" width="12" height="12" rx="2" /></svg>);
+  return (<svg {...common}><circle cx="12" cy="12" r="6" /></svg>);
+}
+function MinusIcon({ className = "" }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  );
+}
+function WeekHeader({ iso }) {
+  const { top, bot } = weekLabelParts(iso);
+  return (
+    <div className="h-[40px] flex items-center justify-center text-neutral-700">
+      <span className="block text-center leading-tight" style={{ width: WEEK_COL_PX }}>
+        <div className="text-xs font-medium">{top}</div>
+        <div className="text-[10px]">{bot}</div>
+      </span>
+    </div>
+  );
+}
+
+// =================================
+// App
+// =================================
+function App() {
+  // ---- state (with persistence) ----
+  const [people, setPeople] = useState(loadJSON("people", seedPeople));
+  const [projects, setProjects] = useState(loadJSON("projects", seedProjects));
+  const [assignments, setAssignments] = useState(loadJSON("assignments", seedAssignments));
+  const [roles, setRoles] = useState(loadJSON("roles", [...seedRoles]));
+  const [projectTeams, setProjectTeams] = useState(() => {
+    const saved = loadJSON("projectTeams", {});
+    const map = {};
+    Object.keys(saved).forEach(k => (map[k] = new Set(saved[k])));
+    if (Object.keys(map).length === 0) {
+      for (const p of seedProjects) map[p.id] = new Set();
+      for (const a of seedAssignments) (map[a.projectId] = map[a.projectId] || new Set()).add(a.personId);
+    }
+    return map;
+  });
+  const [vacations, setVacations] = useState(() => {
+    const saved = loadJSON("vacations", {});
+    const map = {};
+    Object.keys(saved).forEach(k => (map[k] = new Set(saved[k])));
+    return map;
+  });
+  const [personProjectOrder, setPersonProjectOrder] = useState(loadJSON("personProjectOrder", {}));
+  const [teamOrder, setTeamOrder] = useState(() => loadJSON("teamOrder", seedPeople.map(p => p.id)));
+
+  const [authed, setAuthed] = useState(loadJSON("authed", false));
+  const [view, setView] = useState("team"); // "team" | "project"
+  const [selectedPersonId, setSelectedPersonId] = useState(null);
+
+  // weeks + infinite scroll
+  const [weeksState, setWeeksState] = useState(loadJSON("weeks", initialWeeks));
+  const teamScrollRef = useRef(null);
+  const onTeamScroll = () => {
+    const el = teamScrollRef.current; if (!el) return;
+    if (el.scrollLeft > el.scrollWidth - el.clientWidth - 200) {
+      const last = new Date(weeksState[weeksState.length - 1]);
+      const more = Array.from({length:8}, (_,i)=> fmtISO(addWeeks(last, i+1)));
+      setWeeksState(prev => [...prev, ...more]);
+    }
+  };
+
+  // role filter
+  const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
+
+  // ---- persistence ----
+  useEffect(() => saveJSON({ people }), [people]);
+  useEffect(() => saveJSON({ projects }), [projects]);
+  useEffect (() => saveJSON({ assignments }), [assignments]);
+  useEffect(() => saveJSON({ roles }), [roles]);
+  useEffect(() => { const obj = {}; Object.entries(projectTeams).forEach(([k, v]) => (obj[k] = Array.from(v))); saveJSON({ projectTeams: obj }); }, [projectTeams]);
+  useEffect(() => { const obj = {}; Object.entries(vacations).forEach(([k, v]) => (obj[k] = Array.from(v))); saveJSON({ vacations: obj }); }, [vacations]);
+  useEffect(() => saveJSON({ personProjectOrder }), [personProjectOrder]);
+  useEffect(() => saveJSON({ teamOrder }), [teamOrder]);
+  useEffect(() => saveJSON({ weeks: weeksState }), [weeksState]);
+  useEffect(() => saveJSON({ roleFilter }), [roleFilter]);
+
+  // ---- derived ----
+  const isVacation = (pid, w) => !!(vacations[pid] && vacations[pid].has && vacations[pid].has(w));
+  const dragRow = useRef(null);
+  useEffect(() => setTeamOrder(prev => mergeOrder(prev, people.map(p => p.id))), [people]);
+  const activePeople = useMemo(() => people.filter(p => p.active), [people]);
+  const activeTeamIds = useMemo(() => teamOrder.filter(id => activePeople.some(p => p.id === id)), [teamOrder, activePeople]);
+  const filteredTeamIds = useMemo(() => activeTeamIds.filter(id => roleFilter === "all" ? true : (people.find(p => p.id === id)?.role === roleFilter)), [activeTeamIds, roleFilter, people]);
+
+  // ---- helpers ----
+  function deletePerson(pid) {
+    if (!confirm("Удалить сотрудника?")) return;
+    setPeople(prev => prev.filter(p => p.id !== pid));
+    setAssignments(prev => prev.filter(a => a.personId !== pid));
+    setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=>{ if (k!==pid) c[k]=new Set(v); }); return c; });
+    setProjectTeams(prev => { const c={}; Object.entries(prev).forEach(([k,v])=>{ const s=new Set(v); s.delete(pid); c[k]=s; }); return c; });
+    setTeamOrder(prev => prev.filter(id => id !== pid));
+  }
+  function deleteProject(prid) {
+    if (!confirm("Удалить проект?")) return;
+    setProjects(prev => prev.filter(p => p.id !== prid));
+    setAssignments(prev => prev.filter(a => a.projectId !== prid));
+    setProjectTeams(prev => { const c={}; Object.entries(prev).forEach(([k,v])=>{ if (k!==prid) c[k]=new Set(v); }); return c; });
+    setPersonProjectOrder(prev => { const out = {}; Object.entries(prev).forEach(([pid, arr]) => { out[pid] = (arr||[]).filter(x => x !== prid); }); return out; });
+  }
+
+  // person form (modal)
+  const [createPersonOpen, setCreatePersonOpen] = useState(false);
+  const [newPersonName, setNewPersonName] = useState("");
+  const [newPersonRole, setNewPersonRole] = useState("other");
+  function submitNewPerson() {
+    const name = newPersonName.trim(); if (!name) return;
+    const id = rndId();
+    setPeople(p => [...p, { id, name, role: newPersonRole || "other", capacityPerWeek: 1, active: true }]);
+    setCreatePersonOpen(false); setNewPersonName(""); setNewPersonRole("other");
+  }
+
+  // project form (modal)
+  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectColor, setNewProjectColor] = useState("#3b82f6");
+  const [newProjectStatus, setNewProjectStatus] = useState("active"); // "active"|"onhold"|"done"|"planned"
+  const [projSearch, setProjSearch] = useState("");
+  const [projTeamSel, setProjTeamSel] = useState(() => new Set());
+  const personSuggestions = useMemo(() => activePeople.filter(p => p.name.toLowerCase().includes(projSearch.toLowerCase()) && !projTeamSel.has(p.id)).slice(0,6), [activePeople, projSearch, projTeamSel]);
+  function submitNewProject() {
+    const name = newProjectName.trim(); if (!name) return;
+    const id = rndId(); const color = newProjectColor || "#64748b"; const status = newProjectStatus;
+    setProjects(ps => [...ps, { id, name, color, status }]);
+    setProjectTeams(pt => { const copy={}; Object.entries(pt).forEach(([k,v])=>copy[k]=new Set(v)); copy[id]=new Set(projTeamSel); return copy; });
+    setCreateProjectOpen(false); setNewProjectName(""); setProjSearch(""); setProjTeamSel(new Set()); setNewProjectStatus("active"); setView("project");
+  }
+
+  // ============== AUTH ==============
+  if (!authed) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-[#F7F8FA]">
+        <div className="bg-white w-[360px] rounded-2xl shadow-lg border border-neutral-200 p-5">
+          <div className="text-center mb-4"><div className="text-2xl font-semibold">Вход</div></div>
+          <AuthForm onSuccess={(remember) => { if (remember) { saveJSON({ authed: true, remember: true }); } else { saveJSON({ remember: false, authed: false }); } setAuthed(true); }} />
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- Render (authed) ----------
+  return (
+    <div className="min-h-screen bg-[#F7F8FA] text-neutral-900">
+      {/* Top bar with logo */}
+      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/90 backdrop-blur">
+        <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center gap-3">
+          <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
+          <div className="ml-4 flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm">
+            <button className={\`px-3 py-1 rounded-xl transition \${view === "team" ? "bg-white shadow-sm" : "hover:bg-white/70"}\`} onClick={() => setView("team")}>Команда</button>
+            <button className={\`px-3 py-1 rounded-xl transition \${view === "project" ? "bg-white shadow-sm" : "hover:bg-white/70"}\`} onClick={() => setView("project")}>Проекты</button>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={() => setCreateProjectOpen(true)} className="rounded-xl border border-neutral-300 px-3 py-1 bg-white shadow-sm hover:shadow transition">+ Проект</button>
+            <button onClick={() => setCreatePersonOpen(true)} className="rounded-xl border border-neutral-300 px-3 py-1 bg-white shadow-sm hover:shadow transition">+ Сотрудник</button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-screen-2xl mx-auto p-4">
+        {view === "team" ? (
+          <TeamView
+            people={people} setPeople={setPeople}
+            assignments={assignments} setAssignments={setAssignments}
+            vacations={vacations} setVacations={setVacations}
+            weeksState={weeksState} setWeeksState={setWeeksState}
+            teamOrder={teamOrder} setTeamOrder={setTeamOrder}
+            roleFilter={roleFilter} setRoleFilter={setRoleFilter}
+            onTeamScroll={onTeamScroll} teamScrollRef={teamScrollRef}
+            setSelectedPersonId={setSelectedPersonId}
+          />
+        ) : (
+          <ProjectsView
+            projects={projects} setProjects={setProjects}
+            activePeople={activePeople}
+            projectTeams={projectTeams} setProjectTeams={setProjectTeams}
+            deleteProject={deleteProject}
+          />
+        )}
+      </main>
+
+      {selectedPersonId && (
+        <PersonSheet
+          person={people.find(p => p.id === selectedPersonId)}
+          projects={projects}
+          assignments={assignments}
+          teamByProject={projectTeams}
+          vacations={vacations}
+          setVacations={setVacations}
+          order={personProjectOrder[selectedPersonId]}
+          setOrder={o => setPersonProjectOrder(prev => ({ ...prev, [selectedPersonId]: o }))}
+          onBack={() => { setSelectedPersonId(null); setView("team"); }}
+          onClose={() => setSelectedPersonId(null)}
+          onSave={setAssignments}
+          setPeople={setPeople}
+          weeks={weeksState}
+          roles={roles}
+        />
+      )}
+
+      <CreatePersonModal open={createPersonOpen} onClose={() => setCreatePersonOpen(false)} name={newPersonName} setName={setNewPersonName} role={newPersonRole} setRole={setNewPersonRole} onSubmit={submitNewPerson} roles={roles} />
+      <CreateProjectModal
+        open={createProjectOpen}
+        onClose={() => setCreateProjectOpen(false)}
+        name={newProjectName}
+        setName={setNewProjectName}
+        color={newProjectColor}
+        setColor={setNewProjectColor}
+        status={newProjectStatus}
+        setStatus={setNewProjectStatus}
+        search={projSearch}
+        setSearch={setProjSearch}
+        teamSel={projTeamSel}
+        setTeamSel={setProjTeamSel}
+        people={activePeople}
+        suggestions={personSuggestions}
+        onSubmit={submitNewProject}
+      />
+    </div>
+  );
+}
+
+// ------------- Team View (sticky left + read-only bars) -------------
+function WeekHeaderRow({ weeks }) {
+  return (
+    <>
+      {weeks.map(w => (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w} /></div>))}
+    </>
+  );
+}
+function TeamView({ people, setPeople, assignments, vacations, weeksState, setWeeksState, teamOrder, setTeamOrder, roleFilter, setRoleFilter, onTeamScroll, teamScrollRef, setSelectedPersonId }) {
+  const activePeople = useMemo(() => people.filter(p => p.active), [people]);
+  const activeTeamIds = useMemo(() => teamOrder.filter(id => activePeople.some(p => p.id === id)), [teamOrder, activePeople]);
+  const filteredTeamIds = useMemo(() => activeTeamIds.filter(id => roleFilter === "all" ? true : (people.find(p => p.id === id)?.role === roleFilter)), [activeTeamIds, roleFilter, people]);
+  const isVacation = (pid, w) => false; // Not used for team bars; vacation is displayed per-person details.
+  const personWeekTotal = (as, pid, w) => as.filter(a => a.personId === pid && a.weekStart === w).reduce((s, a) => s + a.fte, 0);
+  const scaleRatio = (v, max = MAX_FTE) => Math.max(0, Math.min(1, v / max));
+
+  const dragRow = useRef(null);
+
+  function deletePerson(pid) {
+    if (!confirm("Удалить сотрудника?")) return;
+    setPeople(prev => prev.filter(p => p.id !== pid));
+  }
+
+  return (
+    <>
+      <div className="mb-3 flex items-center gap-3">
+        <label className="text-sm text-neutral-700">Фильтр роли</label>
+        <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm" value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
+          <option value="all">Все</option>
+          {Array.from(new Set(people.map(p=>p.role))).map(r => (<option key={r} value={r}>{r}</option>))}
+        </select>
+      </div>
+      <div ref={teamScrollRef} onScroll={onTeamScroll} className="overflow-x-auto">
+        <div className="grid" style={{ gridTemplateColumns: \`220px repeat(\${weeksState.length}, \${WEEK_COL_PX}px)\` }}>
+          <div className="sticky left-0 z-30 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
+          <WeekHeaderRow weeks={weeksState} />
+
+          {filteredTeamIds.map((pid, rowIdx) => {
+            const person = people.find(p => p.id === pid);
+            return (
+              <React.Fragment key={pid}>
+                <div
+                  className="sticky left-0 z-30 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                  draggable
+                  onDragStart={() => { dragRow.current = rowIdx; }}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={() => {
+                    const from = dragRow.current; const to = rowIdx; if (from == null || from === to) return;
+                    const arr = [...filteredTeamIds]; const id = arr.splice(from, 1)[0]; arr.splice(to, 0, id);
+                    const inactive = teamOrder.filter(id => !filteredTeamIds.includes(id));
+                    setTeamOrder([...arr, ...inactive]); dragRow.current = null;
+                  }}
+                >
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedPersonId(person.id)}
+                    onKeyDown={(e)=>{if(e.key==='Enter'||e.key===' ') setSelectedPersonId(person.id)}}
+                    className="w-full text-left"
+                  >
+                    <div className="relative bg-white rounded-2xl shadow-sm h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-md hover:bg-blue-50/70 transition">
+                      <div className="font-medium truncate" title="Открыть карточку сотрудника">{person.name}</div>
+                      <div className="mt-1 text-[11px] text-neutral-600">{String(person.role || "").toUpperCase()}</div>
+                      <button
+                        type="button"
+                        draggable={false}
+                        aria-label="Удалить сотрудника"
+                        onMouseDown={(e)=>e.preventDefault()}
+                        onClick={(e)=>{e.stopPropagation(); deletePerson(person.id);}}
+                        title="Удалить"
+                        className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition">
+                        <MinusIcon className="text-neutral-700" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {weeksState.map(week => {
+                  const total = personWeekTotal(assignments, person.id, week);
+                  const ratio = scaleRatio(total);
+                  const vac = isVacation(person.id, week);
+                  return (
+                    <div key={week + pid} className="p-1 bg-transparent h-[120px] relative">
+                      <div className={"bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative " + (total > 1.0001 ? "ring-1 ring-red-300" : "")}>
+                        <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
+                          {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{ height: \`\${ratio * 100}%\`, background: TEAM_BAR_COLOR }} />)}
+                        </div>
+                        {!vac && (
+                          <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-900" title={fmtFTE1(total)}>
+                            {fmtFTE1(total)}
+                          </div>
+                        )}
+                        {vac && (<div className="absolute inset-0 flex items-center justify-center text-2xl" title="Отпуск">🏖</div>)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ------------- Projects View -------------
+function ProjectsView({ projects, setProjects, activePeople, projectTeams, setProjectTeams, deleteProject }) {
+  return (
+    <div className="space-y-4">
+      <RoleManager roles={Array.from(new Set(activePeople.map(p=>p.role)))} setRoles={()=>{}} setRoleFilter={()=>{}} />
+      <div className="grid" style={{ gridTemplateColumns: \`300px 1fr\` }}>
+        {projects.map(project => (
+          <React.Fragment key={project.id}>
+            <div className="sticky left-0 z-30 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
+              <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px]">
+                <button
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ background: project.color }}
+                  title="Статус проекта"
+                  onClick={() => setProjects(prev => prev.map(p => p.id === project.id ? { ...p, status: (p.status === "active" ? "onhold" : p.status === "onhold" ? "done" : p.status === "done" ? "planned" : "active") } : p))}
+                >
+                  <StatusIcon status={project.status} />
+                </button>
+                <div className="font-medium truncate" title={project.name}>{project.name}</div>
+                <button
+                  type="button"
+                  draggable={false}
+                  aria-label="Удалить проект"
+                  onMouseDown={(e)=>e.preventDefault()}
+                  onClick={() => deleteProject(project.id)}
+                  title="Удалить проект"
+                  className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition">
+                  <MinusIcon className="text-neutral-700" />
+                </button>
+              </div>
+            </div>
+            <div className="border border-neutral-200 p-3">
+              <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+                <ProjectTeamSelector project={project} people={activePeople} projectTeams={projectTeams} setProjectTeams={setProjectTeams} />
+              </div>
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// =================================
+// PersonSheet
+// =================================
+function PersonSheet({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onBack, onClose, onSave, setPeople, weeks, roles }){
+  if (!person) return null;
+  const isVacation = (pid, w) => !!(vacations[pid] && vacations[pid].has && vacations[pid].has(w));
+
+  const unionIds = React.useMemo(() => {
+    const ids = new Set();
+    assignments.forEach(a => { if (a.personId === person.id) ids.add(a.projectId); });
+    Object.entries(teamByProject).forEach(([pr, set]) => { if (set.has(person.id)) ids.add(pr); });
+    return Array.from(ids);
+  }, [assignments, person.id, teamByProject]);
+  const orderedIds = React.useMemo(() => mergeOrder(order, unionIds), [order, unionIds]);
+  React.useEffect(() => { setOrder(orderedIds); }, [orderedIds, setOrder]);
+
+  const [editKey, setEditKey] = useState(null);
+  const [editVal, setEditVal] = useState("");
+  function beginEdit(pid, w, cur) { if (isVacation(person.id, w)) return; setEditKey(\`\${pid}|\${w}\`); setEditVal(fmtFTE1(cur || 0)); }
+  function commitEdit(pid, w) {
+    const k = \`\${pid}|\${w}\`; if (editKey !== k) return;
+    const next = parseFloat(editVal.replace(",", ".")); setEditKey(null);
+    if (isNaN(next) || next < 0 || next > MAX_FTE) return;
+    onSave(prev => { const rest = prev.filter(a => !(a.personId === person.id && a.projectId === pid && a.weekStart === w)); return [...rest, { id: rndId(), personId: person.id, projectId: pid, weekStart: w, fte: next }]; });
+  }
+
+  // DnD projects
+  const dragIndex = useRef(null);
+  const onDragStart = (i) => { dragIndex.current = i; };
+  const onDragOver = (e) => e.preventDefault();
+  const onDrop = (i) => { const from = dragIndex.current; dragIndex.current = null; if (from == null || from === i) return; const arr = [...orderedIds]; const [moved] = arr.splice(from, 1); arr.splice(i, 0, moved); setOrder(arr); };
+
+  // Vacation modal
+  const [vacOpen, setVacOpen] = useState(false);
+  const [personVac, setPersonVac] = useState(() => new Set(vacations[person.id] || []));
+  const [vacTab, setVacTab] = useState("range"); // "range" | "weeks"
+  const [vFrom, setVFrom] = useState("");
+  const [vTo, setVTo] = useState("");
+  React.useEffect(() => { setPersonVac(new Set(vacations[person.id] || [])); }, [person.id, vacations]);
+  const toggleVac = (week) => setPersonVac(prev => { const s = new Set(prev); if (s.has(week)) s.delete(week); else s.add(week); return s; });
+  const saveVac = () => {
+    let setToSave = new Set(personVac);
+    if (vFrom && vTo) {
+      const d1 = new Date(vFrom), d2 = new Date(vTo);
+      if (!(isNaN(d1) || isNaN(d2) || d1 > d2)) {
+        let m1 = startOfISOWeek(d1); const m2 = startOfISOWeek(d2);
+        while (m1 <= m2) { setToSave.add(fmtISO(m1)); m1 = addDays(m1, 7); }
+      }
+    }
+    setVacations(prev => { const c = {}; Object.entries(prev).forEach(([k, v]) => (c[k] = new Set(v))); c[person.id] = setToSave; return c; });
+    onSave(prev => prev.filter(a => !(a.personId === person.id && setToSave.has(a.weekStart))));
+    setVacOpen(false);
+  };
+  const clearVacationWeek = (week) => setVacations(prev => { const c = {}; Object.entries(prev).forEach(([k, v]) => (c[k] = new Set(v))); const s = new Set(c[person.id] || []); s.delete(week); c[person.id] = s; return c; });
+
+  const weekTotals = React.useMemo(() => weeks.map(w => (isVacation(person.id, w) ? 0 : assignments.filter(a => a.personId === person.id && a.weekStart === w).reduce((s, a) => s + a.fte, 0))), [assignments, person.id, vacations, weeks]);
+
+  return (
+    <div className="fixed inset-0 bg-white flex items-stretch justify-center z-50">
+      <div className="w-[1040px] h-full bg-white border-l border-neutral-200 p-4 overflow-auto" onClick={e => e.stopPropagation()}>
+        {/* Local logo inside sheet */}
+        <div className="mb-3 text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
+        {/* Header: back + name + role + vacation button */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <button onClick={onBack} className="text-sm px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow">← Назад</button>
+            <EditableName person={person} setPeople={setPeople} />
+            <EditableRole person={person} setPeople={setPeople} roles={roles} />
+            <button onClick={() => setVacOpen(true)} className="ml-2 inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800" title="Добавить отпуск">🏖 Добавить отпуск</button>
+          </div>
+          <button onClick={onClose} className="text-neutral-500 hover:text-neutral-800">✕</button>
+        </div>
+
+        {/* Week headers */}
+        <div className="grid" style={{ gridTemplateColumns: \`220px repeat(\${weeks.length}, \${WEEK_COL_PX}px)\` }}>
+          <div />
+          {weeks.map(w => (<div key={w}><WeekHeader iso={w} /></div>))}
+        </div>
+        {/* Totals badges */}
+        <div className="grid mb-1" style={{ gridTemplateColumns: \`220px repeat(\${weeks.length}, \${WEEK_COL_PX}px)\` }}>
+          <div />
+          {weeks.map((w, i) => (
+            <div key={w} className="h-6 flex items-center justify-center">
+              <span className="px-2 py-0.5 rounded-lg border border-neutral-300 bg-white text-[12px] font-medium shadow-sm">{fmtFTE1(weekTotals[i])}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Rows per project */}
+        <div className="grid" style={{ gridTemplateColumns: \`220px repeat(\${weeks.length}, \${WEEK_COL_PX}px)\` }}>
+          {orderedIds.map((pid, idx) => {
+            const pr = projects.find(p => p.id === pid); if (!pr) return null;
+            return (
+              <React.Fragment key={pid}>
+                <div className="sticky left-0 z-30 bg-white border-r border-neutral-200 p-1" draggable onDragStart={() => onDragStart(idx)} onDragOver={onDragOver} onDrop={() => onDrop(idx)}>
+                  <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none">
+                    <span className="text-neutral-400">⋮⋮</span>
+                    <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: pr.color }} title="Статус"><StatusIcon status={pr.status} /></button>
+                    <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
+                  </div>
+                </div>
+                {weeks.map(week => {
+                  const fte = fteFor(assignments, person.id, pid, week);
+                  const ratio = scaleRatio(fte);
+                  const k = \`\${pid}|\${week}\`;
+                  const editing = editKey === k;
+                  const vac = isVacation(person.id, week);
+                  return (
+                    <div key={week + pid} className="p-1 bg-transparent h-[120px] relative">
+                      <div className="bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative">
+                        <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
+                          {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{ height: \`\${ratio * 100}%\`, background: pr.color }} title={\`\${pr.name}\`} />)}
+                        </div>
+                        {!vac && (!editing ? (
+                          <div className="absolute inset-0 text-sm font-semibold text-neutral-800 flex items-center justify-center" title={fmtFTE1(fte)} onClick={() => beginEdit(pid, week, fte)}>{fmtFTE1(fte)}</div>
+                        ) : (
+                          <input
+                            autoFocus
+                            inputMode="decimal"
+                            className="absolute inset-0 m-auto h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm"
+                            value={editVal}
+                            onChange={e => setEditVal(e.target.value)}
+                            onBlur={() => commitEdit(pid, week)}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setEditKey(null); }}
+                          />
+                        ))}
+                        {vac && (<button className="absolute inset-0 flex items-center justify-center text-2xl" title="Снять отпуск" onClick={() => clearVacationWeek(week)}>🏖</button>)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* Vacation modal */}
+        {vacOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setVacOpen(false)}>
+            <div className="absolute inset-0 bg-black/40" />
+            <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max-h-[80vh] overflow-auto p-4" onClick={(e) => e.stopPropagation()}>
+              <div className="text-base font-semibold mb-3">Отпуск — {person.name}</div>
+              <div className="mb-3 inline-flex items-center gap-1 rounded-xl border border-neutral-200 p-1">
+                <button className={\`px-3 py-1 rounded-lg text-sm \${vacTab === "range" ? "bg-neutral-100 shadow" : ""}\`} onClick={() => setVacTab("range")}>Диапазон дат</button>
+                <button className={\`px-3 py-1 rounded-lg text-sm \${vacTab === "weeks" ? "bg-neutral-100 shadow" : ""}\`} onClick={() => setVacTab("weeks")}>По неделям</button>
+              </div>
+              {vacTab === "range" && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-neutral-700">С</label>
+                    <input type="date" value={vFrom} onChange={e => setVFrom(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1" />
+                    <label className="text-sm text-neutral-700">по</label>
+                    <input type="date" value={vTo} onChange={e => setVTo(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1" />
+                  </div>
+                  {(vFrom && vTo) && (<div className="text-xs text-neutral-600">Будут добавлены недели диапазона после сохранения.</div>)}
+                </div>
+              )}
+              {vacTab === "weeks" && (
+                <div className="space-y-3">
+                  <div className="text-sm text-neutral-600">Отметьте недели (диапазон дат):</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {yearWeekMondays(new Date().getFullYear()).map(m => (
+                      <label key={m} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl hover:bg-amber-50">
+                        <input type="checkbox" checked={personVac.has(m)} onChange={() => toggleVac(m)} />
+                        <span className="text-sm">{weekRangeLabel(m)}</span>
+                        {personVac.has(m) && (<button className="ml-auto text-amber-700" title="Убрать" onClick={() => toggleVac(m)}>−</button>)}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {Array.from(personVac).length > 0 && (
+                <div className="mt-3">
+                  <div className="text-sm mb-1">Выбрано недель:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from(personVac).map(w => (
+                      <span key={w} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
+                        {weekRangeLabel(w)}
+                        <button className="ml-1" title="Удалить" onClick={() => setPersonVac(prev => { const s = new Set(prev); s.delete(w); return s; })}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="mt-4 flex justify-end gap-2">
+                <button className="px-3 py-1 rounded-lg border border-neutral-300 bg-white" onClick={() => setVacOpen(false)}>Отмена</button>
+                <button className="px-3 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800" onClick={saveVac}>Сохранить</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =================================
+// Inline editable bits
+// =================================
+function EditableName({ person, setPeople }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(person.name);
+  useEffect(() => setVal(person.name), [person.id, person.name]);
+  const commit = () => { const name = (val || "").trim(); setEditing(false); if (!name || name === person.name) return; setPeople(prev => prev.map(p => p.id === person.id ? { ...p, name } : p)); };
+  return editing ? (
+    <input autoFocus value={val} onChange={e => setVal(e.target.value)} onBlur={commit}
+           onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setEditing(false); setVal(person.name); } }}
+           className="text-lg font-semibold leading-tight border border-neutral-300 rounded-md px-2 py-0.5" />
+  ) : (
+    <button className="text-lg font-semibold leading-tight hover:underline" title="Редактировать имя" onClick={() => setEditing(true)}>{person.name}</button>
+  );
+}
+function EditableRole({ person, setPeople, roles }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(person.role);
+  useEffect(() => setVal(person.role), [person.id, person.role]);
+  const commit = () => { const role = val || "other"; setEditing(false); if (role === person.role) return; setPeople(prev => prev.map(p => p.id === person.id ? { ...p, role } : p)); };
+  return editing ? (
+    <select autoFocus value={val} onChange={e => setVal(e.target.value)} onBlur={commit} className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
+      {roles.map(r => (<option key={r} value={r}>{r.toUpperCase()}</option>))}
+    </select>
+  ) : (
+    <button className="inline-block text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={() => setEditing(true)}>{(person.role || "OTHER").toUpperCase()}</button>
+  );
+}
+
+// =================================
+// ProjectTeamSelector
+// =================================
+function ProjectTeamSelector({ project, people, projectTeams, setProjectTeams }) {
+  const [search, setSearch] = useState("");
+  const list = useMemo(() =>
+    people
+      .filter(p => !(projectTeams[project.id] && projectTeams[project.id].has(p.id)) && p.name.toLowerCase().includes(search.toLowerCase()))
+      .slice(0, 8)
+  , [people, project.id, projectTeams, search]);
+
+  const addToTeam = (pid) => {
+    setProjectTeams(prev => {
+      const copy = {}; Object.entries(prev).forEach(([k, v]) => (copy[k] = new Set(v)));
+      (copy[project.id] = copy[project.id] || new Set()).add(pid);
+      return copy;
+    });
+  };
+  const removeFromTeam = (pid) => {
+    setProjectTeams(prev => {
+      const copy = {}; Object.entries(prev).forEach(([k, v]) => (copy[k] = new Set(v)));
+      copy[project.id]?.delete(pid);
+      return copy;
+    });
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Добавить сотрудника..."
+          className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+        />
+      </div>
+      {search && (
+        <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
+          {list.length > 0 ? (
+            list.map(sug => (
+              <button key={sug.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={() => { addToTeam(sug.id); setSearch(""); }}>
+                {sug.name} <span className="text-[10px] text-neutral-500">{String(sug.role).toUpperCase()}</span>
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {Array.from(projectTeams[project.id] || new Set()).map((pid) => {
+          const p = people.find(x => x.id === pid); if (!p) return null;
+          return (
+            <span key={pid} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
+              {p.name}
+              <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={() => removeFromTeam(pid)}>×</button>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// =================================
+// Role manager (read-only chips for this build)
+// =================================
+function RoleManager({ roles, setRoles, setRoleFilter }) {
+  const [adding, setAdding] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [val, setVal] = useState("");
+  const add = () => { const x = adding.trim(); if (!x || roles.includes(x)) return; setRoles([...roles, x]); setAdding(""); };
+  const startEdit = (r) => { setEditing(r); setVal(r); };
+  const commit = () => { if (!editing) return; const x = val.trim(); if (!x) { setEditing(null); return; } setRoles(roles.map(r => r===editing ? x : r)); setEditing(null); if (x) setRoleFilter(x); };
+  return (
+    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+      <div className="text-sm font-medium mb-2">Роли</div>
+      <div className="flex flex-wrap gap-2">
+        {roles.map(r => (
+          <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
+            {editing===r ? (
+              <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape') setEditing(null); }} className="px-1 py-0.5 border border-neutral-300 rounded" />
+            ) : (
+              <>
+                <button className="hover:underline" onClick={()=>setRoleFilter(r)}>{r}</button>
+                <button className="text-neutral-500 hover:text-neutral-800" title="Переименовать" onClick={()=>startEdit(r)}>✎</button>
+              </>
+            )}
+          </span>
+        ))}
+        <span className="inline-flex items-center gap-1">
+          <input value={adding} onChange={e=>setAdding(e.target.value)} placeholder="Добавить роль" className="px-2 py-1 text-sm border border-neutral-300 rounded-lg" />
+          <button className="px-2 py-1 text-sm rounded-lg border border-neutral-300 bg-white hover:shadow" onClick={add}>Сохранить</button>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// =================================
+// Create Person Modal
+// =================================
+function CreatePersonModal({ open, onClose, name, setName, role, setRole, onSubmit, roles }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[440px] p-4" onClick={e=>e.stopPropagation()}>
+        <div className="text-base font-semibold mb-3">Новый сотрудник</div>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm mb-1">Имя</label>
+            <input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Роль</label>
+            <select value={role} onChange={e=>setRole(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
+              {roles.map(r => (<option key={r} value={r}>{r}</option>))}
+            </select>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button className="px-3 py-1 rounded-lg border border-neutral-300 bg-white" onClick={onClose}>Отмена</button>
+          <button className="px-3 py-1 rounded-lg border border-green-300 bg-green-50 text-green-800" onClick={onSubmit}>Создать</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =================================
+// Create Project Modal
+// =================================
+function CreateProjectModal({ open, onClose, name, setName, color, setColor, status, setStatus, search, setSearch, teamSel, setTeamSel, people, suggestions, onSubmit }){
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-h-[80vh] overflow-auto p-4" onClick={e=>e.stopPropagation()}>
+        <div className="text-base font-semibold mb-3">Новый проект</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm mb-1">Название</label>
+            <input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Статус</label>
+            <select value={status} onChange={e=>setStatus(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
+              <option value="active">active</option>
+              <option value="onhold">onhold</option>
+              <option value="done">done</option>
+              <option value="planned">planned</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Цвет</label>
+            <input type="color" value={color} onChange={e=>setColor(e.target.value)} className="w-16 h-10 p-0 border border-neutral-300 rounded-lg" />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="text-sm font-medium mb-2">Команда</div>
+          <div className="flex items-center gap-2 mb-2">
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Добавить сотрудника..." className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200" />
+          </div>
+          {search && (
+            <div className="mb-2 border border-neutral-200 rounded-xl overflow-hidden">
+              {suggestions.length>0 ? suggestions.map(s => (
+                <button key={s.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ const c=new Set(teamSel); c.add(s.id); setTeamSel(c); setSearch(""); }}>
+                  {s.name} <span className="text-[10px] text-neutral-500">{String(s.role).toUpperCase()}</span>
+                </button>
+              )) : (
+                <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
+              )}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {Array.from(teamSel).map(pid => { const p = people.find(x=>x.id===pid); if(!p) return null; return (
+              <span key={pid} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
+                {p.name}
+                <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>{ const c=new Set(teamSel); c.delete(pid); setTeamSel(c); }}>×</button>
+              </span>
+            );})}
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button className="px-3 py-1 rounded-lg border border-neutral-300 bg-white" onClick={onClose}>Отмена</button>
+          <button className="px-3 py-1 rounded-lg border border-green-300 bg-green-50 text-green-800" onClick={onSubmit}>Создать</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =================================
+// Auth
+// =================================
+function AuthForm({ onSuccess }) {
+  const [login, setLogin] = useState("");
+  const [pass, setPass] = useState("");
+  const [remember, setRemember] = useState(false);
+  const submit = (e) => { e.preventDefault(); if (login.trim().toLowerCase() === "панквеб" && pass === "123455") { onSuccess(remember); } else { alert("Неверные данные"); } };
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <div>
+        <label className="block text-sm mb-1">Логин</label>
+        <input value={login} onChange={e=>setLogin(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2" />
+      </div>
+      <div>
+        <label className="block text-sm mb-1">Пароль</label>
+        <input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2" />
+      </div>
+      <label className="flex items-center gap-2 text-sm select-none">
+        <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} />
+        Запомнить данные
+      </label>
+      <button className="w-full rounded-xl border border-green-300 bg-green-50 text-green-800 py-2">Войти</button>
+    </form>
+  );
+}
+
+// =================================
+// Dev sanity checks (lightweight "tests")
+// =================================
+if (typeof window !== "undefined") {
+  try {
+    console.assert(fmtFTE1(1.16) === "1.2", "fmtFTE1 rounds to 1 decimal");
+    console.assert(scaleRatio(1.2) === 1, "scaleRatio clamps to 1");
+    const parts = weekLabelParts(initialWeeks[0]);
+    console.assert(!!parts.top && !!parts.bot, "weekLabelParts returns two lines");
+  } catch {}
+}
+
+// ============== Mount app ==============
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+
+  </script>
+</body>
+</html>
+"""
+with open('/mnt/data/index.html', 'w', encoding='utf-8') as f:
+    f.write(html)
+print("index.html готов.")
