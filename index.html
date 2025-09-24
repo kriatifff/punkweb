@@ -11,6 +11,14 @@
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+    :root{
+      /* высота глобальной шапки (примерно) */
+      --app-header-h: 56px;
+      /* высота локальной шапки в карточке сотрудника */
+      --sheet-header-h: 44px;
+      /* ширина левой фиксированной колонки */
+      --left-col-w: 220px;
+    }
     .hide-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
     .hide-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 8px; }
     .hide-scrollbar { scrollbar-width: thin; }
@@ -46,7 +54,7 @@
 
     // ---------- Date/format helpers ----------
     const fmtISO = (date) => date.toISOString().slice(0,10);
-    const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; };
+    const addDays = (d, n) => { const x=new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; };
     const pad2 = (n) => (n<10 ? `0${n}` : String(n));
     const fmtDM = (d) => `${pad2(d.getDate())}.${pad2(d.getMonth()+1)}`;
     const RU_MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
@@ -106,7 +114,7 @@
         </svg>
       );
     }
-    function PencilIcon({className=""}){ // минималистичная иконка-карандаш
+    function PencilIcon({className=""}){
       return (
         <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -115,7 +123,7 @@
         </svg>
       );
     }
-    function TrashIcon({className=""}){ // кнопка удаления роли
+    function TrashIcon({className=""}){
       return (
         <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -221,7 +229,7 @@
         setPersonProjectOrder(prev => { const out={}; Object.entries(prev).forEach(([pid, arr]) => { out[pid]=(arr||[]).filter(x=>x!==prid); }); return out; });
       }
 
-      // DnD projects (страница «Проекты») — НОВОЕ
+      // DnD projects (страница «Проекты»)
       const dragProjectIndex = useRef(null);
       const onProjectDragStart = (i) => { dragProjectIndex.current = i; };
       const onProjectDrop = (i) => {
@@ -277,8 +285,9 @@
 
       return (
         <div className="min-h-screen bg-[#F7F8FA] text-neutral-900 font-sans">
-          <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/90 backdrop-blur">
-            <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center gap-3">
+          {/* Глобальная шапка (липкая) */}
+          <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
+            <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
               <div className="ml-4 flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm">
                 <button className={`px-3 py-1 rounded-xl transition ${view==="team" ? "bg-white shadow-sm" : "hover:bg-white/70"}`} onClick={()=>setView("team")}>Команда</button>
@@ -294,21 +303,31 @@
           <main className="max-w-screen-2xl mx-auto p-4">
             {view==="team" ? (
               <>
-                <div className="mb-3 flex items-center gap-3">
-                  <label className="text-sm text-neutral-700">Фильтр роли</label>
-                  <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm" value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
-                    <option value="all">Все</option>
-                    {roles.map(r => (<option key={r} value={r}>{r}</option>))}
-                  </select>
+                {/* Фильтр ролей — липкий под глобальной шапкой */}
+                <div className="sticky z-30 bg-[#F7F8FA] pt-2 pb-3" style={{top:'var(--app-header-h)'}}>
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-neutral-700">Фильтр роли</label>
+                    <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm" value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
+                      <option value="all">Все</option>
+                      {roles.map(r => (<option key={r} value={r}>{r}</option>))}
+                    </select>
+                  </div>
                 </div>
+
+                {/* Горизонтальный скролл недель (только лента, левый столбец — sticky) */}
                 <div ref={teamScrollRef} onScroll={onTeamScroll} className="overflow-x-auto hide-scrollbar">
-                  <div className="grid" style={{gridTemplateColumns:`220px repeat(${weeksState.length}, ${WEEK_COL_PX}px)`}}>
+                  <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${weeksState.length}, ${WEEK_COL_PX}px)`}}>
+                    {/* Пустая левая ячейка заголовков (sticky) */}
                     <div className="sticky left-0 z-30 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
+                    {/* Заголовки недель (скроллятся по X) */}
                     {weeksState.map(w => (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
+
+                    {/* Строки сотрудников */}
                     {filteredTeamIds.map((pid, rowIdx) => {
                       const person = people.find(p=>p.id===pid);
                       return (
                         <Fragment key={pid}>
+                          {/* Левый sticky столбец — карточка сотрудника */}
                           <div
                             className="sticky left-0 z-30 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
                             draggable
@@ -345,6 +364,8 @@
                               </div>
                             </div>
                           </div>
+
+                          {/* Недельные колонки (скролл по X) */}
                           {weeksState.map(week => {
                             const total = personWeekTotal(assignments, person.id, week);
                             const ratio = scaleRatio(total);
@@ -374,47 +395,50 @@
             ) : (
               <div className="space-y-4">
                 <RoleManager roles={roles} setRoles={setRoles} setRoleFilter={setRoleFilter} people={people} setPeople={setPeople}/>
-                <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
-                  {projects.map((project, idx) => (
-                    <Fragment key={project.id}>
-                      <div
-                        className="sticky left-0 z-30 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
-                        draggable
-                        onDragStart={()=>onProjectDragStart(idx)}
-                        onDragOver={e=>e.preventDefault()}
-                        onDrop={()=>onProjectDrop(idx)}
-                        title="Перетащите, чтобы изменить порядок"
-                      >
-                        <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px] cursor-grab active:cursor-grabbing select-none">
-                          <button
-                            className="w-8 h-8 rounded-lg flex items-center justify-center"
-                            style={{background:project.color}}
-                            title="Статус проекта"
-                            onClick={()=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, status:(p.status==="active"?"onhold": p.status==="onhold"?"done": p.status==="done"?"planned":"active")} : p))}
-                          >
-                            <StatusIcon status={project.status}/>
-                          </button>
-                          <div className="font-medium truncate" title={project.name}>{project.name}</div>
-                          <button
-                            type="button"
-                            draggable={false}
-                            aria-label="Удалить проект"
-                            onMouseDown={(e)=>e.preventDefault()}
-                            onClick={()=> deleteProject(project.id)}
-                            title="Удалить проект"
-                            className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
-                          >
-                            <MinusIcon className="text-neutral-700"/>
-                          </button>
+                {/* Левый столбец проектов — sticky; справа — настройки/команда */}
+                <div className="overflow-x-auto hide-scrollbar">
+                  <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
+                    {projects.map((project, idx) => (
+                      <Fragment key={project.id}>
+                        <div
+                          className="sticky left-0 z-20 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                          draggable
+                          onDragStart={()=>onProjectDragStart(idx)}
+                          onDragOver={e=>e.preventDefault()}
+                          onDrop={()=>onProjectDrop(idx)}
+                          title="Перетащите, чтобы изменить порядок"
+                        >
+                          <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px] cursor-grab active:cursor-grabbing select-none">
+                            <button
+                              className="w-8 h-8 rounded-lg flex items-center justify-center"
+                              style={{background:project.color}}
+                              title="Статус проекта"
+                              onClick={()=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, status:(p.status==="active"?"onhold": p.status==="onhold"?"done": p.status==="done"?"planned":"active")} : p))}
+                            >
+                              <StatusIcon status={project.status}/>
+                            </button>
+                            <div className="font-medium truncate" title={project.name}>{project.name}</div>
+                            <button
+                              type="button"
+                              draggable={false}
+                              aria-label="Удалить проект"
+                              onMouseDown={(e)=>e.preventDefault()}
+                              onClick={()=> deleteProject(project.id)}
+                              title="Удалить проект"
+                              className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
+                            >
+                              <MinusIcon className="text-neutral-700"/>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="border border-neutral-200 p-3">
-                        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
-                          <ProjectTeamSelector project={project} people={activePeople} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/>
+                        <div className="border border-neutral-200 p-3">
+                          <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+                            <ProjectTeamSelector project={project} people={activePeople} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/>
+                          </div>
                         </div>
-                      </div>
-                    </Fragment>
-                  ))}
+                      </Fragment>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -519,78 +543,88 @@
 
       return (
         <div className="fixed inset-0 bg-white flex items-stretch justify-center z-50">
-          <div className="w-[1040px] h-full bg-white border-l border-neutral-200 p-4 overflow-auto" onClick={e=>e.stopPropagation()}>
-            <div className="mb-3 text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <button onClick={onBack} className="text-sm px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow">← Назад</button>
-                <EditableName person={person} setPeople={setPeople}/>
-                <EditableRole person={person} setPeople={setPeople} roles={roles}/>
-                <button onClick={()=>setVacOpen(true)} className="ml-2 inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800" title="Добавить отпуск">🏖 Добавить отпуск</button>
-              </div>
-              <button onClick={onClose} className="text-neutral-500 hover:text-neutral-800">✕</button>
-            </div>
-
-            <div className="grid" style={{gridTemplateColumns:`220px repeat(${weeks.length}, ${WEEK_COL_PX}px)`}}>
-              <div />
-              {weeks.map(w => (<div key={w}><WeekHeader iso={w}/></div>))}
-            </div>
-            <div className="grid mb-1" style={{gridTemplateColumns:`220px repeat(${weeks.length}, ${WEEK_COL_PX}px)`}}>
-              <div />
-              {weeks.map((w,i)=>(
-                <div key={w} className="h-6 flex items-center justify-center">
-                  <span className="px-2 py-0.5 rounded-lg border border-neutral-300 bg-white text-[12px] font-medium shadow-sm">{fmtFTE1(weekTotals[i])}</span>
+          <div className="w-[1040px] h-full bg-white border-l border-neutral-200 overflow-hidden" onClick={e=>e.stopPropagation()}>
+            {/* Локальная липкая шапка внутри карточки сотрудника */}
+            <div className="sticky top-0 z-50 bg-white border-b border-neutral-200" style={{height:'var(--sheet-header-h)'}}>
+              <div className="px-4 h-full flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <button onClick={onBack} className="text-sm px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow">← Назад</button>
+                  <EditableName person={person} setPeople={setPeople}/>
+                  <EditableRole person={person} setPeople={setPeople} roles={roles}/>
+                  <button onClick={()=>setVacOpen(true)} className="ml-2 inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800" title="Добавить отпуск">🏖 Добавить отпуск</button>
                 </div>
-              ))}
+                <button onClick={onClose} className="text-neutral-500 hover:text-neutral-800">✕</button>
+              </div>
             </div>
 
-            <div className="grid" style={{gridTemplateColumns:`220px repeat(${weeks.length}, ${WEEK_COL_PX}px)`}}>
-              {useMemo(()=>orderedIds, [orderedIds]).map((pid, idx) => {
-                const pr = projects.find(p=>p.id===pid); if(!pr) return null;
-                return (
-                  <Fragment key={pid}>
-                    <div className="sticky left-0 z-30 bg-white border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
-                      <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none">
-                        <span className="text-neutral-400">⋮⋮</span>
-                        <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
-                        <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
-                      </div>
-                    </div>
-                    {weeks.map(week => {
-                      const fte = fteFor(assignments, person.id, pid, week);
-                      const ratio = scaleRatio(fte);
-                      const k = `${pid}|${week}`;
-                      const editing = editKey===k;
-                      const vac = isVacation(person.id, week);
-                      return (
-                        <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
-                          <div className="bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative">
-                            <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
-                              {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:pr.color}} title={`${pr.name}`}/>)}
-                            </div>
-                            {!vac && (!editing ? (
-                              <div className="absolute inset-0 text-sm font-semibold text-neutral-800 flex items-center justify-center" title={fmtFTE1(fte)} onClick={()=>beginEdit(pid, week, fte)}>{fmtFTE1(fte)}</div>
-                            ) : (
-                              <input
-                                autoFocus
-                                inputMode="decimal"
-                                className="absolute inset-0 m-auto h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm"
-                                value={editVal}
-                                onChange={e=>setEditVal(e.target.value)}
-                                onBlur={()=>commitEdit(pid, week)}
-                                onKeyDown={(e)=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
-                              />
-                            ))}
-                            {vac && (<button className="absolute inset-0 flex items-center justify-center text-2xl" title="Снять отпуск" onClick={()=>clearVacationWeek(week)}>🏖</button>)}
-                          </div>
+            {/* Горизонтальная область скролла недель; левый столбец (проекты) липкий */}
+            <div className="h-[calc(100%-var(--sheet-header-h))] overflow-x-auto overflow-y-auto hide-scrollbar p-4">
+              {/* Заголовки недель */}
+              <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${weeks.length}, ${WEEK_COL_PX}px)`}}>
+                <div className="sticky left-0 z-20 bg-white border-r border-neutral-200" />
+                {weeks.map(w => (<div key={w}><WeekHeader iso={w}/></div>))}
+              </div>
+
+              {/* Итоговые бейджи по неделям */}
+              <div className="grid mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${weeks.length}, ${WEEK_COL_PX}px)`}}>
+                <div className="sticky left-0 z-20 bg-white border-r border-neutral-200" />
+                {weeks.map((w,i)=>(
+                  <div key={w} className="h-6 flex items-center justify-center">
+                    <span className="px-2 py-0.5 rounded-lg border border-neutral-300 bg-white text-[12px] font-medium shadow-sm">{fmtFTE1(weekTotals[i])}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Строки проектов: левая плашка — sticky, колонки недель — скроллятся */}
+              <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${weeks.length}, ${WEEK_COL_PX}px)`}}>
+                {useMemo(()=>orderedIds, [orderedIds]).map((pid, idx) => {
+                  const pr = projects.find(p=>p.id===pid); if(!pr) return null;
+                  return (
+                    <Fragment key={pid}>
+                      <div className="sticky left-0 z-20 bg-white border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
+                        <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none">
+                          <span className="text-neutral-400">⋮⋮</span>
+                          <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
+                          <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
                         </div>
-                      );
-                    })}
-                  </Fragment>
-                );
-              })}
+                      </div>
+                      {weeks.map(week => {
+                        const fte = fteFor(assignments, person.id, pid, week);
+                        const ratio = scaleRatio(fte);
+                        const k = `${pid}|${week}`;
+                        const editing = editKey===k;
+                        const vac = isVacation(person.id, week);
+                        return (
+                          <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
+                            <div className="bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative">
+                              <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
+                                {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:pr.color}} title={`${pr.name}`}/>)}
+                              </div>
+                              {!vac && (!editing ? (
+                                <div className="absolute inset-0 text-sm font-semibold text-neutral-800 flex items-center justify-center" title={fmtFTE1(fte)} onClick={()=>beginEdit(pid, week, fte)}>{fmtFTE1(fte)}</div>
+                              ) : (
+                                <input
+                                  autoFocus
+                                  inputMode="decimal"
+                                  className="absolute inset-0 m-auto h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm"
+                                  value={editVal}
+                                  onChange={e=>setEditVal(e.target.value)}
+                                  onBlur={()=>commitEdit(pid, week)}
+                                  onKeyDown={(e)=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
+                                />
+                              ))}
+                              {vac && (<button className="absolute inset-0 flex items-center justify-center text-2xl" title="Снять отпуск" onClick={()=>clearVacationWeek(week)}>🏖</button>)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                })}
+              </div>
             </div>
 
+            {/* Модал отпусков */}
             {vacOpen && (
               <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={()=>setVacOpen(false)}>
                 <div className="absolute inset-0 bg-black/40"/>
@@ -744,7 +778,7 @@
     }
 
     // =================================
-    // Role manager (с удалением роли + новый карандаш)
+    // Role manager (с иконкой-карандаш и удалением)
     // =================================
     function RoleManager({roles, setRoles, setRoleFilter, people, setPeople}){
       const [adding, setAdding] = useState("");
@@ -762,7 +796,7 @@
       };
 
       return (
-        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky top-[calc(var(--app-header-h)+8px)] z-20">
           <div className="text-sm font-medium mb-2">Роли</div>
           <div className="flex flex-wrap gap-2">
             {roles.map(r => (
@@ -928,3 +962,4 @@
   </script>
 </body>
 </html>
+
