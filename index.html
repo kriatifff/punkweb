@@ -444,4 +444,86 @@
                                 onMouseDown={(e)=>e.preventDefault()}
                                 onClick={(e)=>{ e.stopPropagation(); deletePerson(person.id); }}
                                 title="Удалить"
-                                className="absolute top-2 right-2 w
+                                className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
+                              >
+                                <MinusIcon className="text-neutral-700"/>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {visible.map(week => {
+                          const total = personWeekTotal(assignments, person.id, week);
+                          const ratio = scaleRatio(total);
+                          const vac = isVacation(person.id, week);
+                          return (
+                            <div key={week+pid} className="p-1 bg-transparent
+                            <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
+                              <div className={`bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative ${total > 1.0001 ? "ring-1 ring-red-300" : ""}`}>
+                                <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
+                                  {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{ height: `${ratio * 100}%`, background: TEAM_BAR_COLOR }} />)}
+                                </div>
+                                {!vac && (
+                                  <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-900" title={fmtFTE1(total)}>
+                                    {fmtFTE1(total)}
+                                  </div>
+                                )}
+                                {vac && (<div className="absolute inset-0 flex items-center justify-center text-2xl" title="Отпуск">🏖</div>)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <RoleManager roles={roles} setRoles={setRoles} setRoleFilter={setRoleFilter} />
+                <div className="grid" style={{ gridTemplateColumns: `300px 1fr` }}>
+                  {projects.map(project => (
+                    <Fragment key={project.id}>
+                      <div className="sticky left-0 z-30 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
+                        <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px]">
+                          <button
+                            className="w-8 h-8 rounded-lg flex items-center justify-center"
+                            style={{ background: project.color }}
+                            title="Статус проекта"
+                            onClick={() => setProjects(prev => prev.map(p => p.id === project.id ? { ...p, status: (p.status === "active" ? "onhold" : p.status === "onhold" ? "done" : p.status === "done" ? "planned" : "active") } : p))}
+                          >
+                            <StatusIcon status={project.status} />
+                          </button>
+                          <div className="font-medium truncate" title={project.name}>{project.name}</div>
+                          <button
+                            type="button"
+                            draggable={false}
+                            aria-label="Удалить проект"
+                            onMouseDown={(e)=>e.preventDefault()}
+                            onClick={() => deleteProject(project.id)}
+                            title="Удалить проект"
+                            className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition">
+                            <MinusIcon className="text-neutral-700" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="border border-neutral-200 p-3">
+                        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+                          <ProjectTeamSelector project={project} people={activePeople} projectTeams={projectTeams} setProjectTeams={setProjectTeams} />
+                        </div>
+                      </div>
+                    </Fragment>
+                  ))}
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    // Render App
+    ReactDOM.render(<App />, document.getElementById("root"));
+  </script>
+</body>
+</html>
