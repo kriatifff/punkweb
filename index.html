@@ -12,12 +12,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root{
-      /* высота глобальной шапки (примерно) */
-      --app-header-h: 56px;
-      /* высота локальной шапки в карточке сотрудника */
-      --sheet-header-h: 44px;
-      /* ширина левой фиксированной колонки */
-      --left-col-w: 220px;
+      --app-header-h: 56px;     /* высота глобальной шапки */
+      --sheet-header-h: 44px;   /* высота локальной шапки в карточке сотрудника */
+      --left-col-w: 220px;      /* ширина левого фиксированного столбца */
     }
     .hide-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
     .hide-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 8px; }
@@ -194,13 +191,13 @@
 
       // ---- persistence ----
       useEffect(()=> saveJSON({people}), [people]);
-      useEffect(()=> saveJSON({projects}), [projects]);
+      useEffect(()=> saveJSON({projects}), [projects]);              // сохраняет порядок проектов
       useEffect(()=> saveJSON({assignments}), [assignments]);
       useEffect(()=> saveJSON({roles}), [roles]);
       useEffect(()=>{ const obj={}; Object.entries(projectTeams).forEach(([k,v])=> obj[k]=Array.from(v)); saveJSON({projectTeams:obj}); }, [projectTeams]);
       useEffect(()=>{ const obj={}; Object.entries(vacations).forEach(([k,v])=> obj[k]=Array.from(v)); saveJSON({vacations:obj}); }, [vacations]);
-      useEffect(()=> saveJSON({personProjectOrder}), [personProjectOrder]);
-      useEffect(()=> saveJSON({teamOrder}), [teamOrder]);
+      useEffect(()=> saveJSON({personProjectOrder}), [personProjectOrder]); // порядок проектов у сотрудника
+      useEffect(()=> saveJSON({teamOrder}), [teamOrder]);                    // порядок сотрудников
       useEffect(()=> saveJSON({weeks:weeksState}), [weeksState]);
       useEffect(()=> saveJSON({roleFilter}), [roleFilter]);
 
@@ -240,7 +237,7 @@
           const arr = [...prev];
           const [moved] = arr.splice(from,1);
           arr.splice(i,0,moved);
-          return arr;
+          return arr;         // порядок сохранится через useEffect(saveJSON)
         });
       };
 
@@ -286,7 +283,7 @@
       return (
         <div className="min-h-screen bg-[#F7F8FA] text-neutral-900 font-sans">
           {/* Глобальная шапка (липкая) */}
-          <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
+          <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
               <div className="ml-4 flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm">
@@ -304,7 +301,7 @@
             {view==="team" ? (
               <>
                 {/* Фильтр ролей — липкий под глобальной шапкой */}
-                <div className="sticky z-30 bg-[#F7F8FA] pt-2 pb-3" style={{top:'var(--app-header-h)'}}>
+                <div className="sticky z-40 bg-[#F7F8FA] pt-2 pb-3" style={{top:'var(--app-header-h)'}}>
                   <div className="flex items-center gap-3">
                     <label className="text-sm text-neutral-700">Фильтр роли</label>
                     <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm" value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
@@ -318,7 +315,7 @@
                 <div ref={teamScrollRef} onScroll={onTeamScroll} className="overflow-x-auto hide-scrollbar">
                   <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${weeksState.length}, ${WEEK_COL_PX}px)`}}>
                     {/* Пустая левая ячейка заголовков (sticky) */}
-                    <div className="sticky left-0 z-30 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
+                    <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
                     {/* Заголовки недель (скроллятся по X) */}
                     {weeksState.map(w => (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
 
@@ -329,7 +326,7 @@
                         <Fragment key={pid}>
                           {/* Левый sticky столбец — карточка сотрудника */}
                           <div
-                            className="sticky left-0 z-30 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                            className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
                             draggable
                             onDragStart={()=>{ dragRow.current=rowIdx; }}
                             onDragOver={e=>e.preventDefault()}
@@ -401,7 +398,7 @@
                     {projects.map((project, idx) => (
                       <Fragment key={project.id}>
                         <div
-                          className="sticky left-0 z-20 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                          className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
                           draggable
                           onDragStart={()=>onProjectDragStart(idx)}
                           onDragOver={e=>e.preventDefault()}
@@ -557,17 +554,17 @@
               </div>
             </div>
 
-            {/* Горизонтальная область скролла недель; левый столбец (проекты) липкий */}
+            {/* Горизонтальная область скролла недель; левый столбец (проекты) липкий и поверх */}
             <div className="h-[calc(100%-var(--sheet-header-h))] overflow-x-auto overflow-y-auto hide-scrollbar p-4">
               {/* Заголовки недель */}
               <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${weeks.length}, ${WEEK_COL_PX}px)`}}>
-                <div className="sticky left-0 z-20 bg-white border-r border-neutral-200" />
+                <div className="sticky left-0 z-50 bg-white border-r border-neutral-200" />
                 {weeks.map(w => (<div key={w}><WeekHeader iso={w}/></div>))}
               </div>
 
               {/* Итоговые бейджи по неделям */}
               <div className="grid mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${weeks.length}, ${WEEK_COL_PX}px)`}}>
-                <div className="sticky left-0 z-20 bg-white border-r border-neutral-200" />
+                <div className="sticky left-0 z-50 bg-white border-r border-neutral-200" />
                 {weeks.map((w,i)=>(
                   <div key={w} className="h-6 flex items-center justify-center">
                     <span className="px-2 py-0.5 rounded-lg border border-neutral-300 bg-white text-[12px] font-medium shadow-sm">{fmtFTE1(weekTotals[i])}</span>
@@ -581,7 +578,7 @@
                   const pr = projects.find(p=>p.id===pid); if(!pr) return null;
                   return (
                     <Fragment key={pid}>
-                      <div className="sticky left-0 z-20 bg-white border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
+                      <div className="sticky left-0 z-50 bg-white border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
                         <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none">
                           <span className="text-neutral-400">⋮⋮</span>
                           <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
@@ -778,7 +775,7 @@
     }
 
     // =================================
-    // Role manager (с иконкой-карандаш и удалением)
+    // Role manager (карандаш + удаление)
     // =================================
     function RoleManager({roles, setRoles, setRoleFilter, people, setPeople}){
       const [adding, setAdding] = useState("");
@@ -796,7 +793,7 @@
       };
 
       return (
-        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky top-[calc(var(--app-header-h)+8px)] z-20">
+        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky top-[calc(var(--app-header-h)+8px)] z-40">
           <div className="text-sm font-medium mb-2">Роли</div>
           <div className="flex flex-wrap gap-2">
             {roles.map(r => (
@@ -962,4 +959,3 @@
   </script>
 </body>
 </html>
-
