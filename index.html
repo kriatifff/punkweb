@@ -513,7 +513,7 @@
           </main>
 
           {selectedPersonId && (
-            <PersonSheet
+            <PersonPage
               person={people.find(p=>p.id===selectedPersonId)}
               projects={projects}
               assignments={assignments}
@@ -526,8 +526,8 @@
               onClose={()=> setSelectedPersonId(null)}
               onSave={setAssignments}
               setPeople={setPeople}
-              weeks={weeks}
-              visible={visible}
+              weeksAll={weeks}
+              visibleWeeks={visible}
               goLeft={goLeft}
               goRight={goRight}
               goToday={goToday}
@@ -581,9 +581,9 @@
     }
 
     // =================================
-    // PersonSheet (UI и механика = как у «Команда»)
+    // FULL-PAGE «Один сотрудник» (никаких поп-апов, те же отступы, что у «Команда»)
     // =================================
-    function PersonSheet({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onBack, onClose, onSave, setPeople, weeks, visible, goLeft, goRight, goToday, roles }){
+    function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onBack, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles }){
       if(!person) return null;
       const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
 
@@ -633,47 +633,42 @@
       };
       const clearVacationWeek = (week) => setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=> (c[k]=new Set(v))); const s=new Set(c[person.id]||[]); s.delete(week); c[person.id]=s; return c; });
 
+      const visible = visibleWeeks; // совпадает по ширине с «Команда»
       const weekTotals = useMemo(()=> visible.map(w => (isVacation(person.id,w) ? 0 : assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0))), [assignments, person.id, vacations, visible]);
 
-      const rowIds = orderedIds;
-
       return (
-        <div className="fixed inset-0 bg-white z-50 flex items-stretch justify-center">
-          {/* Внутренняя панель с тем же поведением скролла, что и у «Команда» */}
-          <div className="w-[1040px] h-full bg-white border-l border-neutral-200 overflow-auto no-scrollbar">
-            {/* Липкий верх — как шапка «Команда» */}
-            <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
-              <div className="px-4 h-full flex items-center gap-3">
-                <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
-                <button onClick={onBack} className="ml-2 text-sm px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow">← Назад</button>
-                <EditableName person={person} setPeople={setPeople}/>
-                <EditableRole person={person} setPeople={setPeople} roles={roles}/>
-                <button onClick={()=>setVacOpen(true)} className="ml-2 inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800" title="Добавить отпуск">🏖 Добавить отпуск</button>
-                <div className="ml-auto">
-                  {/* Тот же WeekNavigator, но липкий под этой шапкой будет ниже */}
-                </div>
-                <button onClick={onClose} className="text-neutral-500 hover:text-neutral-800">✕</button>
+        /* Полноэкранная страница поверх, но без модального центрирования */
+        <div className="fixed inset-0 z-50 bg-[#F7F8FA] overflow-auto no-scrollbar">
+          {/* Липкая шапка — в точности как у «Команда», плюс кнопки назад/закрыть справа */}
+          <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
+            <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
+              <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
+              <EditableName person={person} setPeople={setPeople}/>
+              <EditableRole person={person} setPeople={setPeople} roles={roles}/>
+              <button onClick={()=>setVacOpen(true)} className="ml-2 inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800" title="Добавить отпуск">🏖 Добавить отпуск</button>
+              <div className="ml-auto flex items-center gap-2">
+                <button onClick={onBack} className="text-sm px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow">← Назад</button>
+                <button onClick={onClose} className="text-neutral-600 hover:text-neutral-900">✕</button>
               </div>
             </div>
+          </div>
 
-            {/* WeekNavigator — липкий сразу под верхней строкой, как на «Команда» */}
-            <WeekNavigator
-              onLeft={goLeft}
-              onRight={goRight}
-              onToday={goToday}
-              showRoleFilter={false}
-              stickyTopClass="top-[var(--app-header-h)]"
-            />
+          {/* Липкий WeekNavigator под шапкой — как у «Команда» */}
+          <div className="max-w-screen-2xl mx-auto px-4">
+            <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} showRoleFilter={false} stickyTopClass="top-[var(--app-header-h)]" />
+          </div>
 
-            {/* Хедеры недель (как на «Команда») */}
-            <div className="grid px-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-              <div className="sticky left-0 z-50 bg-white border-r border-neutral-200" />
+          {/* Хедеры недель и тело — та же сетка, что у «Команда» */}
+          <div className="max-w-screen-2xl mx-auto px-4">
+            {/* Хедеры недель */}
+            <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
+              <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
               {visible.map(w => (<div key={w}><WeekHeader iso={w}/></div>))}
             </div>
 
-            {/* Итоговые бейджи (как у «Команда») */}
-            <div className="grid px-4 mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-              <div className="sticky left-0 z-50 bg-white border-r border-neutral-200" />
+            {/* Итоговые бейджи */}
+            <div className="grid mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
+              <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
               {visible.map((w,i)=>(
                 <div key={w} className="h-6 flex items-center justify-center">
                   <span className="px-2 py-0.5 rounded-lg border border-neutral-300 bg-white text-[12px] font-medium shadow-sm">{fmtFTE1(weekTotals[i])}</span>
@@ -681,13 +676,13 @@
               ))}
             </div>
 
-            {/* Строки проектов — та же компоновка и карточки высотой 120px */}
-            <div className="grid px-4 pb-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-              {rowIds.map((pid, idx) => {
+            {/* Строки проектов (высота карточек, липкая левая колонка — как у «Команда») */}
+            <div className="grid pb-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
+              {orderedIds.map((pid, idx) => {
                 const pr = projects.find(p=>p.id===pid); if(!pr) return null;
                 return (
                   <Fragment key={pid}>
-                    <div className="sticky left-0 z-50 bg-white border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
+                    <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
                       <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none">
                         <span className="text-neutral-400">⋮⋮</span>
                         <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
@@ -728,63 +723,63 @@
                 );
               })}
             </div>
+          </div>
 
-            {/* Модал отпусков */}
-            {vacOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={()=>setVacOpen(false)}>
-                <div className="absolute inset-0 bg-black/40"/>
-                <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
-                  <div className="text-base font-semibold mb-3">Отпуск — {person.name}</div>
-                  <div className="mb-3 inline-flex items-center gap-1 rounded-xl border border-neutral-200 p-1">
-                    <button className={`px-3 py-1 rounded-lg text-sm ${vacTab==="range" ? "bg-neutral-100 shadow":""}`} onClick={()=>setVacTab("range")}>Диапазон дат</button>
-                    <button className={`px-3 py-1 rounded-lg text-sm ${vacTab==="weeks" ? "bg-neutral-100 shadow":""}`} onClick={()=>setVacTab("weeks")}>По неделям</button>
+          {/* Модал отпусков */}
+          {vacOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={()=>setVacOpen(false)}>
+              <div className="absolute inset-0 bg-black/40"/>
+              <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
+                <div className="text-base font-semibold mb-3">Отпуск — {person.name}</div>
+                <div className="mb-3 inline-flex items-center gap-1 rounded-xl border border-neutral-200 p-1">
+                  <button className={`px-3 py-1 rounded-lg text-sm ${vacTab==="range" ? "bg-neutral-100 shadow":""}`} onClick={()=>setVacTab("range")}>Диапазон дат</button>
+                  <button className={`px-3 py-1 rounded-lg text-sm ${vacTab==="weeks" ? "bg-neutral-100 shadow":""}`} onClick={()=>setVacTab("weeks")}>По неделям</button>
+                </div>
+                {vacTab==="range" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-neutral-700">С</label>
+                      <input type="date" value={vFrom} onChange={e=>setVFrom(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/>
+                      <label className="text-sm text-neutral-700">по</label>
+                      <input type="date" value={vTo} onChange={e=>setVTo(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/>
+                    </div>
+                    {(vFrom && vTo) && (<div className="text-xs text-neutral-600">Будут добавлены недели диапазона после сохранения.</div>)}
                   </div>
-                  {vacTab==="range" && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm text-neutral-700">С</label>
-                        <input type="date" value={vFrom} onChange={e=>setVFrom(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/>
-                        <label className="text-sm text-neutral-700">по</label>
-                        <input type="date" value={vTo} onChange={e=>setVTo(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/>
-                      </div>
-                      {(vFrom && vTo) && (<div className="text-xs text-neutral-600">Будут добавлены недели диапазона после сохранения.</div>)}
+                )}
+                {vacTab==="weeks" && (
+                  <div className="space-y-3">
+                    <div className="text-sm text-neutral-600">Отметьте недели (диапазон дат):</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {yearWeekMondays(new Date().getFullYear()).map(m => (
+                        <label key={m} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl hover:bg-amber-50">
+                          <input type="checkbox" checked={personVac.has(m)} onChange={()=> setPersonVac(prev=>{ const s=new Set(prev); if(s.has(m)) s.delete(m); else s.add(m); return s; }) } />
+                          <span className="text-sm">{weekRangeLabel(m)}</span>
+                          {personVac.has(m) && (<button className="ml-auto text-amber-700" title="Убрать" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(m); return s; })}>−</button>)}
+                        </label>
+                      ))}
                     </div>
-                  )}
-                  {vacTab==="weeks" && (
-                    <div className="space-y-3">
-                      <div className="text-sm text-neutral-600">Отметьте недели (диапазон дат):</div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {yearWeekMondays(new Date().getFullYear()).map(m => (
-                          <label key={m} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl hover:bg-amber-50">
-                            <input type="checkbox" checked={personVac.has(m)} onChange={()=> setPersonVac(prev=>{ const s=new Set(prev); if(s.has(m)) s.delete(m); else s.add(m); return s; }) } />
-                            <span className="text-sm">{weekRangeLabel(m)}</span>
-                            {personVac.has(m) && (<button className="ml-auto text-amber-700" title="Убрать" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(m); return s; })}>−</button>)}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {Array.from(personVac).length>0 && (
-                    <div className="mt-3">
-                      <div className="text-sm mb-1">Выбрано недель:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {Array.from(personVac).map(w => (
-                          <span key={w} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                            {weekRangeLabel(w)}
-                            <button className="ml-1" title="Удалить" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(w); return s; }) }>×</button>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="mt-4 flex justify-end gap-2">
-                    <button className="px-3 py-1 rounded-lg border border-neutral-300 bg-white" onClick={()=>setVacOpen(false)}>Отмена</button>
-                    <button className="px-3 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800" onClick={saveVac}>Сохранить</button>
                   </div>
+                )}
+                {Array.from(personVac).length>0 && (
+                  <div className="mt-3">
+                    <div className="text-sm mb-1">Выбрано недель:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from(personVac).map(w => (
+                        <span key={w} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
+                          {weekRangeLabel(w)}
+                          <button className="ml-1" title="Удалить" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(w); return s; }) }>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="mt-4 flex justify-end gap-2">
+                  <button className="px-3 py-1 rounded-lg border border-neutral-300 bg-white" onClick={()=>setVacOpen(false)}>Отмена</button>
+                  <button className="px-3 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800" onClick={saveVac}>Сохранить</button>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -1067,3 +1062,4 @@
   </script>
 </body>
 </html>
+
