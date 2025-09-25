@@ -13,7 +13,7 @@
   <style>
     :root{
       --app-header-h: 56px;
-      --left-col-w: 280px; /* под обновлённую «шапку баров» */
+      --left-col-w: 280px;
     }
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
     .no-scrollbar::-webkit-scrollbar{ display:none; }
@@ -21,19 +21,20 @@
     .hide-scrollbar::-webkit-scrollbar-thumb{ background:rgba(0,0,0,0.15); border-radius:8px; }
     .hide-scrollbar{ scrollbar-width:thin; }
 
-    /* Кнопки в едином стиле как в новой версии */
     .btn{
-      @apply rounded-xl border border-neutral-300 bg-white px-3 py-1 shadow-sm hover:shadow transition text-sm;
+      border-radius:12px; border:1px solid #d1d5db; background:#fff;
+      padding:6px 12px; box-shadow:0 1px 0 rgba(0,0,0,.03);
+      transition:.15s; font-size:14px;
     }
+    .btn:hover{ box-shadow:0 2px 6px rgba(0,0,0,.06); }
     .segmented{
-      @apply flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm;
+      display:flex; gap:4px; align-items:center;
+      background:#f3f4f6; border:1px solid #e5e7eb; border-radius:999px;
+      padding:4px; box-shadow:0 1px 0 rgba(0,0,0,.04);
     }
-    .segmented button{ @apply px-3 py-1 rounded-xl transition font-medium; }
-    .segmented .active{ @apply bg-white shadow-sm; }
-    .segmented .idle{ @apply hover:bg-white/70; }
-    .primary-chip{
-      @apply inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800;
-    }
+    .segmented button{ padding:6px 12px; border-radius:10px; transition:.15s; font-weight:600; }
+    .segmented .active{ background:#fff; box-shadow:0 1px 0 rgba(0,0,0,.04); }
+    .segmented .idle:hover{ background:#fff; }
   </style>
 </head>
 <body class="bg-[#F7F8FA] no-scrollbar text-neutral-900">
@@ -44,7 +45,7 @@
 
     // ---------- Config ----------
     const MAX_FTE = 1.2;
-    const WEEK_COL_PX = 120; // соответствует новой «широкой» сетке недель
+    const WEEK_COL_PX = 120;
     const TEAM_BAR_COLOR = "#22c55e";
     const VISIBLE_WEEKS = 12;
 
@@ -60,18 +61,7 @@
         const all = loadAll();
         const merged = {...all, ...patch};
         localStorage.setItem(LS_KEY, JSON.stringify(merged));
-        debouncedSaveAllRemote(merged);
       }catch{}
-    }
-
-    // ---------- OPTIONAL: remote sync (заглушка) ----------
-    async function loadAllRemote(){ return null; }
-    async function saveAllRemote(_state){}
-
-    let saveTimer=null;
-    function debouncedSaveAllRemote(state){
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(()=>{ saveAllRemote(state).catch(()=>{}); }, 400);
     }
 
     // ---------- Date/format helpers ----------
@@ -256,40 +246,15 @@
       const [personProjectOrder, setPersonProjectOrder] = useState(loadJSON("personProjectOrder", {}));
       const [teamOrder, setTeamOrder] = useState(()=> loadJSON("teamOrder", seedPeople.map(p=>p.id)));
 
-      const [authed, setAuthed] = useState(loadJSON("authed", false));
+      const [authed, setAuthed] = useState(loadJSON("authed", true)); // true для удобства демо
 
-      // три вкладки: team(Нагрузка), project(Проекты), employees(Команда)
+      // три вкладки
       const [view, setView] = useState(loadJSON("view","team")); // 'team' | 'project' | 'employees'
       useEffect(()=> saveJSON({view}), [view]);
 
       const [selectedPersonId, setSelectedPersonId] = useState(null);
 
       const {weeks, setWeeks, visible, goLeft, goRight, goToday} = useWeeksWindow();
-
-      // remote load (optional)
-      useEffect(()=>{
-        (async()=>{
-          const remote = await loadAllRemote();
-          if(remote && typeof remote==="object"){
-            localStorage.setItem(LS_KEY, JSON.stringify(remote));
-            if(remote.people) setPeople(remote.people);
-            if(remote.projects) setProjects(remote.projects);
-            if(remote.assignments) setAssignments(remote.assignments);
-            if(remote.roles) setRoles(remote.roles);
-            if(remote.projectTeams){
-              const map={}; Object.entries(remote.projectTeams).forEach(([k,v])=> map[k]=new Set(v));
-              setProjectTeams(map);
-            }
-            if(remote.vacations){
-              const map={}; Object.entries(remote.vacations).forEach(([k,v])=> map[k]=new Set(v));
-              setVacations(map);
-            }
-            if(remote.personProjectOrder) setPersonProjectOrder(remote.personProjectOrder);
-            if(remote.teamOrder) setTeamOrder(remote.teamOrder);
-            if(remote.weeks) setWeeks(remote.weeks);
-          }
-        })().catch(()=>{});
-      }, []);
 
       // save effects
       useEffect(()=> saveJSON({people}), [people]);
@@ -301,19 +266,16 @@
       useEffect(()=> saveJSON({personProjectOrder}), [personProjectOrder]);
       useEffect(()=> saveJSON({teamOrder}), [teamOrder]);
 
-      // helpers
       const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
-      const dragRow = useRef(null);
 
-      // people collections
-      const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]); // во «Нагрузке» скрываем внешних
-      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]); // для проектов/команды — все активные
+      const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]);
+      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]);
 
       useEffect(()=>{
         setTeamOrder(prev => mergeOrder(prev, peopleForTeam.map(p=>p.id)));
       }, [peopleForTeam]);
 
-      // фильтр ролей для Нагрузки
+      // фильтр ролей
       const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
       useEffect(()=> saveJSON({roleFilter}), [roleFilter]);
 
@@ -352,7 +314,7 @@
         });
       };
 
-      // create person
+      // создание сущностей (модалки)
       const [createPersonOpen, setCreatePersonOpen] = useState(false);
       const [newPersonName, setNewPersonName] = useState("");
       const [newPersonRole, setNewPersonRole] = useState("other");
@@ -364,7 +326,6 @@
         setCreatePersonOpen(false); setNewPersonName(""); setNewPersonRole("other"); setNewPersonExternal(false);
       }
 
-      // create project
       const [createProjectOpen, setCreateProjectOpen] = useState(false);
       const [newProjectName, setNewProjectName] = useState("");
       const [newProjectColor, setNewProjectColor] = useState("#3b82f6");
@@ -393,7 +354,7 @@
 
       return (
         <div className="min-h-screen bg-[#F7F8FA] text-neutral-900 font-sans">
-          {/* Глобальная шапка (обновлённая) */}
+          {/* Глобальная шапка */}
           <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -412,7 +373,6 @@
           </header>
 
           <main className="max-w-screen-2xl mx-auto p-4">
-            {/* Навигатор недель только во «Нагрузке» */}
             {view==="team" && (
               <WeekNavigator
                 onLeft={goLeft}
@@ -433,33 +393,19 @@
                 { (filteredTeamIds.length===0) && (
                   <div className="col-span-full text-sm text-neutral-500 py-8">Нет сотрудников под фильтр.</div>
                 )}
-                {filteredTeamIds.map((pid, rowIdx) => {
+                {filteredTeamIds.map((pid) => {
                   const person = people.find(p=>p.id===pid);
                   return (
                     <Fragment key={pid}>
                       <div
                         className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
-                        draggable
-                        onDragStart={()=>{ dragRow.current=rowIdx; }}
-                        onDragOver={e=>e.preventDefault()}
-                        onDrop={()=>{
-                          const from=dragRow.current; const to=rowIdx; if(from==null || from===to) return;
-                          const arr=[...filteredTeamIds]; const id=arr.splice(from,1)[0]; arr.splice(to,0,id);
-                          const inactive = teamOrder.filter(id => !filteredTeamIds.includes(id));
-                          setTeamOrder([...arr, ...inactive]); dragRow.current=null;
-                        }}
+                        title="Открыть сотрудника"
+                        onClick={()=>setSelectedPersonId(person.id)}
+                        role="button"
                       >
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={()=>setSelectedPersonId(person.id)}
-                          onKeyDown={e=>{ if(e.key==='Enter'||e.key===' ') setSelectedPersonId(person.id) }}
-                          className="w-full text-left"
-                        >
-                          <div className="relative bg-white rounded-2xl shadow-sm h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-md hover:bg-green-50/70 transition">
-                            <div className="font-medium truncate" title="Открыть карточку сотрудника">{person.name}</div>
-                            <div className="mt-1 text-[11px] text-neutral-600">{String(person.role||"").toUpperCase()}</div>
-                          </div>
+                        <div className="relative bg-white rounded-2xl shadow-sm h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-md hover:bg-green-50/70 transition">
+                          <div className="font-medium truncate">{person.name}</div>
+                          <div className="mt-1 text-[11px] text-neutral-600">{String(person.role||"").toUpperCase()}</div>
                         </div>
                       </div>
 
@@ -630,7 +576,6 @@
       );
     }
 
-    // Навигатор недель
     function WeekNavigator({
       onLeft,
       onRight,
@@ -721,7 +666,7 @@
 
       return (
         <div className="fixed inset-0 z-50 bg-[#F7F8FA] overflow-auto no-scrollbar">
-          {/* Шапка с тремя кнопками (обновлённая) */}
+          {/* Шапка со вкладками */}
           <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -733,12 +678,12 @@
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <!-- резерв под будущие действия -->
+                {/* резерв под будущие действия */}
               </div>
             </div>
           </div>
 
-          {/* Полоса недель: слева — кнопка назад, имя/роль/отпуск; справа — кнопки недель */}
+          {/* Навигация недель и кнопка Назад */}
           <div className="max-w-screen-2xl mx-auto px-4">
             <WeekNavigator
               onLeft={goLeft}
@@ -751,13 +696,13 @@
                   <button className="btn" onClick={onClose}>← Назад</button>
                   <EditableName person={person} setPeople={setPeople}/>
                   <EditableRole person={person} setPeople={setPeople} roles={roles}/>
-                  <button onClick={()=>setVacOpen(true)} className="primary-chip">🏖 Добавить отпуск</button>
+                  <button onClick={()=>setVacOpen(true)} className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800">🏖 Добавить отпуск</button>
                 </div>
               }
             />
           </div>
 
-          {/* Сетка недель и суммарные бейджи */}
+          {/* Сетка недель и Σ */}
           <div className="max-w-screen-2xl mx-auto px-4">
             <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
               <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
@@ -1025,7 +970,6 @@
       );
     }
 
-    // ---------- PersonProjectsEditor ----------
     function PersonProjectsEditor({person, projects, projectTeams, setProjectTeams}){
       const [search, setSearch] = useState("");
       const memberOf = useMemo(()=>{
@@ -1096,7 +1040,6 @@
       );
     }
 
-    // ---------- Role manager ----------
     function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass='top-[calc(var(--app-header-h)+48px)]'}){
       const [adding, setAdding] = useState("");
       const [editing, setEditing] = useState(null);
@@ -1142,7 +1085,6 @@
       );
     }
 
-    // ---------- Create Person Modal ----------
     function CreatePersonModal({open, onClose, name, setName, role, setRole, external, setExternal, onSubmit, roles}){
       if(!open) return null;
       return (
@@ -1175,13 +1117,12 @@
       );
     }
 
-    // ---------- Create Project Modal ----------
     function CreateProjectModal({open, onClose, name, setName, color, setColor, status, setStatus, search, setSearch, teamSel, setTeamSel, people, suggestions, onSubmit}){
       if(!open) return null;
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-height-[80vh] p-4" onClick={(e)=>e.stopPropagation()}>
             <div className="text-base font-semibold mb-3">Новый проект</div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1238,7 +1179,6 @@
       );
     }
 
-    // ---------- Auth ----------
     function AuthForm({onSuccess}){
       const [login, setLogin] = useState("");
       const [pass, setPass] = useState("");
@@ -1263,7 +1203,7 @@
       );
     }
 
-    // dev sanity checks
+    // quick sanity
     if(typeof window!=="undefined"){
       try{
         console.assert(fmtFTE1(1.16)==="1.2","fmtFTE1 rounds to 1 decimal");
