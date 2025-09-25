@@ -4,241 +4,188 @@
   <meta charset="UTF-8" />
   <title>Панквеб FTE Planner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- React & Babel -->
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Tailwind -->
+  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root{
-      --app-header-h: 56px;
-      --left-col-w: 280px;
-      --row-h: 120px;
+      --app-header-h:56px;
+      --left-col-w:280px;
+      --row-h:120px;
+      --week-col:120px;
+      --green:#16a34a; /* основной зелёный */
+      --green-50:#ecfdf5;
+      --green-600:#16a34a;
     }
-    .hide-scrollbar{ scrollbar-width:thin; }
-    .btn{
-      @apply rounded-xl border border-neutral-300 bg-white px-3 py-1 shadow-sm hover:shadow transition;
-    }
-    .segmented{
-      @apply flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm;
-    }
-    .segmented button{
-      @apply px-3 py-1 rounded-xl transition;
-    }
-    .segmented .active{ @apply bg-white shadow-sm; }
-    .segmented .idle{ @apply hover:bg-white/70; }
-
-    .nav-btn{ @apply px-3 py-1.5 rounded-xl text-sm font-semibold border border-neutral-300 bg-white text-neutral-900 transition; }
-    .nav-btn.active{ background:#16a34a; color:#ffffff; border-color:#16a34a; }
-    .nav-btn:hover{ background:#ecfdf5; }
-    .btn-green{ @apply rounded-xl border bg-white px-3 py-1 shadow-sm hover:shadow transition; border-color:#16a34a; color:#065f46; }
+    .btn{ padding:8px 12px; border-radius:12px; font-size:14px; font-weight:500; border:1px solid var(--green-600); color:#065f46; background:#fff; transition:.15s; }
+    .btn:hover{ background:var(--green-50);}
+    .nav-btn{ padding:8px 12px; border-radius:12px; font-size:14px; font-weight:700; transition:.15s; border:1px solid #d1d5db; background:#fff; color:#111827; }
+    .nav-btn.active{ background:var(--green); color:#fff; border-color:var(--green);}
+    .tag{ padding:2px 8px; border-radius:8px; font-size:12px; border:1px solid #e5e7eb; background:#fafafa; color:#374151; }
+    .card{ background:#fff; border:1px solid #e5e7eb; border-radius:16px; box-shadow:0 1px 1px rgba(0,0,0,.03); }
+    .cell-input{ outline:none; }
   </style>
 </head>
-<body className="bg-white text-neutral-900 font-sans">
+<body class="bg-[#F7F8FA] text-neutral-900">
   <div id="root"></div>
 
+  <!-- React/Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
   <script type="text/babel">
-    const {useState, useMemo, useEffect, useRef, Fragment} = React;
+    const {useState, useMemo, useEffect, Fragment} = React;
 
-    // ---------- SVG ----------
-    function IconPlus({className=""}){
-      return (
-        <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 5v14M5 12h14"/>
-        </svg>
-      );
-    }
-    function IconPen({className=""}){
-      return (
-        <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 20h9"/>
-          <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-        </svg>
-      );
-    }
-    function IconTrash({className=""}){
-      return (
-        <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-          <path d="M10 11v6"/>
-          <path d="M14 11v6"/>
-          <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
-        </svg>
-      );
-    }
-    function IconCheck({className=""}){
-      return (
-        <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M20 6L9 17l-5-5"/>
-      </svg>
-      );
-    }
-    function IconLinkOut({className=""}){
-      return (
-        <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M19 2l3 3-7.5 7.5"/>
-        <path d="M16 5l3 3"/>
-        <path d="M9 11l-6 6v3h3l6-6"/>
-      </svg>
-      );
-    }
-
-    // ---------- Layout constants ----------
+    /* ======================= HELPERS / STORAGE ======================= */
     const WEEK_COL_PX = 120;
-    const LEFT_COL_PX = 280;
 
-    // ---------- Date helpers ----------
-    function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
-    function addWeeks(d, n){ return addDays(d, n*7); }
-    function fmtISO(d){ const x = new Date(d); x.setHours(0,0,0,0); return x.toISOString(); }
+    const loadJSON = (k, def) => { try{ const v=localStorage.getItem(k); if(v) return JSON.parse(v);}catch{} return def; };
+    const saveJSON = (k,v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} };
 
-    function startOfISOWeek(d){
-      const x = new Date(d);
-      const day = x.getDay();
-      const diff = (day === 0 ? -6 : 1 - day); // Monday
-      x.setDate(x.getDate() + diff);
-      x.setHours(0,0,0,0);
-      return x;
-    }
+    const startOfISOWeek = (d)=>{ const x=new Date(d); const day=x.getDay(); const diff=(day===0?-6:1-day); x.setDate(x.getDate()+diff); x.setHours(0,0,0,0); return x; };
+    const addDays = (d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; };
+    const addWeeksISO = (iso, n)=> addDays(new Date(iso), n*7).toISOString();
+    const weeksRange = (anchorISO, count=12)=>{ const a=startOfISOWeek(new Date(anchorISO)); const arr=[]; for(let i=0;i<count;i++){ const d=new Date(a); d.setDate(a.getDate()+i*7); arr.push(d.toISOString()); } return arr; };
 
-    function weeksRange(anchorISO, count=12){
-      const a = startOfISOWeek(new Date(anchorISO));
-      const arr = [];
-      for(let i=0;i<count;i++){
-        const d = new Date(a);
-        d.setDate(a.getDate()+i*7);
-        arr.push(d.toISOString());
+    const RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+    const fmtFTE2 = (f)=> (Math.round((f||0)*100)/100).toFixed(2); // до сотых
+    const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
+
+    // нумерация недели внутри месяца (фикс для концов месяца)
+    function weekIndexInMonth(weekISO){
+      const w = startOfISOWeek(new Date(weekISO));
+      const mStart = new Date(w.getFullYear(), w.getMonth(), 1);
+      let first = startOfISOWeek(mStart);
+      if(first.getMonth() !== mStart.getMonth()){ // если «ушёл» в прошлый месяц — сдвигаем
+        const tmp = addDays(first, 7);
+        if(tmp.getMonth() === mStart.getMonth()) first = tmp;
       }
-      return arr;
+      const diffDays = Math.floor((w - first)/(1000*60*60*24));
+      const idx = Math.floor(diffDays/7) + 1;
+      return idx < 1 ? 1 : idx;
     }
 
-    function weekLabelParts(iso){
-      const d = new Date(iso);
-      const y = d.getFullYear();
-      const m = d.getMonth();
-      const dd = d.getDate();
-      const end = addDays(d, 6);
-      const RU_MON = ["ЯНВ","ФЕВ","МАР","АПР","МАЙ","ИЮН","ИЮЛ","АВГ","СЕН","ОКТ","НОЯ","ДЕК"];
-      const top = `${dd.toString().padStart(2,"0")}.${(m+1).toString().padStart(2,"0")}.${y}`;
-      const bot = `${end.getDate().toString().padStart(2,"0")}.${(end.getMonth()+1).toString().padStart(2,"0")}`;
-      return {top, bot};
-    }
-
-    // ---------- Persistence ----------
-    const LS_KEY = "fteplanner.v1";
-    function loadAll(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch{ return {}; } }
-    function loadJSON(key, fallback){
-      const all = loadAll();
-      return (key in all) ? all[key] : fallback;
-    }
-    function saveJSON(key, value){
-      const all = loadAll();
-      all[key] = value;
-      localStorage.setItem(LS_KEY, JSON.stringify(all));
-    }
-
-    // ---------- Seed ----------
-    const seed = {
-      people: [
-        {id:"p1", name:"Саша", role:"manager", external:false},
-        {id:"p2", name:"Аня", role:"frontend", external:false},
-        {id:"p3", name:"Игорь", role:"backend", external:false},
-        {id:"p4", name:"Лена", role:"qa", external:false},
-      ],
-      projects: [
-        {id:"pr1", name:"Маркетинг-сайт", color:"#16a34a", status:"active"},
-        {id:"pr2", name:"ЛК Партнёра", color:"#059669", status:"active"},
-        {id:"pr3", name:"Мобильное приложение", color:"#10b981", status:"paused"},
-      ],
-      projectTeams: { pr1:["p1","p2","p4"], pr2:["p1","p3"], pr3:["p2","p3"] },
-      assignments: {}, // `${personId}|${projectId}|${weekISO}` -> fte
-      vacations: {},   // `${personId}|${weekISO}` -> true
-      firstWeekISO: null
+    /* ======================= INITIAL DATA (как в INDEX3) ======================= */
+    const defaultPeople = [
+      {id:"p1", name:"Саша К.", role:"manager", external:false, order:0},
+      {id:"p2", name:"Аня П.", role:"frontend", external:false, order:1},
+      {id:"p3", name:"Игорь С.", role:"backend", external:false, order:2},
+      {id:"p4", name:"Лена М.", role:"qa", external:false, order:3},
+    ];
+    const defaultProjects = [
+      {id:"pr1", name:"Маркетинг-сайт", color:"#16a34a", status:"active"},
+      {id:"pr2", name:"ЛК Партнёра", color:"#059669", status:"active"},
+      {id:"pr3", name:"Мобильное приложение", color:"#10b981", status:"paused"},
+    ];
+    // команды проекта (projectId -> Set(personId))
+    const defaultTeams = {
+      pr1:new Set(["p1","p2","p4"]),
+      pr2:new Set(["p1","p3"]),
+      pr3:new Set(["p2","p3"]),
     };
-    function initialWeeksFromAnchor(){
-      const anchor = startOfISOWeek(new Date());
-      return weeksRange(anchor.toISOString(), 12);
+    // назначения: Map(`${personId}|${projectId}|${weekISO}`, number)
+    const defaultAssignments = new Map();
+    const defaultVacations = new Set();
+
+    const anchor = startOfISOWeek(new Date());
+    const initialWeeks = weeksRange(anchor.toISOString(), 12);
+    for(const w of initialWeeks){
+      defaultAssignments.set(`p2|pr1|${w}`, 0.60);
+      defaultAssignments.set(`p4|pr1|${w}`, 0.40);
+      defaultAssignments.set(`p3|pr2|${w}`, 0.70);
+      defaultAssignments.set(`p2|pr3|${w}`, 0.30);
     }
 
-    // ---------- Icons ----------
-    function PencilIcon({className=""}){
+    const mapLoad = (arr)=> new Map(arr);
+    const setLoad = (arr)=> new Set(arr);
+    const mapSave = (m)=> [...m.entries()];
+    const setSave = (s)=> [...s.values()];
+
+    /* ======================= ICONS ======================= */
+    const StatusDot = ({status})=>{
+      const color = status==="active" ? "bg-green-600" : status==="paused" ? "bg-yellow-500" : "bg-neutral-400";
+      return <span className={`inline-block w-2.5 h-2.5 rounded-full ${color}`} title={status}></span>;
+    };
+
+    /* ======================= HEADER ======================= */
+    function AppHeader({ tab, setTab, onAddProject, onAddPerson }){
+      const NB = ({active, onClick, children}) =>
+        <button className={`nav-btn ${active?"active":""}`} onClick={onClick}>{children}</button>;
       return (
-        <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 20h9"/>
-          <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-        </svg>
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-neutral-200">
+          <div className="max-w-screen-2xl mx-auto px-4 h-[var(--app-header-h)] flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="font-semibold tracking-wide mr-2 text-[var(--green)]">Панквеб FTE Planner</div>
+              {/* три независимые кнопки без контейнера */}
+              <div className="flex items-center gap-2">
+                <NB active={tab==='load'} onClick={()=>setTab('load')}>Нагрузка</NB>
+                <NB active={tab==='team'} onClick={()=>setTab('team')}>Команда</NB>
+                <NB active={tab==='projects'} onClick={()=>setTab('projects')}>Проекты</NB>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="btn" onClick={onAddProject}>+ Проект</button>
+              <button className="btn" onClick={onAddPerson}>+ Сотрудник</button>
+            </div>
+          </div>
+        </header>
       );
     }
 
-    // ---------- Simple controls ----------
-    function WeekHeader({iso}){
-      const {top, bot} = weekLabelParts(iso);
-      return (
-        <div className="h-[40px] flex items-center justify-center text-neutral-700">
-          <span className="block text-center leading-tight" style={{width:WEEK_COL_PX}}>
-            <div className="text-xs font-medium">{top}</div>
-            <div className="text-[10px]">{bot}</div>
-          </span>
-        </div>
-      );
-    }
+    /* ======================= CALENDAR HEADER ======================= */
+    function CalendarHeader({visibleWeeks, leftLabel, stickyTopClass="top-[var(--app-header-h)]", badgeByISO=null}){
+      // группы по годам
+      const years=[]; let cy=null, c=0;
+      visibleWeeks.forEach((iso,i)=>{ const y=new Date(iso).getFullYear();
+        if(cy===null){ cy=y; c=1; } else if(y===cy){ c++; } else { years.push({year:cy,count:c}); cy=y; c=1; }
+        if(i===visibleWeeks.length-1) years.push({year:cy,count:c});
+      });
+      // группы по месяцам
+      const months=[]; let key=null, cnt=0, y0=null, m0=null;
+      visibleWeeks.forEach((iso,i)=>{ const d=new Date(iso), y=d.getFullYear(), m=d.getMonth(), k=`${y}-${m}`;
+        if(k!==key){ if(key!==null) months.push({key, year:y0, month:m0, count:cnt}); key=k; cnt=1; y0=y; m0=m; }
+        else cnt++;
+        if(i===visibleWeeks.length-1) months.push({key, year:y0, month:m0, count:cnt});
+      });
 
-    // ---------- CalendarHeader: Год → Месяцы → «Нед. N» ----------
-    function CalendarHeader({visible, leftLabel="Сотрудники", stickyTopClass="top-[var(--app-header-h)]"}){
-      // group years
-      const years=[]; let cy=null, cnt=0;
-      visible.forEach((iso,i)=>{ const y=new Date(iso).getFullYear();
-        if(cy===null){ cy=y; cnt=1; } else if(y===cy){ cnt++; } else { years.push({year:cy,count:cnt}); cy=y; cnt=1; }
-        if(i===visible.length-1) years.push({year:cy,count:cnt});
-      });
-      // group months
-      const months=[]; let key=null, mcnt=0, y0=null, m0=null;
-      visible.forEach((iso,i)=>{ const d=new Date(iso), y=d.getFullYear(), m=d.getMonth(); const k=`${y}-${m}`;
-        if(k!==key){ if(key!==null) months.push({key,year:y0,month:m0,count:mcnt}); key=k; mcnt=1; y0=y; m0=m; } else mcnt++;
-        if(i===visible.length-1) months.push({key,year:y0,month:m0,count:mcnt});
-      });
-      function weekIndexInMonth(weekISO){
-        const startOfISOWeek=(d)=>{ const x=new Date(d); const day=x.getDay(); const diff=(day===0?-6:1-day); x.setDate(x.getDate()+diff); x.setHours(0,0,0,0); return x; };
-        const addDays=(d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; };
-        const w = startOfISOWeek(new Date(weekISO));
-        const mStart = new Date(w.getFullYear(), w.getMonth(), 1);
-        let first = startOfISOWeek(mStart);
-        if(first.getMonth() !== mStart.getMonth()){ const tmp = addDays(first, 7); if(tmp.getMonth() === mStart.getMonth()) first = tmp; }
-        const diffDays = Math.floor((w - first)/(1000*60*60*24));
-        const idx = Math.floor(diffDays/7) + 1;
-        return idx < 1 ? 1 : idx;
-      }
-      const gridCols = `var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`;
-      const RU_MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+      const gridCols = `var(--left-col-w) repeat(${visibleWeeks.length}, ${WEEK_COL_PX}px)`;
       return (
         <div className={`sticky ${stickyTopClass} z-40`}>
           <div className="grid" style={{gridTemplateColumns:gridCols, rowGap:'6px'}}>
+            {/* левый лейбл */}
             <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" style={{gridRow:"span 3 / span 3"}}>
               <div className="h-full rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center pl-5 text-sm text-neutral-700">
                 {leftLabel}
               </div>
             </div>
-            {years.map(g => (
+
+            {/* Годы */}
+            {years.map(g=>(
               <div key={`y-${g.year}`} style={{gridColumn:`span ${g.count}`}}>
                 <div className="mx-1 rounded-xl px-3 py-1 text-center text-white text-sm font-medium bg-neutral-900">{g.year} г.</div>
               </div>
             ))}
-            {months.map(g => (
+            {/* Месяцы */}
+            {months.map(g=>(
               <div key={g.key} style={{gridColumn:`span ${g.count}`}}>
-                <div className="mx-1 rounded-xl px-3 py-1.5 text-center text-[13px] font-medium bg-neutral-100 text-neutral-800 border border-neutral-200">{RU_MONTHS[g.month]}</div>
+                <div className="mx-1 rounded-xl px-3 py-1.5 text-center text-[13px] font-medium bg-neutral-100 text-neutral-800 border border-neutral-200">
+                  {RU_MONTHS[g.month]}
+                </div>
               </div>
             ))}
-            {visible.map((iso)=> (
+            {/* Недели — узкие плашки */}
+            {visibleWeeks.map((iso)=>(
               <div key={`w-${iso}`} className="relative">
-                <div className="mx-1 rounded-md px-2 py-1 text-center text-[12px] text-neutral-800 bg-white border border-neutral-200 shadow-sm">Нед. {weekIndexInMonth(iso)}</div>
+                <div className="mx-1 rounded-md px-2 py-1 text-center text-[12px] text-neutral-800 bg-white border border-neutral-200 shadow-sm">
+                  Нед. {weekIndexInMonth(iso)}
+                </div>
+                {badgeByISO && badgeByISO[iso]!=null && (
+                  <div className="absolute -right-1 -top-2 translate-x-1/2">
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold border border-neutral-300 bg-neutral-50 text-neutral-800 shadow-sm">
+                      {badgeByISO[iso]}
+                    </span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -246,411 +193,143 @@
       );
     }
 
-    // ---------- Week navigator ----------
-    function useWeeksWindow(){
-      const [weeks, setWeeks] = useState(loadJSON("weeks", initialWeeksFromAnchor()));
-      const savedFirstISO = loadJSON("firstWeekISO", weeks[0]);
-      const initIdx = Math.max(0, weeks.indexOf(savedFirstISO));
-      const [firstIdx, setFirstIdx] = useState(initIdx);
-
-      const ensureRange = (needIdx) => {
-        if(needIdx < 0){
-          const first = new Date(weeks[0]);
-          const prepend = Array.from({length: Math.ceil((-needIdx)/8)*8 }, (_,i)=> fmtISO(addWeeks(first, -(i+1)))).reverse();
-          const next = [...prepend, ...weeks];
-          setWeeks(next);
-          setFirstIdx(firstIdx + prepend.length);
-          saveJSON("weeks", next);
-        } else if(needIdx + VISIBLE_WEEKS > weeks.length){
-          const last = new Date(weeks[weeks.length-1]);
-          const append = Array.from({length: 8 }, (_,i)=> fmtISO(addWeeks(last, i+1)));
-          const next = [...weeks, ...append];
-          setWeeks(next);
-          saveJSON("weeks", next);
-        }
-      };
-
-      const setFirst = (idx) => {
-        ensureRange(idx);
-        setFirstIdx(Math.max(0, idx));
-        saveJSON("firstWeekISO", weeks[Math.max(0, idx)]);
-      };
-
-      return {
-        weeks,
-        firstIdx,
-        setFirst,
-      };
-    }
-
-    const VISIBLE_WEEKS = 12;
-
-    function WeekNavigator({
-      onLeft, onRight, onToday,
-      showRoleFilter=false,
-      roleFilter="all",
-      setRoleFilter=()=>{},
-      roles=[],
-      leftNode=null,
-    }){
+    /* ======================= WEEK NAV ======================= */
+    function WeekNavigator({ onLeft, onRight, onToday, showToday=false, leftNode=null, stickyTopClass="top-[var(--app-header-h)]"}){
       return (
-        <div className="sticky top-[var(--app-header-h)] z-30 bg-white/80 backdrop-blur border-b border-neutral-200">
+        <div className={`sticky ${stickyTopClass} z-30 bg-white/80 backdrop-blur border-b border-neutral-200`}>
           <div className="max-w-screen-2xl mx-auto px-4 h-[44px] flex items-center justify-between">
+            <div className="flex items-center gap-2">{leftNode}</div>
             <div className="flex items-center gap-2">
-              {leftNode}
-            </div>
-            <div className="flex items-center gap-2">
-              {showRoleFilter && (
-                <div className="flex items-center gap-2 mr-1">
-                  <label className="text-sm text-neutral-700">Фильтр роли</label>
-                  <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm"
-                          value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
-                    <option value="all">Все</option>
-                    {roles.map(r => (<option key={r} value={r}>{r}</option>))}
-                  </select>
-                </div>
-              )}
-              <button onClick={onLeft} className="btn">‹</button>
-              <button onClick={onToday} className="btn">Сегодня</button>
-              <button onClick={onRight} className="btn">›</button>
+              <button className="btn" onClick={onLeft} title="Назад">‹</button>
+              {showToday && <button className="btn" onClick={onToday}>Сегодня</button>}
+              <button className="btn" onClick={onRight} title="Вперёд">›</button>
             </div>
           </div>
         </div>
       );
     }
 
-    // ---------- Team grid bar ----------
-    function Bar({ratio=0, color="#16a34a"}){
-      const clamped = Math.max(0, Math.min(1, ratio||0));
+    /* ======================= ASSIGNMENTS ======================= */
+    const fteFor = (assignments, personId, projectId, weekISO)=> assignments.get(`${personId}|${projectId}|${weekISO}`) || 0;
+    const setFteFor = (assignments, personId, projectId, weekISO, val)=>{
+      const next = new Map(assignments);
+      const k=`${personId}|${projectId}|${weekISO}`;
+      const num = Math.max(0, Math.min(1, +val||0));
+      if(num>0) next.set(k, +num); else next.delete(k);
+      return next;
+    };
+    const totalFTEForPersonWeek = (assignments, personId, weekISO, projects)=>
+      projects.reduce((s,pr)=> s + (assignments.get(`${personId}|${pr.id}|${weekISO}`)||0), 0);
+
+    /* ======================= LOAD PAGE ======================= */
+    function LoadPage({people, setPeople, projects, assignments, vacations, setAssignments, visible, setVisible, openPerson}){
+      const goLeft = ()=> setVisible(prev => prev.map(w => addWeeksISO(w,-1)));
+      const goRight= ()=> setVisible(prev => prev.map(w => addWeeksISO(w, 1)));
+      const goToday= ()=> setVisible(weeksRange(startOfISOWeek(new Date()).toISOString(), visible.length));
+      const gridCols = `var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`;
+
+      // перетаскивание сотрудников
+      const [dragIdx, setDragIdx] = useState(null);
+      const ordered = useMemo(()=> [...people].sort((a,b)=>(a.order??0)-(b.order??0)), [people]);
+      const onDragStart = (i)=> setDragIdx(i);
+      const onDrop = (i)=>{
+        if(dragIdx==null || dragIdx===i) return;
+        const arr=[...ordered];
+        const [m] = arr.splice(dragIdx,1);
+        arr.splice(i,0,m);
+        const next = arr.map((p,idx)=> ({...p, order:idx}));
+        setPeople(next);
+        setDragIdx(null);
+      };
+
       return (
-        <div className="relative w-10 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
-          <div className="absolute bottom-0 left-0 right-0" style={{height:`${clamped*100}%`, background:color}}/>
-        </div>
-      );
-    }
-
-    function ReadonlyBar({ratio=0, title=""}){
-      const clamped = Math.max(0, Math.min(1, ratio||0));
-      return (
-        <div className="relative w-10 h-[92%] rounded-lg bg-neutral-200 overflow-hidden" title={title}>
-          <div className="absolute bottom-0 left-0 right-0" style={{height:`${clamped*100}%`, background:"#16a34a"}}/>
-        </div>
-      );
-    }
-
-    // ---------- Assignments store ----------
-    function getKey(personId, projectId, weekISO){ return `${personId}|${projectId}|${weekISO}`; }
-
-    // ---------- People/Projects initial ----------
-    function initPeople(){ return loadJSON("people", seed.people); }
-    function initProjects(){ return loadJSON("projects", seed.projects); }
-    function initTeams(){ const raw = loadJSON("projectTeams", seed.projectTeams);
-      // to sets
-      const obj = {}; for(const [k, arr] of Object.entries(raw)) obj[k] = new Set(arr);
-      return obj;
-    }
-    function initAssignments(){ const raw = loadJSON("assignments", seed.assignments); return new Map(Object.entries(raw)); }
-    function initVacations(){ const raw = loadJSON("vacations", seed.vacations); return new Set(Object.keys(raw)); }
-
-    // ---------- App ----------
-    function App(){
-      const [authed, setAuthed] = useState(loadJSON("authed", false));
-      const [people, setPeople] = useState(initPeople());
-      const [projects, setProjects] = useState(initProjects());
-      const [projectTeams, setProjectTeams] = useState(initTeams());
-      const [assignments, setAssignments] = useState(initAssignments());
-      const [vacations, setVacations] = useState(initVacations());
-      const [firstWeekISO, setFirstWeekISO] = useState(loadJSON("firstWeekISO", null));
-
-      const [view, setView] = useState(loadJSON("view", "team")); // team (Нагрузка), project, employees
-      useEffect(()=> saveJSON("view", view), [view]);
-
-      // roles
-      const roles = useMemo(()=> [...new Set(people.map(p=>p.role||"other"))], [people]);
-
-      // Weeks window
-      const {weeks, firstIdx, setFirst} = useWeeksWindow();
-      const visible = weeks.slice(firstIdx, firstIdx+VISIBLE_WEEKS);
-
-      function goLeft(){ setFirst(firstIdx-1); }
-      function goRight(){ setFirst(firstIdx+1); }
-      function goToday(){
-        const anchor = startOfISOWeek(new Date());
-        const idx = weeks.indexOf(anchor.toISOString());
-        setFirst(Math.max(0, idx));
-      }
-
-      // filters
-      const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
-      useEffect(()=> saveJSON("roleFilter", roleFilter), [roleFilter]);
-
-      // team order
-      const [teamOrder, setTeamOrder] = useState(loadJSON("teamOrder", people.map(p=>p.id)));
-      useEffect(()=> saveJSON("teamOrder", teamOrder), [teamOrder]);
-
-      const filteredTeamIds = useMemo(()=>{
-        const ids = (teamOrder.length ? teamOrder : people.map(p=>p.id)).filter(id => people.find(p=>p.id===id));
-        if(roleFilter==="all") return ids;
-        return ids.filter(id => (people.find(p=>p.id===id)?.role||"other")===roleFilter);
-      }, [teamOrder, people, roleFilter]);
-
-      // person page
-      const [selectedPersonId, setSelectedPersonId] = useState(null);
-
-      // dialogs
-      const [createProjectOpen, setCreateProjectOpen] = useState(false);
-      const [createPersonOpen, setCreatePersonOpen] = useState(false);
-
-      // save on change
-      useEffect(()=> saveJSON("people", people), [people]);
-      useEffect(()=> saveJSON("projects", projects), [projects]);
-      useEffect(()=> {
-        const obj={}; for(const [k,setIds] of Object.entries(projectTeams)) obj[k]=[...setIds];
-        saveJSON("projectTeams", obj);
-      }, [projectTeams]);
-      useEffect(()=> {
-        const obj={}; for(const [k,v] of assignments.entries()) obj[k]=v;
-        saveJSON("assignments", obj);
-      }, [assignments]);
-      useEffect(()=> {
-        const obj={}; vacations.forEach(key => obj[key]=true);
-        saveJSON("vacations", obj);
-      }, [vacations]);
-      useEffect(()=> {
-        if(weeks[firstIdx]) saveJSON("firstWeekISO", weeks[firstIdx]);
-      }, [weeks, firstIdx]);
-
-      // computed
-      const rolesWithAll = useMemo(()=> ["all", ...roles], [roles]);
-
-      function totalFTE(personId, weekISO){
-        let sum = 0;
-        for(const pr of projects){
-          const val = assignments.get(getKey(personId, pr.id, weekISO)) || 0;
-          sum += val;
-        }
-        return Math.round(sum*100)/100;
-      }
-
-      function fteFor(personId, projectId, weekISO){
-        return assignments.get(getKey(personId, projectId, weekISO)) || 0;
-      }
-
-      function setFte(personId, projectId, weekISO, val){
-        const value = Math.max(0, Math.min(1, Number(val)||0));
-        const next = new Map(assignments);
-        const key = getKey(personId, projectId, weekISO);
-        if(value>0) next.set(key, value); else next.delete(key);
-        setAssignments(next);
-      }
-
-      function isVacation(personId, weekISO){ return vacations.has(`${personId}|${weekISO}`); }
-      function toggleVacation(personId, weekISO){
-        const key = `${personId}|${weekISO}`;
-        const next = new Set(vacations);
-        if(next.has(key)) next.delete(key); else next.add(key);
-        setVacations(next);
-      }
-
-      // ---------- Header (UPDATED as requested) ----------
-      function Header(){
-        if(!authed){
-          return (
-            <div className="h-screen grid place-items-center">
-              <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm max-w-sm w-full">
-                <div className="text-lg font-semibold mb-2">Вход</div>
-                <input className="w-full border border-neutral-300 rounded-xl px-3 py-2 mb-2" placeholder="Логин"/>
-                <input type="password" className="w-full border border-neutral-300 rounded-xl px-3 py-2" placeholder="Пароль"/>
-                <div className="mt-4 flex justify-end">
-                  <button className="btn" onClick={()=>{ saveJSON("authed", true); setAuthed(true); }}>Войти</button>
-                </div>
-              </div>
-            </div>
-          );
-        }
-
-        return (
-          <div className="min-h-screen bg-[#F7F8FA] text-neutral-900 font-sans">
-            {/* Глобальная шапка */}
-            <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
-              <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
-                <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
-                <div className="ml-4 flex items-center gap-2">
-                  <button className={`nav-btn ${view==="team" ? "active" : ""}`} onClick={()=>setView("team")}>Нагрузка</button>
-                  <button className={`nav-btn ${view==="project" ? "active" : ""}`} onClick={()=>setView("project")}>Проекты</button>
-                  <button className={`nav-btn ${view==="employees" ? "active" : ""}`} onClick={()=>setView("employees")}>Команда</button>
-                </div>
-                <div className="ml-auto flex items-center gap-2">
-                  <button onClick={()=>setCreateProjectOpen(true)} className="btn-green">+ Проект</button>
-                  <button onClick={()=>setCreatePersonOpen(true)} className="btn-green">+ Сотрудник</button>
-                </div>
-              </div>
-            </header>
-
-            <main className="max-w-screen-2xl mx-auto p-4">
-              {/* Навигатор недель нужен только во «Нагрузке» */}
-              {view==="team" && (
-                <WeekNavigator
-                  onLeft={goLeft}
-                  onRight={goRight}
-                  onToday={goToday}
-                  showRoleFilter={true}
-                  roleFilter={roleFilter}
-                  setRoleFilter={setRoleFilter}
-                  roles={roles}
-                />
-              )}
-
-              {view==="team" ? (
-                // -------- Нагрузка (бывш. Команда) --------
-                <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-                  <CalendarHeader visible={visible} leftLabel="Сотрудники" />
-                  {filteredTeamIds.map((pid, rowIdx) => {
-                    const person = people.find(p=>p.id===pid);
+        <div className="pb-24">
+          <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} showToday={false} />
+          <div className="max-w-screen-2xl mx-auto px-4">
+            <CalendarHeader visibleWeeks={visible} leftLabel="Сотрудники" />
+            <div className="grid" style={{gridTemplateColumns:gridCols}}>
+              {ordered.map((person, idx)=>(
+                <Fragment key={person.id}>
+                  {/* кликабельная/перетаскиваемая карточка сотрудника */}
+                  <div className="sticky left-0 z-20 bg-[#F7F8FA] border-r border-neutral-200 p-1"
+                       draggable onDragStart={()=>onDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(idx)}
+                       onClick={()=>openPerson(person.id)} role="button">
+                    <div className="card h-[var(--row-h)] flex items-center justify-between pl-5 pr-3 hover:bg-neutral-50 transition">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{person.name}</div>
+                        <div className="text-[11px] text-neutral-600">{String(person.role||"").toUpperCase()} {person.external? "· ВНЕШНИЙ": ""}</div>
+                      </div>
+                      <span className="text-neutral-400">⋮⋮</span>
+                    </div>
+                  </div>
+                  {/* бары по неделям (серый фон + зелёная заливка), число редактируется инлайн до сотых */}
+                  {visible.map(week=>{
+                    const total = totalFTEForPersonWeek(assignments, person.id, week, projects);
+                    const vac = vacations.has(`${person.id}|${week}`);
                     return (
-                      <Fragment key={pid}>
-                        <div
-                          className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
-                          draggable
-                          onDragStart={()=>{ dragRow.current=rowIdx; }}
-                          onDragOver={e=>e.preventDefault()}
-                          onDrop={()=>{
-                            const from=dragRow.current; const to=rowIdx; if(from==null || from===to) return;
-                            const arr=[...filteredTeamIds]; const id=arr.splice(from,1)[0]; arr.splice(to,0,id);
-                            const inactive = teamOrder.filter(id => !filteredTeamIds.includes(id));
-                            setTeamOrder([...arr, ...inactive]); dragRow.current=null;
-                          }}
-                          onClick={()=> setSelectedPersonId(pid)}
-                          role="button"
-                        >
-                          <div className="bg-white rounded-2xl shadow-sm h-[var(--row-h)] flex items-center justify-between pl-5 pr-3 hover:bg-neutral-50 transition">
-                            <div className="min-w-0">
-                              <div className="font-medium truncate">{person.name}</div>
-                              <div className="text-xs text-neutral-600">
-                                {(person.role||"other").toUpperCase()} {person.external ? "· ВНЕШНИЙ" : ""}
+                      <div key={person.id+week} className="p-1">
+                        <div className="card h-[var(--row-h)] flex items-end justify-center relative">
+                          {vac ? (
+                            <div className="absolute inset-0 flex items-center justify-center text-2xl">🏖</div>
+                          ) : (
+                            <>
+                              <div className="relative w-10 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
+                                {/* суммарная заливка (в зелёном) — визуальный индикатор общей загрузки */}
+                                <div className="absolute bottom-0 left-0 right-0" style={{height:`${clamp(total,0,1)*100}%`, background:"var(--green)"}}></div>
                               </div>
-                            </div>
-                            <span className="text-neutral-400">⋮⋮</span>
-                          </div>
+                              <InlineEditNumber
+                                value={fmtFTE2(total)}
+                                onChange={(val)=>{
+                                  // равномерно распределять не будем — total это агрегат; на нагрузке вводим total запрещаем,
+                                  // редактирование делаем на странице сотрудника по конкретным проектам (как в INDEX3).
+                                  // Поэтому здесь просто показываем значение без изменения.
+                                }}
+                                readOnly
+                              />
+                            </>
+                          )}
                         </div>
-
-                        {visible.map((weekISO, colIdx) => {
-                          const total = totalFTE(pid, weekISO);
-                          const vac = isVacation(pid, weekISO);
-                          return (
-                            <div key={weekISO+pid} className="p-1">
-                              <div className="bg-white rounded-2xl shadow-sm h-[var(--row-h)] flex items-end justify-center relative">
-                                {vac ? (
-                                  <div className="absolute inset-0 flex items-center justify-center text-2xl">🏖</div>
-                                ) : (
-                                  <>
-                                    <ReadonlyBar ratio={Math.min(1, Math.max(0, total))} title={`${total}`}/>
-                                    <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-800">{total.toFixed(2)}</div>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </Fragment>
+                      </div>
                     );
                   })}
-                </div>
-              ) : view==="project" ? (
-                <ProjectPage
-                  people={people} projects={projects} projectTeams={projectTeams}
-                  setPeople={setPeople} setProjects={setProjects} setProjectTeams={setProjectTeams}
-                />
-              ) : (
-                <EmployeesPage
-                  people={people} setPeople={setPeople}
-                />
-              )}
-            </main>
-
-            {selectedPersonId && (
-              <PersonPage
-                person={people.find(p=>p.id===selectedPersonId)}
-                projects={projects}
-                assignments={assignments}
-                teamByProject={projectTeams}
-                vacations={vacations}
-                setVacations={setVacations}
-                order={personProjectOrder[selectedPersonId]}
-                setOrder={o=> setPersonProjectOrder(prev => ({...prev, [selectedPersonId]: o}))}
-                onClose={()=> setSelectedPersonId(null)}
-                onSave={setAssignments}
-                setPeople={setPeople}
-              />
-            )}
-
-            {/* Dialogs */}
-            {createProjectOpen && (
-              <CreateProjectDialog onClose={()=>setCreateProjectOpen(false)}
-                                   onCreate={(name,color)=>{
-                                     const id = "pr" + Math.random().toString(36).slice(2,7);
-                                     setProjects(prev => [...prev, {id, name, color: color||"#16a34a", status:"active"}]);
-                                     setProjectTeams(prev => ({...prev, [id]: new Set()}));
-                                     setCreateProjectOpen(false);
-                                   }}/>
-            )}
-            {createPersonOpen && (
-              <CreatePersonDialog onClose={()=>setCreatePersonOpen(false)}
-                                  onCreate={(name, role, external)=>{
-                                    const id = "p" + Math.random().toString(36).slice(2,7);
-                                    setPeople(prev => [...prev, {id, name, role, external}]);
-                                    setCreatePersonOpen(false);
-                                  }}/>
-            )}
+                </Fragment>
+              ))}
+            </div>
           </div>
-        );
-      }
-
-      // ---------- Team row drag helper ----------
-      const dragRow = useRef(null);
-
-      // ---------- Person project order ----------
-      const [personProjectOrder, setPersonProjectOrder] = useState(loadJSON("personProjectOrder", {}));
-      useEffect(()=> saveJSON("personProjectOrder", personProjectOrder), [personProjectOrder]);
-
-      // ---------- Render ----------
-      return <Header />;
+        </div>
+      );
     }
 
-    // ---------- Employees Page ----------
-    function EmployeesPage({people, setPeople}){
-      const [q, setQ] = useState("");
-      const filtered = useMemo(()=> people.filter(p => p.name.toLowerCase().includes(q.toLowerCase())), [people, q]);
-
-      function remove(id){
-        if(!confirm("Удалить сотрудника?")) return;
-        setPeople(prev => prev.filter(p => p.id!==id));
-      }
+    /* ======================= TEAM PAGE ======================= */
+    function TeamPage({people, setPeople}){
+      const toggleExternal = (id)=>{
+        setPeople(prev => prev.map(p => p.id===id ? {...p, external:!p.external} : p));
+      };
+      const editPerson = (id)=>{
+        const p = people.find(x=>x.id===id);
+        const name = prompt("Имя", p?.name||""); if(name===null) return;
+        const role = prompt("Роль", p?.role||""); if(role===null) return;
+        setPeople(prev => prev.map(x => x.id===id ? {...x, name, role} : x));
+      };
+      const removePerson = (id)=>{ if(!confirm("Удалить сотрудника?")) return; setPeople(prev => prev.filter(p=>p.id!==id)); };
 
       return (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <input className="border border-neutral-300 rounded-xl px-3 py-2 w-full" placeholder="Поиск сотрудника..." value={q} onChange={e=>setQ(e.target.value)}/>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(p => (
-              <div key={p.id} className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-sm">
+        <div className="max-w-screen-2xl mx-auto px-4 py-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {people.map(p=>(
+              <div key={p.id} className="card p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-medium">{p.name}</div>
-                    <div className="text-xs text-neutral-600">{(p.role||"other").toUpperCase()} {p.external? "· ВНЕШНИЙ": ""}</div>
+                    <div className="text-sm text-neutral-500">{(p.role||"other").toUpperCase()}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="btn" onClick={()=>{
-                      const name = prompt("Имя", p.name); if(name===null) return;
-                      const role = prompt("Роль", p.role||""); if(role===null) return;
-                      setPeople(prev => prev.map(x => x.id===p.id ? {...x, name, role} : x));
-                    }}>Редакт.</button>
-                    <button className="btn" onClick={()=>remove(p.id)}><IconTrash/></button>
+                    <button className="btn" onClick={()=>editPerson(p.id)}>Редактировать</button>
+                    <button className="btn" onClick={()=>removePerson(p.id)}>Удалить</button>
                   </div>
                 </div>
-                <label className="mt-3 inline-flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={!!p.external} onChange={()=> setPeople(prev => prev.map(x => x.id===p.id ? {...x, external:!x.external} : x))}/>
+                <label className="mt-3 inline-flex items-center gap-2 text-sm text-neutral-700">
+                  <input type="checkbox" checked={!!p.external} onChange={()=>toggleExternal(p.id)} />
                   Внешний сотрудник
                 </label>
               </div>
@@ -660,63 +339,58 @@
       );
     }
 
-    // ---------- Project Page ----------
-    function ProjectPage({people, projects, projectTeams, setPeople, setProjects, setProjectTeams}){
-      const [q, setQ] = useState("");
-      const filteredPeople = useMemo(()=> people.filter(p => p.name.toLowerCase().includes(q.toLowerCase())), [people, q]);
-
-      function removeProject(id){
-        if(!confirm("Вы уверены, что хотите удалить проект?")) return;
-        setProjects(prev => prev.filter(p=>p.id!==id));
-        const obj={...projectTeams}; delete obj[id]; setProjectTeams(obj);
-      }
-
-      function toggleMember(projectId, personId){
-        const team = projectTeams[projectId] || new Set();
-        const next = {...projectTeams, [projectId]: new Set(team)};
-        if(next[projectId].has(personId)) next[projectId].delete(personId);
-        else next[projectId].add(personId);
-        setProjectTeams(next);
-      }
-
-      function changeColor(id, color){
-        setProjects(prev => prev.map(p => p.id===id ? {...p, color} : p));
-      }
-
-      function cycleStatus(id){
-        setProjects(prev => prev.map(p => {
+    /* ======================= PROJECTS PAGE ======================= */
+    function ProjectsPage({projects, setProjects, people, teams, setTeams}){
+      const setColor = (id, color)=> setProjects(prev => prev.map(p => p.id===id ? {...p, color} : p));
+      const cycleStatus = (id)=>{
+        setProjects(prev => prev.map(p=>{
           if(p.id!==id) return p;
           const order=["active","paused","done"];
-          const i = order.indexOf(p.status);
-          return {...p, status: order[(i+1)%order.length]};
+          const i=order.indexOf(p.status); const nx=order[(i+1)%order.length];
+          return {...p, status:nx};
         }));
-      }
+      };
+      const removeProject = (id)=>{ if(!confirm("Вы уверены, что хотите удалить проект?")) return;
+        setProjects(prev => prev.filter(p=>p.id!==id));
+        const t={...teams}; delete t[id]; setTeams(t);
+      };
+
+      const [q,setQ]=useState("");
+      const filteredPeople = useMemo(
+        ()=> people.filter(p => p.name.toLowerCase().includes(q.toLowerCase())).slice(0,10),
+        [people,q]
+      );
+
+      const toggleMember = (prid, pid)=>{
+        const cur = teams[prid] || new Set();
+        const next = {...teams, [prid]:new Set(cur)};
+        if(next[prid].has(pid)) next[prid].delete(pid); else next[prid].add(pid);
+        setTeams(next);
+      };
 
       return (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map(pr => (
-            <div key={pr.id} className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-sm">
+        <div className="max-w-screen-2xl mx-auto px-4 py-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {projects.map(pr=>(
+            <div key={pr.id} className="card p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span title={pr.status} className={"inline-block w-2.5 h-2.5 rounded-full " + (pr.status==="active"?"bg-green-600":pr.status==="paused"?"bg-amber-500":"bg-neutral-400")}></span>
+                  <StatusDot status={pr.status}/>
                   <div className="font-medium">{pr.name}</div>
                 </div>
-                <button className="btn" onClick={()=>removeProject(pr.id)}>Удалить</button>
+                <button className="btn" onClick={()=>removeProject(pr.id)}>Удалить проект</button>
               </div>
-
               <div className="mt-3 flex items-center gap-3">
                 <label className="text-sm text-neutral-700">Цвет:</label>
-                <input type="color" value={pr.color} onChange={e=>changeColor(pr.id, e.target.value)} />
-                <button className="btn" onClick={()=>cycleStatus(pr.id)}>Статус</button>
+                <input type="color" value={pr.color} onChange={e=>setColor(pr.id, e.target.value)} />
+                <button className="btn" onClick={()=>cycleStatus(pr.id)}>Сменить статус</button>
               </div>
-
-              <div className="mt-3">
+              <div className="mt-4">
                 <div className="text-sm text-neutral-700 mb-2">Добавить участников:</div>
                 <input className="w-full px-3 py-2 border border-neutral-300 rounded-xl bg-white"
                        placeholder="Поиск по имени…" value={q} onChange={e=>setQ(e.target.value)} />
                 <div className="mt-2 flex flex-wrap gap-2">
                   {filteredPeople.map(p=>{
-                    const on = (projectTeams[pr.id]||new Set()).has(p.id);
+                    const on = (teams[pr.id]||new Set()).has(p.id);
                     return (
                       <button key={p.id} className={"tag "+(on?"bg-green-50 border-green-600":"")} onClick={()=>toggleMember(pr.id, p.id)}>
                         {on?"✓ ":""}{p.name}
@@ -726,9 +400,11 @@
                 </div>
                 <div className="mt-3 text-sm text-neutral-700">Участники проекта:</div>
                 <div className="mt-1 flex flex-wrap gap-2">
-                  {[...(projectTeams[pr.id]||new Set())].map(pid=>{
+                  {[...(teams[pr.id]||new Set())].map(pid=>{
                     const person = people.find(x=>x.id===pid); if(!person) return null;
-                    return <span key={pid} className="tag">{person.name}</span>;
+                    return (
+                      <span key={pid} className="tag">{person.name}</span>
+                    );
                   })}
                 </div>
               </div>
@@ -738,58 +414,57 @@
       );
     }
 
-    // ---------- Person Page ----------
-    function PersonPage({
-      person,
-      projects,
-      assignments,
-      teamByProject,
-      vacations,
-      setVacations,
-      order,
-      setOrder,
-      onClose,
-      onSave,
-      setPeople,
-    }){
-      const [visible, setVisible] = useState(weeksRange(loadJSON("firstWeekISO", startOfISOWeek(new Date()).toISOString()), 12));
-      const [firstIdx, setFirstIdx] = useState(0);
-      const weeks = visible.slice(firstIdx, firstIdx+VISIBLE_WEEKS);
+    /* ======================= INLINE NUMBER EDIT ======================= */
+    function InlineEditNumber({value, onChange, readOnly=false}){
+      const [editing, setEditing] = useState(false);
+      const [val, setVal] = useState(value);
+      useEffect(()=>setVal(value),[value]);
 
-      const roles = useMemo(()=> [...new Set(loadJSON("people", []).map(p=>p.role||"other"))], []);
-      const rolesSet = useMemo(()=> new Set(roles), [roles]);
+      if(readOnly) return (
+        <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-800">
+          {value}
+        </div>
+      );
 
-      function totalFTE(personId, weekISO){
-        let sum = 0; for(const pr of projects){ sum += (assignments.get(getKey(personId, pr.id, weekISO))||0); }
-        return Math.round(sum*100)/100;
-      }
+      return editing ? (
+        <input
+          autoFocus
+          className="absolute inset-0 m-auto h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm cell-input"
+          value={val}
+          inputMode="decimal"
+          onChange={e=>{
+            // допускаем формат 0.05
+            const t = e.target.value.replace(",",".");
+            if(/^(\d+(\.\d{0,2})?)?$/.test(t)) setVal(t);
+          }}
+          onBlur={()=>{ onChange(val===""?0:parseFloat(val)); setEditing(false); }}
+          onKeyDown={(e)=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setVal(value); setEditing(false);} }}
+        />
+      ) : (
+        <button className="absolute inset-0 flex items-center justify-center text-sm font-semibold"
+                onClick={()=>setEditing(true)}>{value}</button>
+      );
+    }
 
-      function setFte(personId, projectId, weekISO, val){
-        const value = Math.max(0, Math.min(1, Number(val)||0));
-        const next = new Map(assignments);
-        const key = getKey(personId, projectId, weekISO);
-        if(value>0) next.set(key, value); else next.delete(key);
-        onSave(next);
-      }
+    /* ======================= PERSON PAGE ======================= */
+    function PersonPage({ personId, back, people, projects, teams, assignments, setAssignments, vacations, setVacations, visible, setVisible }){
+      const person = people.find(p=>p.id===personId);
+      const goLeft = ()=> setVisible(prev => prev.map(w => addWeeksISO(w,-1)));
+      const goRight= ()=> setVisible(prev => prev.map(w => addWeeksISO(w, 1)));
+      const goToday= ()=> setVisible(weeksRange(startOfISOWeek(new Date()).toISOString(), visible.length));
+      const gridCols = `var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`;
 
-      function isVacation(personId, weekISO){ return vacations.has(`${personId}|${weekISO}`); }
-      function toggleVacation(personId, weekISO){
-        const key = `${personId}|${weekISO}`;
-        const next = new Set(vacations);
-        if(next.has(key)) next.delete(key); else next.add(key);
-        setVacations(next);
-      }
-
-      // order for person's projects
+      // только проекты, где участвует сотрудник
       const myProjects = useMemo(()=>{
-        return projects.filter(pr => (teamByProject[pr.id]||new Set()).has(person.id));
-      }, [projects, teamByProject, person.id]);
+        return projects.filter(pr => (teams[pr.id]||new Set()).has(personId));
+      }, [projects, teams, personId]);
 
-      useEffect(()=>{
-        if(!order || !order.length){
-          setOrder(myProjects.map(p=>p.id));
-        }
-      }, [myProjects]);
+      const [order, setOrder] = useState(myProjects.map(p=>p.id));
+      useEffect(()=> setOrder(myProjects.map(p=>p.id)), [myProjects]);
+
+      // Σ FTE бейджи по неделям
+      const totals = visible.map(w => totalFTEForPersonWeek(assignments, person.id, w, projects));
+      const badgeByISO = {}; visible.forEach((w,i)=> badgeByISO[w] = `Σ ${fmtFTE2(totals[i])}`);
 
       const [dragIdx, setDragIdx] = useState(null);
       const onDragStart = (i)=> setDragIdx(i);
@@ -798,168 +473,146 @@
         const next=[...order]; const [m]=next.splice(dragIdx,1); next.splice(i,0,m); setOrder(next); setDragIdx(null);
       };
 
-      function goLeft(){ setFirstIdx(Math.max(0, firstIdx-1)); }
-      function goRight(){ setFirstIdx(firstIdx+1); }
-      function goToday(){
-        const anchor = startOfISOWeek(new Date());
-        const idx = visible.indexOf(anchor.toISOString());
-        setFirstIdx(Math.max(0, idx));
-      }
+      const onEdit = (pid, weekISO, newVal)=>{
+        const next = setFteFor(assignments, person.id, pid, weekISO, newVal);
+        setAssignments(next);
+      };
+
+      const toggleVacation = (weekISO)=>{
+        const key=`${person.id}|${weekISO}`;
+        const next = new Set(vacations);
+        if(next.has(key)) next.delete(key); else next.add(key);
+        setVacations(next);
+      };
 
       return (
-        <div className="fixed inset-0 bg-black/40 z-[100] grid place-items-center p-4" onClick={onClose}>
-          <div className="bg-white rounded-2xl shadow-xl max-w-[min(1200px,100vw-32px)] w-full max-h-[90vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
-            <div className="sticky top-0 z-10 bg-white border-b border-neutral-200">
-              <div className="px-4 py-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button className="btn" onClick={onClose}>← Назад</button>
-                  <div className="text-sm text-neutral-600">{person.name}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="btn" onClick={goLeft}>‹</button>
-                  <button className="btn" onClick={goToday}>Сегодня</button>
-                  <button className="btn" onClick={goRight}>›</button>
-                </div>
-              </div>
-            </div>
-
-            {/* Контент — сетка как в «Нагрузка» */}
-            <div className="max-w-screen-2xl mx-auto px-4">
-              <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${weeks.length}, ${WEEK_COL_PX}px)`}}>
-                <CalendarHeader visible={weeks} leftLabel="Проекты" />
-              </div>
-
-              <div className="grid mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${weeks.length}, ${WEEK_COL_PX}px)`}}>
-                {/* Σ по неделям */}
-                <div className="sticky left-0 z-10 bg-[#F7F8FA] border-r border-neutral-200 p-2 text-sm">
-                  Σ / неделя
-                </div>
-                {weeks.map((iso, idx) => (
-                  <div key={iso} className="h-[40px] flex items-center justify-center font-semibold text-sm">{totalFTE(person.id, iso).toFixed(2)}</div>
-                ))}
-              </div>
-
-              <div className="grid pb-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${weeks.length}, ${WEEK_COL_PX}px)`}}>
-                {(order||[]).map((pid, idx) => {
-                  const pr = projects.find(p=>p.id===pid); if(!pr) return null;
-                  return (
-                    <Fragment key={pid}>
-                      <div className="sticky left-0 z-10 bg-[#F7F8FA] border-r border-neutral-200 p-1"
-                           draggable onDragStart={()=>onDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
-                        <div className="bg-white rounded-2xl shadow-sm h-[var(--row-h)] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none">
-                          <span className="text-neutral-400">⋮⋮</span>
-                          <div className="w-6 h-6 rounded-lg" style={{background:pr.color}} title="Цвет проекта"></div>
-                          <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
-                        </div>
+        <div className="pb-24">
+          <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} showToday={false}
+            leftNode={<div className="flex items-center gap-2"><button className="btn" onClick={back}>← Назад</button><div className="text-sm text-neutral-600">{person?.name}</div></div>} />
+          <div className="max-w-screen-2xl mx-auto px-4">
+            <CalendarHeader visibleWeeks={visible} leftLabel="Проекты" badgeByISO={badgeByISO}/>
+            <div className="grid pb-4" style={{gridTemplateColumns:gridCols}}>
+              {order.map((pid, idx)=>{
+                const pr = projects.find(p=>p.id===pid); if(!pr) return null;
+                return (
+                  <Fragment key={pid}>
+                    {/* проект слева — перетаскиваемый */}
+                    <div className="sticky left-0 z-20 bg-[#F7F8FA] border-r border-neutral-200 p-1"
+                         draggable onDragStart={()=>onDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
+                      <div className="card h-[var(--row-h)] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none">
+                        <span className="text-neutral-400">⋮⋮</span>
+                        <div className="w-6 h-6 rounded-lg" style={{background:pr.color}} title="Цвет проекта"></div>
+                        <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
                       </div>
-
-                      {weeks.map(iso => {
-                        const k = getKey(person.id, pr.id, iso);
-                        const val = assignments.get(k) || 0;
-                        const vac = vacations.has(`${person.id}|${iso}`);
-                        return (
-                          <div key={k} className="p-1">
-                            <div className="bg-white rounded-2xl shadow-sm h-[var(--row-h)] flex items-end justify-center relative">
-                              {vac ? (
-                                <button className="absolute inset-0 flex items-center justify-center text-2xl" onClick={()=>toggleVacation(person.id, iso)}>🏖</button>
-                              ) : (
-                                <>
-                                  <div className="relative w-10 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
-                                    <div className="absolute bottom-0 left-0 right-0" style={{height:`${Math.max(0, Math.min(1, val))*100}%`, background:pr.color}}/>
-                                  </div>
-                                  <InlineInputNumber
-                                    value={val}
-                                    onChange={(newVal)=> setFte(person.id, pr.id, iso, newVal)}
-                                  />
-                                </>
-                              )}
+                    </div>
+                    {/* клетки по неделям — серый фон + зелёная заливка проекта, инлайн редактирование до сотых */}
+                    {visible.map(week=>{
+                      const fte = fteFor(assignments, person.id, pid, week);
+                      const vac = vacations.has(`${person.id}|${week}`);
+                      const ratio = clamp(fte,0,1);
+                      return (
+                        <div key={pid+week} className="p-1">
+                          <div className="card h-[var(--row-h)] flex items-end justify-center relative">
+                            <div className="relative w-10 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
+                              {!vac && <div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:pr.color}}/>}
                             </div>
+                            {!vac ? (
+                              <InlineEditNumber value={fmtFTE2(fte)} onChange={(v)=>onEdit(pid, week, v)} />
+                            ) : (
+                              <button className="absolute inset-0 flex items-center justify-center text-2xl" onClick={()=>toggleVacation(week)}>🏖</button>
+                            )}
                           </div>
-                        );
-                      })}
-                    </Fragment>
-                  );
-                })}
-              </div>
+                          {/* компактная Σ под клеткой для узких экранов */}
+                          <div className="mt-1 text-center text-[11px] text-neutral-600 sm:hidden">{badgeByISO[week]}</div>
+                        </div>
+                      );
+                    })}
+                  </Fragment>
+                );
+              })}
             </div>
           </div>
         </div>
       );
     }
 
-    function InlineInputNumber({value, onChange}){
-      const [editing, setEditing] = useState(false);
-      const [val, setVal] = useState((value??0).toFixed(2));
-      useEffect(()=> setVal((value??0).toFixed(2)), [value]);
-      if(!editing){
-        return <button className="absolute inset-0 flex items-center justify-center text-sm font-semibold" onClick={()=>setEditing(true)}>{(value??0).toFixed(2)}</button>;
+    /* ======================= APP ROOT ======================= */
+    function App(){
+      const [tab, setTab] = useState("load"); // load | team | projects | person
+      const [people, setPeople] = useState(loadJSON("people", defaultPeople));
+      const [projects, setProjects] = useState(loadJSON("projects", defaultProjects));
+      const [teams, setTeams] = useState(()=>{
+        const raw = loadJSON("teams", null);
+        if(raw){ const obj={}; for(const k of Object.keys(raw)) obj[k]=new Set(raw[k]); return obj; }
+        return defaultTeams;
+      });
+      const [assignments, setAssignments] = useState(()=>{
+        const raw = loadJSON("assignments", null);
+        return raw ? mapLoad(raw) : defaultAssignments;
+      });
+      const [vacations, setVacations] = useState(()=>{
+        const raw = loadJSON("vacations", null);
+        return raw ? setLoad(raw) : defaultVacations;
+      });
+      const [visible, setVisible] = useState(loadJSON("weeks", initialWeeks));
+      const [personId, setPersonId] = useState(null);
+
+      useEffect(()=>saveJSON("people", people), [people]);
+      useEffect(()=>saveJSON("projects", projects), [projects]);
+      useEffect(()=>{ const obj={}; for(const k of Object.keys(teams)) obj[k]=[...teams[k]]; saveJSON("teams", obj); }, [teams]);
+      useEffect(()=>saveJSON("assignments", mapSave(assignments)), [assignments]);
+      useEffect(()=>saveJSON("vacations", setSave(vacations)), [vacations]);
+      useEffect(()=>saveJSON("weeks", visible), [visible]);
+
+      const openPerson = (id)=>{ setPersonId(id); setTab("person"); };
+
+      const onAddProject = ()=>{
+        const name = prompt("Название проекта"); if(!name) return;
+        const id = "pr" + Math.random().toString(36).slice(2,7);
+        setProjects(prev => [...prev, {id, name, color:"#16a34a", status:"active"}]);
+        setTeams(prev => ({...prev, [id]:new Set()}));
+      };
+      const onAddPerson = ()=>{
+        const name = prompt("Имя сотрудника"); if(!name) return;
+        const role = prompt("Роль (frontend/backend/manager/qa)","frontend") || "other";
+        const id = "p" + Math.random().toString(36).slice(2,7);
+        const maxOrder = people.reduce((m,p)=>Math.max(m, p.order??0), 0);
+        setPeople(prev => [...prev, {id, name, role, external:false, order:maxOrder+1}]);
+      };
+
+      let page=null;
+      if(tab==="load"){
+        page = (
+          <LoadPage
+            people={people} setPeople={setPeople}
+            projects={projects}
+            assignments={assignments} vacations={vacations} setAssignments={setAssignments}
+            visible={visible} setVisible={setVisible}
+            openPerson={openPerson}
+          />
+        );
+      } else if(tab==="team"){
+        page = <TeamPage people={people} setPeople={setPeople} />;
+      } else if(tab==="projects"){
+        page = <ProjectsPage projects={projects} setProjects={setProjects} people={people} teams={teams} setTeams={setTeams} />;
+      } else if(tab==="person"){
+        page = (
+          <PersonPage
+            personId={personId} back={()=>setTab("load")}
+            people={people} projects={projects} teams={teams}
+            assignments={assignments} setAssignments={setAssignments}
+            vacations={vacations} setVacations={setVacations}
+            visible={visible} setVisible={setVisible}
+          />
+        );
       }
-      return (
-        <input
-          autoFocus
-          className="absolute inset-0 m-auto h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm"
-          value={val}
-          inputMode="decimal"
-          onChange={e=>{
-            const t = e.target.value.replace(",",".");
-            if(/^(\d+(\.\d{0,2})?)?$/.test(t)) setVal(t);
-          }}
-          onBlur={()=>{ const num = parseFloat(val)||0; onChange(Math.max(0, Math.min(1, num))); setEditing(false); }}
-          onKeyDown={(e)=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal((value??0).toFixed(2)); } }}
-        />
-      );
-    }
 
-    // ---------- Create Project Dialog ----------
-    function CreateProjectDialog({onClose, onCreate}){
-      const [name, setName] = useState("");
-      const [color, setColor] = useState("#16a34a");
       return (
-        <div className="fixed inset-0 bg-black/40 z-[200] grid place-items-center p-4" onClick={onClose}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-4" onClick={e=>e.stopPropagation()}>
-            <div className="text-lg font-semibold mb-3">Новый проект</div>
-            <input className="w-full border border-neutral-300 rounded-xl px-3 py-2 mb-2" placeholder="Название" value={name} onChange={e=>setName(e.target.value)}/>
-            <div className="flex items-center gap-3 mb-4">
-              <label className="text-sm">Цвет:</label>
-              <input type="color" value={color} onChange={e=>setColor(e.target.value)}/>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button className="btn" onClick={onClose}>Отмена</button>
-              <button className="btn" onClick={()=> onCreate(name.trim(), color)}>Создать</button>
-            </div>
-          </div>
+        <div>
+          <AppHeader tab={tab} setTab={setTab} onAddProject={onAddProject} onAddPerson={onAddPerson}/>
+          {page}
         </div>
       );
-    }
-
-    // ---------- Create Person Dialog ----------
-    function CreatePersonDialog({onClose, onCreate}){
-      const [name, setName] = useState("");
-      const [role, setRole] = useState("frontend");
-      const [external, setExternal] = useState(false);
-      return (
-        <div className="fixed inset-0 bg-black/40 z-[200] grid place-items-center p-4" onClick={onClose}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-4" onClick={e=>e.stopPropagation()}>
-            <div className="text-lg font-semibold mb-3">Новый сотрудник</div>
-            <input className="w-full border border-neutral-300 rounded-xl px-3 py-2 mb-2" placeholder="Имя" value={name} onChange={e=>setName(e.target.value)}/>
-            <input className="w-full border border-neutral-300 rounded-xl px-3 py-2 mb-2" placeholder="Роль (frontend/backend/manager/qa)" value={role} onChange={e=>setRole(e.target.value)}/>
-            <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={external} onChange={()=>setExternal(v=>!v)}/>Внешний</label>
-            <div className="flex justify-end gap-2 mt-4">
-              <button className="btn" onClick={onClose}>Отмена</button>
-              <button className="btn" onClick={()=> onCreate(name.trim(), role.trim(), external)}>Создать</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // dev sanity checks
-    if(typeof window!=="undefined"){
-      try{
-        console.assert(((1.16*100)|0)/100===1.16 || true,"no-op");
-        const parts = weekLabelParts(initialWeeksFromAnchor()[0]);
-        console.assert(!!parts.top && !!parts.bot, "weekLabelParts returns two lines");
-      }catch{}
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(<App />);
