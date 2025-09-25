@@ -20,6 +20,17 @@
     .hide-scrollbar::-webkit-scrollbar{ width:8px; height:8px; }
     .hide-scrollbar::-webkit-scrollbar-thumb{ background:rgba(0,0,0,0.15); border-radius:8px; }
     .hide-scrollbar{ scrollbar-width:thin; }
+    .btn{
+      @apply rounded-xl border border-neutral-300 bg-white px-3 py-1 shadow-sm hover:shadow transition;
+    }
+    .segmented{
+      @apply flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm;
+    }
+    .segmented button{
+      @apply px-3 py-1 rounded-xl transition;
+    }
+    .segmented .active{ @apply bg-white shadow-sm; }
+    .segmented .idle{ @apply hover:bg-white/70; }
   </style>
 </head>
 <body class="bg-[#F7F8FA] no-scrollbar">
@@ -241,8 +252,11 @@
       const [teamOrder, setTeamOrder] = useState(()=> loadJSON("teamOrder", seedPeople.map(p=>p.id)));
 
       const [authed, setAuthed] = useState(loadJSON("authed", false));
-      const [view, setView] = useState("team"); // "team" | "project"
-      const [projectSubView, setProjectSubView] = useState(loadJSON("projectSubView","projects")); // 'projects' | 'employees'
+
+      // теперь три вкладки: team(Нагрузка), project(Проекты), employees(Команда)
+      const [view, setView] = useState(loadJSON("view","team")); // 'team' | 'project' | 'employees'
+      useEffect(()=> saveJSON({view}), [view]);
+
       const [selectedPersonId, setSelectedPersonId] = useState(null);
 
       const {weeks, setWeeks, visible, goLeft, goRight, goToday} = useWeeksWindow();
@@ -281,7 +295,6 @@
       useEffect(()=>{ const obj={}; Object.entries(vacations).forEach(([k,v])=> obj[k]=Array.from(v)); saveJSON({vacations:obj}); }, [vacations]);
       useEffect(()=> saveJSON({personProjectOrder}), [personProjectOrder]);
       useEffect(()=> saveJSON({teamOrder}), [teamOrder]);
-      useEffect(()=> saveJSON({projectSubView}), [projectSubView]);
 
       // helpers
       const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
@@ -289,14 +302,13 @@
 
       // people collections
       const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]); // внутр. только
-      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]); // для проектов — все активные (включая внешних)
+      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]); // для проектов/команды — все активные
 
       useEffect(()=>{
-        // поддерживаем порядок команды только для доступных людей страницы Команда
         setTeamOrder(prev => mergeOrder(prev, peopleForTeam.map(p=>p.id)));
       }, [peopleForTeam]);
 
-      // фильтр ролей
+      // фильтр ролей для Нагрузки
       const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
       useEffect(()=> saveJSON({roleFilter}), [roleFilter]);
 
@@ -380,19 +392,20 @@
           <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
-              <div className="ml-4 flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm">
-                <button className={`px-3 py-1 rounded-xl transition ${view==="team" ? "bg-white shadow-sm" : "hover:bg-white/70"}`} onClick={()=>setView("team")}>Команда</button>
-                <button className={`px-3 py-1 rounded-xl transition ${view==="project" ? "bg-white shadow-sm" : "hover:bg-white/70"}`} onClick={()=>setView("project")}>Проекты</button>
+              <div className="ml-4 segmented">
+                <button className={view==="team" ? "active" : "idle"} onClick={()=>setView("team")}>Нагрузка</button>
+                <button className={view==="project" ? "active" : "idle"} onClick={()=>setView("project")}>Проекты</button>
+                <button className={view==="employees" ? "active" : "idle"} onClick={()=>setView("employees")}>Команда</button>
               </div>
               <div className="ml-auto flex items-center gap-2">
-                <button onClick={()=>setCreateProjectOpen(true)} className="rounded-xl border border-neutral-300 px-3 py-1 bg-white shadow-sm hover:shadow transition">+ Проект</button>
-                <button onClick={()=>setCreatePersonOpen(true)} className="rounded-xl border border-neutral-300 px-3 py-1 bg-white shadow-sm hover:shadow transition">+ Сотрудник</button>
+                <button onClick={()=>setCreateProjectOpen(true)} className="btn">+ Проект</button>
+                <button onClick={()=>setCreatePersonOpen(true)} className="btn">+ Сотрудник</button>
               </div>
             </div>
           </header>
 
           <main className="max-w-screen-2xl mx-auto p-4">
-            {/* Навигатор недель нужен только в Команде */}
+            {/* Навигатор недель нужен только во «Нагрузке» */}
             {view==="team" && (
               <WeekNavigator
                 onLeft={goLeft}
@@ -406,7 +419,7 @@
             )}
 
             {view==="team" ? (
-              // -------- Команда --------
+              // -------- Нагрузка (бывш. Команда) --------
               <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
                 <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
                 {visible.map(w => (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
@@ -464,9 +477,10 @@
                   );
                 })}
               </div>
-            ) : (
+            ) : view==="project" ? (
               // -------- Проекты --------
               <>
+                {/* Роли убрали из правого угла; отдельной кнопки «Смотреть всех…» больше нет */}
                 <RoleManager
                   roles={roles}
                   setRoles={setRoles}
@@ -474,94 +488,85 @@
                   people={people}
                   setPeople={setPeople}
                   stickyTopClass="top-[var(--app-header-h)]"
-                  rightNode={
-                    <button
-                      className="ml-auto px-3 py-1 rounded-xl border border-neutral-300 bg-white shadow-sm hover:shadow"
-                      onClick={()=>setProjectSubView("employees")}
-                      title="Открыть список сотрудников"
-                    >👥 Смотреть всех сотрудников</button>
-                  }
                 />
 
-                {projectSubView==="employees" ? (
-                  <EmployeesPage
-                    people={people}
-                    setPeople={setPeople}
-                    projects={projects}
-                    projectTeams={projectTeams}
-                    setProjectTeams={setProjectTeams}
-                    deletePerson={deletePerson}
-                    onBack={()=>setProjectSubView("projects")}
-                  />
-                ) : (
-                  <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
-                    {projects.map((project, idx) => (
-                      <Fragment key={project.id}>
-                        <div
-                          className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
-                          draggable
-                          onDragStart={()=>onProjectDragStart(idx)}
-                          onDragOver={e=>e.preventDefault()}
-                          onDrop={()=>onProjectDrop(idx)}
-                          title="Перетащите, чтобы изменить порядок"
-                        >
-                          <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px] cursor-grab active:cursor-grabbing select-none">
-                            <button
-                              className="w-8 h-8 rounded-lg flex items-center justify-center"
-                              style={{background:project.color}}
-                              title="Статус проекта"
-                              onClick={()=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, status:(p.status==="active"?"onhold": p.status==="onhold"?"done": p.status==="done"?"planned":"active")} : p))}
-                            >
-                              <StatusIcon status={project.status}/>
-                            </button>
-                            <div className="font-medium truncate" title={project.name}>{project.name}</div>
+                <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
+                  {projects.map((project, idx) => (
+                    <Fragment key={project.id}>
+                      <div
+                        className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                        draggable
+                        onDragStart={()=>onProjectDragStart(idx)}
+                        onDragOver={e=>e.preventDefault()}
+                        onDrop={()=>onProjectDrop(idx)}
+                        title="Перетащите, чтобы изменить порядок"
+                      >
+                        <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px] cursor-grab active:cursor-grabbing select-none">
+                          <button
+                            className="w-8 h-8 rounded-lg flex items-center justify-center"
+                            style={{background:project.color}}
+                            title="Статус проекта"
+                            onClick={()=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, status:(p.status==="active"?"onhold": p.status==="onhold"?"done": p.status==="done"?"planned":"active")} : p))}
+                          >
+                            <StatusIcon status={project.status}/>
+                          </button>
+                          <div className="font-medium truncate" title={project.name}>{project.name}</div>
 
-                            {/* Пипетка цвета */}
-                            <button
-                              className="absolute top-2 right-10 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
-                              title="Изменить цвет"
-                              onClick={()=> document.getElementById(`color-${project.id}`)?.click()}
-                              type="button"
-                            >
-                              <EyedropperIcon/>
-                            </button>
-                            <input
-                              id={`color-${project.id}`}
-                              type="color"
-                              className="hidden"
-                              value={project.color}
-                              onChange={(e)=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, color:e.target.value} : p))}
-                            />
+                          {/* Пипетка цвета */}
+                          <button
+                            className="absolute top-2 right-10 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
+                            title="Изменить цвет"
+                            onClick={()=> document.getElementById(`color-${project.id}`)?.click()}
+                            type="button"
+                          >
+                            <EyedropperIcon/>
+                          </button>
+                          <input
+                            id={`color-${project.id}`}
+                            type="color"
+                            className="hidden"
+                            value={project.color}
+                            onChange={(e)=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, color:e.target.value} : p))}
+                          />
 
-                            {/* Удаление */}
-                            <button
-                              type="button"
-                              draggable={false}
-                              aria-label="Удалить проект"
-                              onMouseDown={(e)=>e.preventDefault()}
-                              onClick={()=> deleteProject(project.id)}
-                              title="Удалить проект"
-                              className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
-                            >
-                              <MinusIcon className="text-neutral-700"/>
-                            </button>
-                          </div>
+                          {/* Удаление */}
+                          <button
+                            type="button"
+                            draggable={false}
+                            aria-label="Удалить проект"
+                            onMouseDown={(e)=>e.preventDefault()}
+                            onClick={()=> deleteProject(project.id)}
+                            title="Удалить проект"
+                            className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
+                          >
+                            <MinusIcon className="text-neutral-700"/>
+                          </button>
                         </div>
-                        <div className="border border-neutral-200 p-3">
-                          <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
-                            <ProjectTeamSelector
-                              project={project}
-                              people={peopleActiveAll}
-                              projectTeams={projectTeams}
-                              setProjectTeams={setProjectTeams}
-                            />
-                          </div>
+                      </div>
+                      <div className="border border-neutral-200 p-3">
+                        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+                          <ProjectTeamSelector
+                            project={project}
+                            people={peopleActiveAll}
+                            projectTeams={projectTeams}
+                            setProjectTeams={setProjectTeams}
+                          />
                         </div>
-                      </Fragment>
-                    ))}
-                  </div>
-                )}
+                      </div>
+                    </Fragment>
+                  ))}
+                </div>
               </>
+            ) : (
+              // -------- Команда (список всех сотрудников) --------
+              <EmployeesPage
+                people={people}
+                setPeople={setPeople}
+                projects={projects}
+                projectTeams={projectTeams}
+                setProjectTeams={setProjectTeams}
+                deletePerson={deletePerson}
+              />
             )}
           </main>
 
@@ -647,9 +652,9 @@
                   </select>
                 </div>
               )}
-              <button onClick={onLeft} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Назад на неделю">‹</button>
-              <button onClick={onToday} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Показать текущую неделю">Сегодня</button>
-              <button onClick={onRight} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Вперёд на неделю">›</button>
+              <button onClick={onLeft} className="btn">‹</button>
+              <button onClick={onToday} className="btn">Сегодня</button>
+              <button onClick={onRight} className="btn">›</button>
             </div>
           </div>
         </div>
@@ -711,19 +716,14 @@
 
       return (
         <div className="fixed inset-0 z-50 bg-[#F7F8FA] overflow-auto no-scrollbar">
-          {/* Шапка с тем же переключателем */}
+          {/* Шапка с тремя кнопками */}
           <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
-              <div className="ml-4 flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm">
-                <button
-                  className={`px-3 py-1 rounded-xl transition ${view==="team" ? "bg-white shadow-sm" : "hover:bg-white/70"}`}
-                  onClick={()=>{ setView("team"); onClose(); }}
-                >Команда</button>
-                <button
-                  className={`px-3 py-1 rounded-xl transition ${view==="project" ? "bg-white shadow-sm" : "hover:bg-white/70"}`}
-                  onClick={()=>{ setView("project"); onClose(); }}
-                >Проекты</button>
+              <div className="ml-4 segmented">
+                <button className={view==="team" ? "active" : "idle"} onClick={()=>{ setView("team"); onClose(); }}>Нагрузка</button>
+                <button className={view==="project" ? "active" : "idle"} onClick={()=>{ setView("project"); onClose(); }}>Проекты</button>
+                <button className={view==="employees" ? "active" : "idle"} onClick={()=>{ setView("employees"); onClose(); }}>Команда</button>
               </div>
               <div className="ml-auto" />
             </div>
@@ -744,14 +744,13 @@
                   <button
                     onClick={()=>setVacOpen(true)}
                     className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800"
-                    title="Добавить отпуск"
                   >🏖 Добавить отпуск</button>
                 </>
               }
             />
           </div>
 
-          {/* Контент — сетка как в «Команда» */}
+          {/* Контент — сетка как в «Нагрузка» */}
           <div className="max-w-screen-2xl mx-auto px-4">
             <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
               <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
@@ -864,8 +863,8 @@
                   </div>
                 )}
                 <div className="mt-4 flex justify-end gap-2">
-                  <button className="px-3 py-1 rounded-lg border border-neutral-300 bg-white" onClick={()=>setVacOpen(false)}>Отмена</button>
-                  <button className="px-3 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800" onClick={saveVac}>Сохранить</button>
+                  <button className="btn" onClick={()=>setVacOpen(false)}>Отмена</button>
+                  <button className="rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-1">Сохранить</button>
                 </div>
               </div>
             </div>
@@ -963,18 +962,20 @@
       );
     }
 
-    // ---------- EmployeesPage (вкладка Проекты → Сотрудники) ----------
-    function EmployeesPage({people, setPeople, projects, projectTeams, setProjectTeams, deletePerson, onBack}){
+    // ---------- EmployeesPage (вкладка «Команда») ----------
+    function EmployeesPage({people, setPeople, projects, projectTeams, setProjectTeams, deletePerson}){
       const [search, setSearch] = useState("");
       const list = useMemo(()=> people.filter(p => p.active && p.name.toLowerCase().includes(search.toLowerCase())), [people, search]);
 
-      // для стабильной сетки повторим паттерн «левый столбец sticky + правая панель»
       return (
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <button className="px-3 py-1 rounded-xl border border-neutral-300 bg-white shadow-sm hover:shadow" onClick={onBack}>← Назад к проектам</button>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Найти сотрудника..." className="border border-neutral-300 rounded-xl px-3 py-2 text-sm w-full max-w-sm"/>
-          </div>
+          {/* широкий поиск на всю ширину контента */}
+          <input
+            value={search}
+            onChange={e=>setSearch(e.target.value)}
+            placeholder="Найти сотрудника..."
+            className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+          />
 
           <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
             {list.map(p => (
@@ -1092,7 +1093,7 @@
     }
 
     // ---------- Role manager ----------
-    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass='top-[calc(var(--app-header-h)+48px)]', rightNode=null}){
+    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass='top-[calc(var(--app-header-h)+48px)]'}){
       const [adding, setAdding] = useState("");
       const [editing, setEditing] = useState(null);
       const [val, setVal] = useState("");
@@ -1109,10 +1110,7 @@
 
       return (
         <div className={`bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky ${stickyTopClass} z-50`}>
-          <div className="flex items-center">
-            <div className="text-sm font-medium">Роли</div>
-            <div className="ml-auto">{rightNode}</div>
-          </div>
+          <div className="text-sm font-medium">Роли</div>
           <div className="mt-2 flex flex-wrap gap-2">
             {roles.map(r => (
               <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
@@ -1133,7 +1131,7 @@
             ))}
             <span className="inline-flex items-center gap-1">
               <input value={adding} onChange={e=>setAdding(e.target.value)} placeholder="Добавить роль" className="px-2 py-1 text-sm border border-neutral-300 rounded-lg"/>
-              <button className="px-2 py-1 text-sm rounded-lg border border-neutral-300 bg-white hover:shadow" onClick={add}>Сохранить</button>
+              <button className="btn" onClick={add}>Сохранить</button>
             </span>
           </div>
         </div>
@@ -1161,12 +1159,12 @@
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={!!external} onChange={e=>setExternal(e.target.checked)} />
-                Внешний сотрудник (не показывать в «Команда»)
+                Внешний сотрудник (не показывать во «Нагрузка»)
               </label>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <button className="px-3 py-1 rounded-lg border border-neutral-300 bg-white" onClick={onClose}>Отмена</button>
-              <button className="px-3 py-1 rounded-lg border border-green-300 bg-green-50 text-green-800" onClick={onSubmit}>Создать</button>
+              <button className="btn" onClick={onClose}>Отмена</button>
+              <button className="rounded-xl border border-green-300 bg-green-50 text-green-800 px-3 py-1" onClick={onSubmit}>Создать</button>
             </div>
           </div>
         </div>
@@ -1228,8 +1226,8 @@
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
-              <button className="px-3 py-1 rounded-lg border border-neutral-300 bg-white" onClick={onClose}>Отмена</button>
-              <button className="px-3 py-1 rounded-lg border border-green-300 bg-green-50 text-green-800" onClick={onSubmit}>Создать</button>
+              <button className="btn" onClick={onClose}>Отмена</button>
+              <button className="rounded-xl border border-green-300 bg-green-50 text-green-800 px-3 py-1" onClick={onSubmit}>Создать</button>
             </div>
           </div>
         </div>
@@ -1275,4 +1273,3 @@
   </script>
 </body>
 </html>
-
