@@ -14,30 +14,38 @@
     :root{
       --app-header-h: 56px;
       --left-col-w: 220px;
-      --emerald-50:#ecfdf5; --emerald-100:#d1fae5; --emerald-200:#a7f3d0; --emerald-600:#059669; --emerald-700:#047857; --emerald-900:#064e3b;
+      --emerald-50:#ecfdf5; --emerald-100:#d1fae5; --emerald-200:#a7f3d0; --emerald-300:#86efac;
+      --emerald-600:#059669; --emerald-700:#047857; --emerald-900:#064e3b;
     }
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
     .no-scrollbar::-webkit-scrollbar{ display:none; }
-    .btn{
-      @apply rounded-xl border border-neutral-300 bg-white px-3 py-1 shadow-sm hover:shadow transition;
-    }
-    .nav-group{ @apply flex items-center gap-2; }
-    .navbtn{
-      @apply rounded-xl border px-3 py-1 transition shadow-sm;
-      border-color: rgb(212 212 216); /* neutral-300 */
-      background: white;
-    }
-    .navbtn:hover{ box-shadow: 0 1px 2px rgba(0,0,0,.06); background: rgb(250 250 250); }
-    .navbtn.active{
-      border-color: rgba(5,150,105,.35); /* emerald-600/35 */
-      background: var(--emerald-50);
-      color: var(--emerald-700);
-      box-shadow: 0 2px 6px rgba(4,120,87,.12);
-    }
-    /* мини-скролл для внутренних списков по желанию */
     .hide-scrollbar::-webkit-scrollbar{ width:8px; height:8px; }
     .hide-scrollbar::-webkit-scrollbar-thumb{ background:rgba(0,0,0,0.15); border-radius:8px; }
     .hide-scrollbar{ scrollbar-width:thin; }
+
+    .btn{
+      @apply rounded-xl border border-neutral-300 bg-white px-3 py-1 shadow-sm hover:shadow transition;
+    }
+
+    /* Обновлённый переключатель в шапке: три чёткие кнопки с активным зелёным */
+    .segmented{
+      @apply flex items-center gap-2 p-1 rounded-2xl;
+      background: #f3f4f6; /* neutral-100 */
+      border: 1px solid #e5e7eb; /* neutral-200 */
+      box-shadow: 0 1px 2px rgba(0,0,0,.04) inset;
+    }
+    .segmented button{
+      @apply px-3 py-1 rounded-xl transition border;
+      border-color: #e5e7eb;
+      background: white;
+    }
+    .segmented button:not(.active){ @apply hover:bg-white/80; }
+    .segmented .active{
+      background: var(--emerald-50);
+      color: var(--emerald-700);
+      border-color: var(--emerald-300);
+      box-shadow: 0 1px 0 rgba(4,120,87,.12), 0 0 0 1px rgba(134,239,172,.5) inset;
+    }
   </style>
 </head>
 <body class="bg-[#F7F8FA] no-scrollbar">
@@ -55,7 +63,10 @@
     // ---------- Persistence ----------
     const LS_KEY = "fteplanner.v1";
     function loadAll(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch{ return {}; } }
-    function loadJSON(key, fallback){ const all = loadAll(); return (key in all) ? all[key] : fallback; }
+    function loadJSON(key, fallback){
+      const all = loadAll();
+      return (key in all) ? all[key] : fallback;
+    }
     function saveJSON(patch){
       try{
         const all = loadAll();
@@ -64,24 +75,23 @@
       }catch{}
     }
 
-    // ---------- Date helpers ----------
+    // ---------- Date/format helpers ----------
     const fmtISO = (date) => date.toISOString().slice(0,10);
     const addDays = (d, n) => { const x=new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; };
+    const pad2 = (n) => (n<10 ? `0${n}` : String(n));
+    const fmtDM = (d) => `${pad2(d.getDate())}.${pad2(d.getMonth()+1)}`;
+    const RU_MONTHS_FULL = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+    const RU_MONTHS_SHORT = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
     const startOfISOWeek = (d) => { const day=d.getDay(); const diff=(day===0?-6:1)-day; const m=new Date(d); m.setDate(d.getDate()+diff); m.setHours(0,0,0,0); return m; };
     const addWeeks = (m, n) => { const d=new Date(m); d.setDate(d.getDate()+n*7); d.setHours(0,0,0,0); return d; };
     const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
     const scaleRatio = (v, max=MAX_FTE) => clamp(v/max, 0, 1);
-    const pad2 = (n) => (n<10?`0${n}`:String(n));
-    const fmtDM = (d) => `${pad2(d.getDate())}.${pad2(d.getMonth()+1)}`;
-    const RU_MONTHS_FULL = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
-    const yearOfISO = (iso)=> new Date(iso).getFullYear();
-    const monthIdxOfISO = (iso)=> new Date(iso).getMonth();
-    const weekRangeLabel = (iso) => { const d=new Date(iso); const end=addDays(d,6); return `${fmtDM(d)}–${fmtDM(end)}`; };
-    const rndId = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
     const fmtFTE1 = (n) => (Math.round(n*10)/10).toFixed(1);
     const yearWeekMondays = (year) => { let m=startOfISOWeek(new Date(year,0,1)); const end=new Date(year,11,31); end.setHours(0,0,0,0); const list=[]; while(m<=end){ list.push(fmtISO(m)); m=addDays(m,7);} return list; };
+    const yearOfISO = (iso)=> new Date(iso).getFullYear();
+    const monthIdxOfISO = (iso)=> new Date(iso).getMonth();
 
-    // ---------- Seeds ----------
+    // ---------- Seed data ----------
     const base = startOfISOWeek(new Date());
     const initialWeeks = Array.from({length:24}, (_,i)=> fmtISO(addWeeks(base, i-4)));
     const seedPeople = [
@@ -118,21 +128,21 @@
       if(status==="done") return (<svg {...common}><rect x="6" y="6" width="12" height="12" rx="2"/></svg>);
       return (<svg {...common}><circle cx="12" cy="12" r="6"/></svg>);
     }
-    const MinusIcon = () => (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+    const MinusIcon = ({className=""}) => (
+      <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <line x1="5" y1="12" x2="19" y2="12"/>
       </svg>
     );
-    const PencilIcon = () => (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+    const PencilIcon = ({className=""}) => (
+      <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 20h9"/>
         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
       </svg>
     );
-    const TrashIcon = () => (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+    const TrashIcon = ({className=""}) => (
+      <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="3 6 5 6 21 6"/>
         <path d="M19 6l-1 14a2 2 0 0 1 2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -141,8 +151,8 @@
         <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
       </svg>
     );
-    const EyedropperIcon = () => (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+    const EyedropperIcon = ({className=""}) => (
+      <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M19 2l3 3-7.5 7.5"/>
         <path d="M16 5l3 3"/>
@@ -150,7 +160,7 @@
       </svg>
     );
 
-    // ---------- Week navigator ----------
+    // ---------- Week window ----------
     function useWeeksWindow(){
       const [weeks, setWeeks] = useState(loadJSON("weeks", initialWeeks));
       const savedFirstISO = loadJSON("firstWeekISO", weeks[0]);
@@ -206,9 +216,9 @@
       return {weeks, setWeeks, firstIdx, setFirstIdx, visible, goLeft, goRight, goToday};
     }
 
-    // ---------- Timeline header (Год → Месяц → Неделя) ----------
-    function TimelineHeader({visible, labelLeft="Сотрудники"}){
-      // сгруппируем видимые недели по (год, месяц)
+    // ---------- CalendarHeader (год → месяцы → недели [+опц. бейдж справа]) ----------
+    function CalendarHeader({visible, leftLabel="Сотрудники", badgeByWeek=null}){
+      // группы месяцев
       const monthGroups = [];
       let curKey=null, curCount=0, curYear=null, curMonth=null;
       visible.forEach((iso, idx) => {
@@ -221,25 +231,24 @@
         }else curCount++;
         if(idx===visible.length-1) monthGroups.push({key:curKey, year:curYear, month:curMonth, count:curCount});
       });
-
-      // для недель — 1..N внутри каждого месяца
-      const weekIndexInMonth = [];
-      monthGroups.forEach(g => { for(let i=1;i<=g.count;i++) weekIndexInMonth.push(i); });
-
       const firstYear = monthGroups[0]?.year ?? new Date().getFullYear();
       const lastYear = monthGroups[monthGroups.length-1]?.year ?? firstYear;
       const yearTitle = (firstYear===lastYear) ? `${firstYear} г.` : `${firstYear}–${lastYear} гг.`;
 
+      // рассчитать «Неделя N» внутри месяца
+      const weekIndexInMonth = [];
+      monthGroups.forEach(g => { for(let i=1;i<=g.count;i++) weekIndexInMonth.push(i); });
+
       return (
         <div className="grid mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-          {/* Левый блок — общая плашка раздела (тянется на три ряда) */}
+          {/* левый столбец (плашка раздела) на весь блок */}
           <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" style={{gridRow:"span 3 / span 3"}}>
             <div className="h-full rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center text-sm text-neutral-700">
-              {labelLeft}
+              {leftLabel}
             </div>
           </div>
 
-          {/* Ряд 1 — год */}
+          {/* ряд с годом */}
           <div className="col-span-full" style={{gridColumn:`2 / -1`}}>
             <div className="mx-1 rounded-xl px-3 py-1 text-center text-white text-sm font-medium"
                  style={{background:"var(--emerald-900)"}}>
@@ -247,7 +256,7 @@
             </div>
           </div>
 
-          {/* Ряд 2 — месяцы */}
+          {/* ряд с месяцами (span по кол-ву видимых недель в месяце) */}
           {monthGroups.map(g => (
             <div key={g.key} style={{gridColumn:`span ${g.count}`}}>
               <div className="mx-1 rounded-xl px-3 py-2 text-center text-sm font-medium"
@@ -257,12 +266,19 @@
             </div>
           ))}
 
-          {/* Ряд 3 — недели */}
+          {/* ряд с неделями + опциональный бейдж справа */}
           {visible.map((w, i) => (
-            <div key={w}>
+            <div key={w} className="relative">
               <div className="mx-1 rounded-md px-2 py-1 text-center text-[12px] text-neutral-700 bg-white border border-neutral-200 shadow-sm">
-                Неделя {weekIndexInMonth[i]}
+                Неделя {weekIndexInMonth[i]} <span className="text-neutral-400">/ {RU_MONTHS_SHORT[new Date(w).getMonth()]}</span>
               </div>
+              {badgeByWeek && badgeByWeek[w]!=null && (
+                <div className="absolute -right-1 -top-2 translate-x-1/2">
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold border border-neutral-200 bg-neutral-50 text-neutral-700 shadow-sm">
+                    {badgeByWeek[w]}
+                  </span>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -296,6 +312,8 @@
       const [teamOrder, setTeamOrder] = useState(()=> loadJSON("teamOrder", seedPeople.map(p=>p.id)));
 
       const [authed, setAuthed] = useState(loadJSON("authed", false));
+
+      // три вкладки
       const [view, setView] = useState(loadJSON("view","team")); // 'team' | 'project' | 'employees'
       useEffect(()=> saveJSON({view}), [view]);
 
@@ -317,19 +335,22 @@
       const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
       const dragRow = useRef(null);
 
-      const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]);
-      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]);
+      // people collections
+      const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]); // внутр. только
+      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]); // для проектов/команды — все активные
 
       useEffect(()=>{
         setTeamOrder(prev => mergeOrder(prev, peopleForTeam.map(p=>p.id)));
       }, [peopleForTeam]);
 
+      // фильтр ролей
       const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
       useEffect(()=> saveJSON({roleFilter}), [roleFilter]);
 
       const activeTeamIds = useMemo(()=> teamOrder.filter(id => peopleForTeam.some(p=>p.id===id)), [teamOrder, peopleForTeam]);
       const filteredTeamIds = useMemo(()=> activeTeamIds.filter(id => roleFilter==="all" ? true : (people.find(p=>p.id===id)?.role===roleFilter)), [activeTeamIds, roleFilter, people]);
 
+      // CRUD
       function deletePerson(pid){
         if(!confirm("Удалить сотрудника?")) return;
         setPeople(prev => prev.filter(p=>p.id!==pid));
@@ -368,7 +389,7 @@
       const [newPersonExternal, setNewPersonExternal] = useState(false);
       function submitNewPerson(){
         const name = newPersonName.trim(); if(!name) return;
-        const id = rndId();
+        const id = Math.random().toString(36).slice(2);
         setPeople(p => [...p, { id, name, role:newPersonRole||"other", capacityPerWeek:1, active:true, external: !!newPersonExternal }]);
         setCreatePersonOpen(false); setNewPersonName(""); setNewPersonRole("other"); setNewPersonExternal(false);
       }
@@ -383,10 +404,11 @@
       const personSuggestions = useMemo(()=> peopleActiveAll.filter(p => p.name.toLowerCase().includes(projSearch.toLowerCase()) && !projTeamSel.has(p.id)).slice(0,6), [peopleActiveAll, projSearch, projTeamSel]);
       function submitNewProject(){
         const name = newProjectName.trim(); if(!name) return;
-        const id = rndId(); const color = newProjectColor || "#64748b"; const status = newProjectStatus;
+        const id = Math.random().toString(36).slice(2);
+        const color = newProjectColor || "#64748b"; const status = newProjectStatus;
         setProjects(ps => [...ps, { id, name, color, status }]);
         setProjectTeams(pt => { const copy={}; Object.entries(pt).forEach(([k,v])=>copy[k]=new Set(v)); copy[id]=new Set(projTeamSel); return copy; });
-        setCreateProjectOpen(false); setNewProjectName(""); setProjSearch(""); setProjTeamSel(new Set()); setNewProjectStatus("active"); setView("project");
+        setCreateProjectOpen(false); setNewProjectName(""); setProjSearch(""); setProjTeamSel(new Set()); setNewProjectStatus("active");
       }
 
       if(!authed){
@@ -406,10 +428,10 @@
           <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
-              <div className="ml-4 nav-group">
-                <button className={`navbtn ${view==="team"?"active":""}`} onClick={()=>setView("team")}>Нагрузка</button>
-                <button className={`navbtn ${view==="project"?"active":""}`} onClick={()=>setView("project")}>Проекты</button>
-                <button className={`navbtn ${view==="employees"?"active":""}`} onClick={()=>setView("employees")}>Команда</button>
+              <div className="ml-4 segmented">
+                <button className={view==="team" ? "active" : ""} onClick={()=>setView("team")}>Нагрузка</button>
+                <button className={view==="project" ? "active" : ""} onClick={()=>setView("project")}>Проекты</button>
+                <button className={view==="employees" ? "active" : ""} onClick={()=>setView("employees")}>Команда</button>
               </div>
               <div className="ml-auto flex items-center gap-2">
                 <button onClick={()=>setCreateProjectOpen(true)} className="btn">+ Проект</button>
@@ -419,29 +441,23 @@
           </header>
 
           <main className="max-w-screen-2xl mx-auto p-4">
-            {/* Навигатор недель нужен только во «Нагрузка» */}
+            {/* Навигатор недель нужен только во «Нагрузке» */}
             {view==="team" && (
-              <div className="sticky top-[var(--app-header-h)] z-50 bg-[#F7F8FA] py-2 mb-2">
-                <div className="flex items-center justify-end gap-2">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-neutral-700">Фильтр роли</label>
-                    <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm"
-                            value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
-                      <option value="all">Все</option>
-                      {roles.map(r => (<option key={r} value={r}>{r}</option>))}
-                    </select>
-                    <button onClick={goLeft} className="btn">‹</button>
-                    <button onClick={goToday} className="btn">Сегодня</button>
-                    <button onClick={goRight} className="btn">›</button>
-                  </div>
-                </div>
-              </div>
+              <WeekNavigator
+                onLeft={goLeft}
+                onRight={goRight}
+                onToday={goToday}
+                showRoleFilter={true}
+                roleFilter={roleFilter}
+                setRoleFilter={setRoleFilter}
+                roles={roles}
+              />
             )}
 
             {view==="team" ? (
               // -------- Нагрузка --------
               <>
-                <TimelineHeader visible={visible} labelLeft="Сотрудники"/>
+                <CalendarHeader visible={visible} leftLabel="Сотрудники" />
                 <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
                   <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
                   {filteredTeamIds.map((pid, rowIdx) => {
@@ -502,16 +518,14 @@
             ) : view==="project" ? (
               // -------- Проекты --------
               <>
-                <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky top-[var(--app-header-h)] z-50 mb-2">
-                  <div className="text-sm font-medium">Роли</div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {roles.map(r => (
-                      <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
-                        {r}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                <RoleManager
+                  roles={roles}
+                  setRoles={setRoles}
+                  setRoleFilter={setRoleFilter}
+                  people={people}
+                  setPeople={setPeople}
+                  stickyTopClass="top-[var(--app-header-h)]"
+                />
 
                 <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
                   {projects.map((project, idx) => (
@@ -535,7 +549,7 @@
                           </button>
                           <div className="font-medium truncate" title={project.name}>{project.name}</div>
 
-                          {/* Пипетка */}
+                          {/* Пипетка цвета */}
                           <button
                             className="absolute top-2 right-10 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
                             title="Изменить цвет"
@@ -562,7 +576,7 @@
                             title="Удалить проект"
                             className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
                           >
-                            <MinusIcon/>
+                            <MinusIcon className="text-neutral-700"/>
                           </button>
                         </div>
                       </div>
@@ -581,7 +595,7 @@
                 </div>
               </>
             ) : (
-              // -------- Команда (все сотрудники) --------
+              // -------- Команда (список всех сотрудников) --------
               <EmployeesPage
                 people={people}
                 setPeople={setPeople}
@@ -646,8 +660,46 @@
       );
     }
 
+    // Навигатор недель (кнопки)
+    function WeekNavigator({
+      onLeft,
+      onRight,
+      onToday,
+      showRoleFilter=false,
+      roleFilter="all",
+      setRoleFilter=()=>{},
+      roles=[],
+      stickyTopClass='top-[var(--app-header-h)]',
+      leftNode=null
+    }){
+      return (
+        <div className={`sticky ${stickyTopClass} z-50 bg-[#F7F8FA] py-2 mb-2`}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-h-[32px]">
+              {leftNode}
+            </div>
+            <div className="flex items-center gap-2">
+              {showRoleFilter && (
+                <div className="flex items-center gap-2 mr-1">
+                  <label className="text-sm text-neutral-700">Фильтр роли</label>
+                  <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm"
+                          value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
+                    <option value="all">Все</option>
+                    {roles.map(r => (<option key={r} value={r}>{r}</option>))}
+                  </select>
+                </div>
+              )}
+              <button onClick={onLeft} className="btn">‹</button>
+              <button onClick={onToday} className="btn">Сегодня</button>
+              <button onClick={onRight} className="btn">›</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // ---------- FULL-PAGE «Один сотрудник» ----------
-    function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onClose, onSave, setPeople, visibleWeeks, goLeft, goRight, goToday, roles, view, setView }){
+    function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles, view, setView }){
       if(!person) return null;
       const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
 
@@ -668,7 +720,7 @@
         const next = parseFloat((editVal||"").replace(",", "."));
         setEditKey(null);
         if(isNaN(next) || next<0 || next>MAX_FTE) return;
-        onSave(prev => { const rest = prev.filter(a => !(a.personId===person.id && a.projectId===pid && a.weekStart===w)); return [...rest, { id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte:next }]; });
+        onSave(prev => { const rest = prev.filter(a => !(a.personId===person.id && a.projectId===pid && a.weekStart===w)); return [...rest, { id:Math.random().toString(36).slice(2), personId:person.id, projectId:pid, weekStart:w, fte:next }]; });
       }
 
       const dragIndex = useRef(null);
@@ -697,44 +749,58 @@
       const clearVacationWeek = (week) => setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=> (c[k]=new Set(v))); const s=new Set(c[person.id]||[]); s.delete(week); c[person.id]=s; return c; });
 
       const visible = visibleWeeks;
-      const weekTotals = useMemo(()=> visible.map(w => (isVacation(person.id,w) ? 0 : assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0))), [assignments, person.id, vacations, visible]);
+      const weekTotals = useMemo(()=> {
+        const map = {};
+        visible.forEach(w => {
+          const val = (isVacation(person.id,w) ? 0 : assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0));
+          map[w] = `Σ ${fmtFTE1(val)}`;
+        });
+        return map;
+      }, [assignments, person.id, vacations, visible]);
 
       return (
         <div className="fixed inset-0 z-50 bg-[#F7F8FA] overflow-auto no-scrollbar">
-          {/* Шапка-навигатор */}
+          {/* Шапка с тремя кнопками */}
           <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
-              <div className="ml-4 nav-group">
-                <button className={`navbtn ${view==="team"?"active":""}`} onClick={()=>{ setView("team"); onClose(); }}>Нагрузка</button>
-                <button className={`navbtn ${view==="project"?"active":""}`} onClick={()=>{ setView("project"); onClose(); }}>Проекты</button>
-                <button className={`navbtn ${view==="employees"?"active":""}`} onClick={()=>{ setView("employees"); onClose(); }}>Команда</button>
+              <div className="ml-4 segmented">
+                <button className={view==="team" ? "active" : ""} onClick={()=>{ setView("team"); onClose(); }}>Нагрузка</button>
+                <button className={view==="project" ? "active" : ""} onClick={()=>{ setView("project"); onClose(); }}>Проекты</button>
+                <button className={view==="employees" ? "active" : ""} onClick={()=>{ setView("employees"); onClose(); }}>Команда</button>
               </div>
               <div className="ml-auto" />
             </div>
           </div>
 
-          {/* Timeline */}
+          {/* Кнопки перелистывания недель */}
           <div className="max-w-screen-2xl mx-auto px-4">
-            <div className="sticky top-[var(--app-header-h)] z-50 bg-[#F7F8FA] py-2">
-              <div className="flex items-center justify-end gap-2">
-                <button onClick={goLeft} className="btn">‹</button>
-                <button onClick={goToday} className="btn">Сегодня</button>
-                <button onClick={goRight} className="btn">›</button>
-              </div>
-            </div>
+            <WeekNavigator
+              onLeft={goLeft}
+              onRight={goRight}
+              onToday={goToday}
+              showRoleFilter={false}
+              stickyTopClass="top-[var(--app-header-h)]"
+              leftNode={
+                <>
+                  <EditableName person={person} setPeople={setPeople}/>
+                  <EditableRole person={person} setPeople={setPeople} roles={roles}/>
+                  <button
+                    onClick={()=>setVacOpen(true)}
+                    className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800"
+                  >🏖 Добавить отпуск</button>
+                </>
+              }
+            />
+          </div>
 
-            <TimelineHeader visible={visible} labelLeft="Проекты"/>
+          {/* Календарная шапка с бейджами Σ FTE справа */}
+          <div className="max-w-screen-2xl mx-auto px-4">
+            <CalendarHeader visible={visible} leftLabel="Проекты" badgeByWeek={weekTotals} />
+          </div>
 
-            <div className="grid mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-              <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" />
-              {visible.map((w,i)=>(
-                <div key={w} className="h-6 flex items-center justify-center">
-                  <span className="px-2 py-0.5 rounded-lg border border-neutral-300 bg-white text-[12px] font-medium shadow-sm">{fmtFTE1(weekTotals[i])}</span>
-                </div>
-              ))}
-            </div>
-
+          {/* Контент — сетка как в «Нагрузка» */}
+          <div className="max-w-screen-2xl mx-auto px-4">
             <div className="grid pb-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
               {orderedIds.map((pid, idx) => {
                 const pr = projects.find(p=>p.id===pid); if(!pr) return null;
@@ -757,7 +823,7 @@
                         <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
                           <div className="bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative">
                             <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
-                              {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:pr.color}} />)}
+                              {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:pr.color}} title={`${pr.name}`}/>)}
                             </div>
                             {!vac && (!editing ? (
                               <div className="absolute inset-0 text-sm font-semibold text-neutral-800 flex items-center justify-center" title={fmtFTE1(fte)} onClick={()=>beginEdit(pid, week, fte)}>{fmtFTE1(fte)}</div>
@@ -809,24 +875,11 @@
                     <div className="text-sm text-neutral-600">Отметьте недели (диапазон дат):</div>
                     <div className="grid grid-cols-3 gap-2">
                       {yearWeekMondays(new Date().getFullYear()).map(m => (
-                        <label key={m} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl hover:bg-emerald-50">
+                        <label key={m} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl hover:bg-amber-50">
                           <input type="checkbox" checked={personVac.has(m)} onChange={()=> setPersonVac(prev=>{ const s=new Set(prev); if(s.has(m)) s.delete(m); else s.add(m); return s; }) } />
-                          <span className="text-sm">{weekRangeLabel(m)}</span>
-                          {personVac.has(m) && (<button className="ml-auto text-emerald-700" title="Убрать" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(m); return s; })}>−</button>)}
+                          <span className="text-sm">{`${fmtDM(new Date(m))}–${fmtDM(addDays(new Date(m),6))}`}</span>
+                          {personVac.has(m) && (<button className="ml-auto text-amber-700" title="Убрать" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(m); return s; })}>−</button>)}
                         </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {Array.from(personVac).length>0 && (
-                  <div className="mt-3">
-                    <div className="text-sm mb-1">Выбрано недель:</div>
-                    <div className="flex flex-wrap gap-2">
-                      {Array.from(personVac).map(w => (
-                        <span key={w} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                          {weekRangeLabel(w)}
-                          <button className="ml-1" title="Удалить" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(w); return s; }) }>×</button>
-                        </span>
                       ))}
                     </div>
                   </div>
@@ -839,6 +892,37 @@
             </div>
           )}
         </div>
+      );
+    }
+
+    // ---------- Inline editable ----------
+    function EditableName({person, setPeople}){
+      const [editing, setEditing] = useState(false);
+      const [val, setVal] = useState(person.name);
+      useEffect(()=> setVal(person.name), [person.id, person.name]);
+      const commit = () => { const name=(val||"").trim(); setEditing(false); if(!name || name===person.name) return; setPeople(prev => prev.map(p => p.id===person.id ? {...p, name} : p)); };
+      return editing ? (
+        <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit}
+               onKeyDown={e=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
+               className="text-lg font-semibold leading-tight border border-neutral-300 rounded-md px-2 py-0.5"/>
+      ) : (
+        <button className="text-lg font-semibold leading-tight hover:underline" title="Редактировать имя" onClick={()=>setEditing(true)}>{person.name}</button>
+      );
+    }
+    function EditableRole({person, setPeople, roles}){
+      const [editing, setEditing] = useState(false);
+      const [val, setVal] = useState(person.role || "other");
+      useEffect(()=> setVal(person.role || "other"), [person.id, person.role]);
+      const commit = ()=>{ const role = val || "other"; setEditing(false); if(role===person.role) return; setPeople(prev => prev.map(p => p.id===person.id ? {...p, role} : p)); };
+      return editing ? (
+        <select autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
+          {roles.map(r => (<option key={r} value={r}>{r.toUpperCase()}</option>))}
+        </select>
+      ) : (
+        <button className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={()=>setEditing(true)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          {(person.role||"OTHER").toUpperCase()}
+        </button>
       );
     }
 
@@ -953,37 +1037,124 @@
       );
     }
 
-    // ---------- Inline editable ----------
-    function EditableName({person, setPeople}){
-      const [editing, setEditing] = useState(false);
-      const [val, setVal] = useState(person.name);
-      useEffect(()=> setVal(person.name), [person.id, person.name]);
-      const commit = () => { const name=(val||"").trim(); setEditing(false); if(!name || name===person.name) return; setPeople(prev => prev.map(p => p.id===person.id ? {...p, name} : p)); };
-      return editing ? (
-        <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit}
-               onKeyDown={e=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
-               className="text-lg font-semibold leading-tight border border-neutral-300 rounded-md px-2 py-0.5"/>
-      ) : (
-        <button className="text-lg font-semibold leading-tight hover:underline" title="Редактировать имя" onClick={()=>setEditing(true)}>{person.name}</button>
-      );
-    }
-    function EditableRole({person, setPeople, roles}){
-      const [editing, setEditing] = useState(false);
-      const [val, setVal] = useState(person.role || "other");
-      useEffect(()=> setVal(person.role || "other"), [person.id, person.role]);
-      const commit = ()=>{ const role = val || "other"; setEditing(false); if(role===person.role) return; setPeople(prev => prev.map(p => p.id===person.id ? {...p, role} : p)); };
-      return editing ? (
-        <select autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
-          {roles.map(r => (<option key={r} value={r}>{r.toUpperCase()}</option>))}
-        </select>
-      ) : (
-        <button className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={()=>setEditing(true)}>
-          <PencilIcon/> {(person.role||"OTHER").toUpperCase()}
-        </button>
+    // Инвертированный селектор: проекты сотрудника
+    function PersonProjectsEditor({person, projects, projectTeams, setProjectTeams}){
+      const [search, setSearch] = useState("");
+      const memberOf = useMemo(()=>{
+        const ids = [];
+        for(const pr of projects){
+          if(projectTeams[pr.id]?.has(person.id)) ids.push(pr.id);
+        }
+        return new Set(ids);
+      }, [projects, projectTeams, person.id]);
+
+      const pool = useMemo(()=> projects.filter(pr => !memberOf.has(pr.id) && pr.name.toLowerCase().includes(search.toLowerCase())).slice(0,8), [projects, memberOf, search]);
+
+      const add = (prid) => {
+        setProjectTeams(prev => {
+          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
+          (copy[prid]=copy[prid]||new Set()).add(person.id);
+          return copy;
+        });
+      };
+      const remove = (prid) => {
+        setProjectTeams(prev => {
+          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
+          copy[prid]?.delete(person.id);
+          return copy;
+        });
+      };
+
+      return (
+        <div>
+          <div className="flex items-center gap-2">
+            <input
+              value={search}
+              onChange={e=>setSearch(e.target.value)}
+              placeholder="Добавить проект..."
+              className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+          {search && (
+            <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
+              {pool.length>0 ? (
+                pool.map(pr => (
+                  <button key={pr.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ add(pr.id); setSearch(""); }}>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
+                      {pr.name}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {Array.from(memberOf).map(prid => {
+              const pr = projects.find(p=>p.id===prid); if(!pr) return null;
+              return (
+                <span key={prid} className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
+                  <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
+                  {pr.name}
+                  <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>remove(prid)}>×</button>
+                </span>
+              );
+            })}
+          </div>
+        </div>
       );
     }
 
-    // ---------- Create modals ----------
+    // ---------- Role manager ----------
+    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass='top-[calc(var(--app-header-h)+48px)]'}){
+      const [adding, setAdding] = useState("");
+      const [editing, setEditing] = useState(null);
+      const [val, setVal] = useState("");
+
+      const add = ()=>{ const x=adding.trim(); if(!x || roles.includes(x)) return; setRoles([...roles, x]); setAdding(""); };
+      const startEdit = (r)=>{ setEditing(r); setVal(r); };
+      const commit = ()=>{ if(!editing) return; const x=val.trim(); if(!x){ setEditing(null); return; } setRoles(roles.map(r => r===editing ? x : r)); setEditing(null); if(x) setRoleFilter(x); };
+      const remove = (r)=>{
+        if(!confirm(`Удалить роль «${r}»? Людям с этой ролью будет проставлено OTHER.`)) return;
+        setRoles(roles.filter(x=>x!==r));
+        setPeople(prev => prev.map(p => p.role===r ? {...p, role:"other"} : p));
+        setRoleFilter("all");
+      };
+
+      return (
+        <div className={`bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky ${stickyTopClass} z-50`}>
+          <div className="text-sm font-medium">Роли</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {roles.map(r => (
+              <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
+                {editing===r ? (
+                  <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape') setEditing(null); }} className="px-1 py-0.5 border border-neutral-300 rounded"/>
+                ) : (
+                  <>
+                    <button className="hover:underline" onClick={()=>setRoleFilter(r)}>{r}</button>
+                    <button className="text-neutral-500 hover:text-neutral-800" title="Переименовать роль" onClick={()=>startEdit(r)}>
+                      <PencilIcon/>
+                    </button>
+                    <button className="text-neutral-500 hover:text-red-600" title="Удалить роль" onClick={()=>remove(r)}>
+                      <TrashIcon/>
+                    </button>
+                  </>
+                )}
+              </span>
+            ))}
+            <span className="inline-flex items-center gap-1">
+              <input value={adding} onChange={e=>setAdding(e.target.value)} placeholder="Добавить роль" className="px-2 py-1 text-sm border border-neutral-300 rounded-lg"/>
+              <button className="btn" onClick={add}>Сохранить</button>
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- Create Person Modal ----------
     function CreatePersonModal({open, onClose, name, setName, role, setRole, external, setExternal, onSubmit, roles}){
       if(!open) return null;
       return (
@@ -1009,18 +1180,20 @@
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button className="btn" onClick={onClose}>Отмена</button>
-              <button className="rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 px-3 py-1" onClick={onSubmit}>Создать</button>
+              <button className="rounded-xl border border-green-300 bg-green-50 text-green-800 px-3 py-1" onClick={onSubmit}>Создать</button>
             </div>
           </div>
         </div>
       );
     }
+
+    // ---------- Create Project Modal ----------
     function CreateProjectModal({open, onClose, name, setName, color, setColor, status, setStatus, search, setSearch, teamSel, setTeamSel, people, suggestions, onSubmit}){
       if(!open) return null;
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w/[560px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
             <div className="text-base font-semibold mb-3">Новый проект</div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1070,7 +1243,7 @@
 
             <div className="mt-4 flex justify-end gap-2">
               <button className="btn" onClick={onClose}>Отмена</button>
-              <button className="rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 px-3 py-1" onClick={onSubmit}>Создать</button>
+              <button className="rounded-xl border border-green-300 bg-green-50 text-green-800 px-3 py-1" onClick={onSubmit}>Создать</button>
             </div>
           </div>
         </div>
@@ -1097,12 +1270,16 @@
             <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} />
             Запомнить данные
           </label>
-          <button className="w-full rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 py-2">Войти</button>
+          <button className="w-full rounded-xl border border-green-300 bg-green-50 text-green-800 py-2">Войти</button>
         </form>
       );
     }
 
-    // boot
+    // sanity
+    if(typeof window!=="undefined"){
+      try{ console.assert(fmtFTE1(1.16)==="1.2"); }catch{}
+    }
+
     ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
