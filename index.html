@@ -15,14 +15,11 @@
       --app-header-h: 56px;
       --left-col-w: 220px;
     }
-    .no-scrollbar{
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-    .no-scrollbar::-webkit-scrollbar{ display: none; }
-    .hide-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-    .hide-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 8px; }
-    .hide-scrollbar { scrollbar-width: thin; }
+    .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
+    .no-scrollbar::-webkit-scrollbar{ display:none; }
+    .hide-scrollbar::-webkit-scrollbar{ width:8px; height:8px; }
+    .hide-scrollbar::-webkit-scrollbar-thumb{ background:rgba(0,0,0,0.15); border-radius:8px; }
+    .hide-scrollbar{ scrollbar-width:thin; }
   </style>
 </head>
 <body class="bg-[#F7F8FA] no-scrollbar">
@@ -39,17 +36,14 @@
 
     // ---------- Persistence ----------
     const LS_KEY = "fteplanner.v1";
+    function loadAll(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch{ return {}; } }
     function loadJSON(key, fallback){
-      try{
-        const raw = localStorage.getItem(LS_KEY);
-        if(!raw) return fallback;
-        const all = JSON.parse(raw);
-        return (key in all) ? all[key] : fallback;
-      }catch{ return fallback; }
+      const all = loadAll();
+      return (key in all) ? all[key] : fallback;
     }
     function saveJSON(patch){
       try{
-        const all = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+        const all = loadAll();
         const merged = {...all, ...patch};
         localStorage.setItem(LS_KEY, JSON.stringify(merged));
         debouncedSaveAllRemote(merged);
@@ -87,8 +81,8 @@
     const base = startOfISOWeek(new Date());
     const initialWeeks = Array.from({length:24}, (_,i)=> fmtISO(addWeeks(base, i-4)));
     const seedPeople = [
-      { id:"p1", name:"Саша", role:"manager", capacityPerWeek:1, active:true },
-      { id:"p2", name:"Катя К.", role:"designer", capacityPerWeek:1, active:true },
+      { id:"p1", name:"Саша", role:"manager", capacityPerWeek:1, active:true, external:false },
+      { id:"p2", name:"Катя К.", role:"designer", capacityPerWeek:1, active:true, external:false },
     ];
     const seedProjects = [
       { id:"pr1", name:"HR Подкасты", status:"active", color:"#3b82f6" },
@@ -98,9 +92,8 @@
     const seedAssignments = [
       { id:"a1", personId:"p1", projectId:"pr1", weekStart: initialWeeks[4], fte:0.3 },
       { id:"a2", personId:"p1", projectId:"pr2", weekStart: initialWeeks[4], fte:0.2 },
-      { id:"a3", personId:"p2", personId:"p2", projectId:"pr2", weekStart: initialWeeks[5], fte:0.4 },
-    ].map(x=>({ ...x })); // безопасно
-
+      { id:"a3", personId:"p2", projectId:"pr2", weekStart: initialWeeks[5], fte:0.4 },
+    ];
     const seedRoles = ["designer","dev","manager","pm","other"];
 
     // ---------- Aggregations ----------
@@ -113,7 +106,7 @@
       return res;
     };
 
-    // ---------- UI atoms ----------
+    // ---------- Icons ----------
     function StatusIcon({status}){
       const common = { width:16, height:16, viewBox:"0 0 24 24", fill:"white" };
       if(status==="active") return (<svg {...common}><polygon points="8,5 19,12 8,19"/></svg>);
@@ -121,35 +114,38 @@
       if(status==="done") return (<svg {...common}><rect x="6" y="6" width="12" height="12" rx="2"/></svg>);
       return (<svg {...common}><circle cx="12" cy="12" r="6"/></svg>);
     }
-    function MinusIcon({className=""}){
-      return (
-        <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-      );
-    }
-    function PencilIcon({className=""}){
-      return (
-        <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 20h9"/>
-          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
-        </svg>
-      );
-    }
-    function TrashIcon({className=""}){
-      return (
-        <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6l-1 14a2 2 0 0 1 2 2H8a2 2 0 0 1-2-2L5 6"/>
-          <path d="M10 11v6"/>
-          <path d="M14 11v6"/>
-          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-        </svg>
-      );
-    }
+    const MinusIcon = ({className=""}) => (
+      <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    );
+    const PencilIcon = ({className=""}) => (
+      <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20h9"/>
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+      </svg>
+    );
+    const TrashIcon = ({className=""}) => (
+      <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6l-1 14a2 2 0 0 1 2 2H8a2 2 0 0 1-2-2L5 6"/>
+        <path d="M10 11v6"/>
+        <path d="M14 11v6"/>
+        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+      </svg>
+    );
+    const EyedropperIcon = ({className=""}) => (
+      <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M19 2l3 3-7.5 7.5"/>
+        <path d="M16 5l3 3"/>
+        <path d="M9 11l-6 6v3h3l6-6"/>
+      </svg>
+    );
+
     function WeekHeader({iso}){
       const {top, bot} = weekLabelParts(iso);
       return (
@@ -246,10 +242,12 @@
 
       const [authed, setAuthed] = useState(loadJSON("authed", false));
       const [view, setView] = useState("team"); // "team" | "project"
+      const [projectSubView, setProjectSubView] = useState(loadJSON("projectSubView","projects")); // 'projects' | 'employees'
       const [selectedPersonId, setSelectedPersonId] = useState(null);
 
       const {weeks, setWeeks, visible, goLeft, goRight, goToday} = useWeeksWindow();
 
+      // remote load (optional)
       useEffect(()=>{
         (async()=>{
           const remote = await loadAllRemote();
@@ -274,6 +272,7 @@
         })().catch(()=>{});
       }, []);
 
+      // save effects
       useEffect(()=> saveJSON({people}), [people]);
       useEffect(()=> saveJSON({projects}), [projects]);
       useEffect(()=> saveJSON({assignments}), [assignments]);
@@ -282,19 +281,29 @@
       useEffect(()=>{ const obj={}; Object.entries(vacations).forEach(([k,v])=> obj[k]=Array.from(v)); saveJSON({vacations:obj}); }, [vacations]);
       useEffect(()=> saveJSON({personProjectOrder}), [personProjectOrder]);
       useEffect(()=> saveJSON({teamOrder}), [teamOrder]);
+      useEffect(()=> saveJSON({projectSubView}), [projectSubView]);
 
+      // helpers
       const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
       const dragRow = useRef(null);
-      useEffect(()=> setTeamOrder(prev => mergeOrder(prev, people.map(p=>p.id))), [people]);
-      const activePeople = useMemo(()=> people.filter(p=>p.active), [people]);
+
+      // people collections
+      const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]); // внутр. только
+      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]); // для проектов — все активные (включая внешних)
+
+      useEffect(()=>{
+        // поддерживаем порядок команды только для доступных людей страницы Команда
+        setTeamOrder(prev => mergeOrder(prev, peopleForTeam.map(p=>p.id)));
+      }, [peopleForTeam]);
 
       // фильтр ролей
       const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
       useEffect(()=> saveJSON({roleFilter}), [roleFilter]);
 
-      const activeTeamIds = useMemo(()=> teamOrder.filter(id => activePeople.some(p=>p.id===id)), [teamOrder, activePeople]);
+      const activeTeamIds = useMemo(()=> teamOrder.filter(id => peopleForTeam.some(p=>p.id===id)), [teamOrder, peopleForTeam]);
       const filteredTeamIds = useMemo(()=> activeTeamIds.filter(id => roleFilter==="all" ? true : (people.find(p=>p.id===id)?.role===roleFilter)), [activeTeamIds, roleFilter, people]);
 
+      // CRUD
       function deletePerson(pid){
         if(!confirm("Удалить сотрудника?")) return;
         setPeople(prev => prev.filter(p=>p.id!==pid));
@@ -302,6 +311,7 @@
         setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=>{ if(k!==pid) c[k]=new Set(v); }); return c; });
         setProjectTeams(prev => { const c={}; Object.entries(prev).forEach(([k,v])=>{ const s=new Set(v); s.delete(pid); c[k]=s; }); return c; });
         setTeamOrder(prev => prev.filter(id=>id!==pid));
+        if(selectedPersonId===pid) setSelectedPersonId(null);
       }
       function deleteProject(prid){
         if(!confirm("Удалить проект?")) return;
@@ -325,23 +335,26 @@
         });
       };
 
+      // create person
       const [createPersonOpen, setCreatePersonOpen] = useState(false);
       const [newPersonName, setNewPersonName] = useState("");
       const [newPersonRole, setNewPersonRole] = useState("other");
+      const [newPersonExternal, setNewPersonExternal] = useState(false);
       function submitNewPerson(){
         const name = newPersonName.trim(); if(!name) return;
         const id = rndId();
-        setPeople(p => [...p, { id, name, role:newPersonRole||"other", capacityPerWeek:1, active:true }]);
-        setCreatePersonOpen(false); setNewPersonName(""); setNewPersonRole("other");
+        setPeople(p => [...p, { id, name, role:newPersonRole||"other", capacityPerWeek:1, active:true, external: !!newPersonExternal }]);
+        setCreatePersonOpen(false); setNewPersonName(""); setNewPersonRole("other"); setNewPersonExternal(false);
       }
 
+      // create project
       const [createProjectOpen, setCreateProjectOpen] = useState(false);
       const [newProjectName, setNewProjectName] = useState("");
       const [newProjectColor, setNewProjectColor] = useState("#3b82f6");
       const [newProjectStatus, setNewProjectStatus] = useState("active");
       const [projSearch, setProjSearch] = useState("");
       const [projTeamSel, setProjTeamSel] = useState(()=> new Set());
-      const personSuggestions = useMemo(()=> activePeople.filter(p => p.name.toLowerCase().includes(projSearch.toLowerCase()) && !projTeamSel.has(p.id)).slice(0,6), [activePeople, projSearch, projTeamSel]);
+      const personSuggestions = useMemo(()=> peopleActiveAll.filter(p => p.name.toLowerCase().includes(projSearch.toLowerCase()) && !projTeamSel.has(p.id)).slice(0,6), [peopleActiveAll, projSearch, projTeamSel]);
       function submitNewProject(){
         const name = newProjectName.trim(); if(!name) return;
         const id = rndId(); const color = newProjectColor || "#64748b"; const status = newProjectStatus;
@@ -363,13 +376,13 @@
 
       return (
         <div className="min-h-screen bg-[#F7F8FA] text-neutral-900 font-sans">
-          {/* Глобальная шапка (липкая, всегда поверх) */}
+          {/* Глобальная шапка */}
           <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
               <div className="ml-4 flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm">
-                <button className={`px-3 py-1 rounded-xl transition ${view==="team" ? "bg-white shadow-sm" : "hover:bg-white/70"}`} onClick={()=>{ setSelectedPersonId(null); setView("team"); }}>Команда</button>
-                <button className={`px-3 py-1 rounded-xl transition ${view==="project" ? "bg-white shadow-sm" : "hover:bg-white/70"}`} onClick={()=>{ setSelectedPersonId(null); setView("project"); }}>Проекты</button>
+                <button className={`px-3 py-1 rounded-xl transition ${view==="team" ? "bg-white shadow-sm" : "hover:bg-white/70"}`} onClick={()=>setView("team")}>Команда</button>
+                <button className={`px-3 py-1 rounded-xl transition ${view==="project" ? "bg-white shadow-sm" : "hover:bg-white/70"}`} onClick={()=>setView("project")}>Проекты</button>
               </div>
               <div className="ml-auto flex items-center gap-2">
                 <button onClick={()=>setCreateProjectOpen(true)} className="rounded-xl border border-neutral-300 px-3 py-1 bg-white shadow-sm hover:shadow transition">+ Проект</button>
@@ -379,7 +392,7 @@
           </header>
 
           <main className="max-w-screen-2xl mx-auto p-4">
-            {/* На странице Команда — показываем навигатор недель */}
+            {/* Навигатор недель нужен только в Команде */}
             {view==="team" && (
               <WeekNavigator
                 onLeft={goLeft}
@@ -393,80 +406,67 @@
             )}
 
             {view==="team" ? (
-              <>
-                {/* Сетка команды */}
-                <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-                  <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
-                  {visible.map(w => (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
-                  {filteredTeamIds.map((pid, rowIdx) => {
-                    const person = people.find(p=>p.id===pid);
-                    return (
-                      <Fragment key={pid}>
+              // -------- Команда --------
+              <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
+                <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
+                {visible.map(w => (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
+                {filteredTeamIds.map((pid, rowIdx) => {
+                  const person = people.find(p=>p.id===pid);
+                  return (
+                    <Fragment key={pid}>
+                      <div
+                        className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                        draggable
+                        onDragStart={()=>{ dragRow.current=rowIdx; }}
+                        onDragOver={e=>e.preventDefault()}
+                        onDrop={()=>{
+                          const from=dragRow.current; const to=rowIdx; if(from==null || from===to) return;
+                          const arr=[...filteredTeamIds]; const id=arr.splice(from,1)[0]; arr.splice(to,0,id);
+                          const inactive = teamOrder.filter(id => !filteredTeamIds.includes(id));
+                          setTeamOrder([...arr, ...inactive]); dragRow.current=null;
+                        }}
+                      >
                         <div
-                          className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
-                          draggable
-                          onDragStart={()=>{ dragRow.current=rowIdx; }}
-                          onDragOver={e=>e.preventDefault()}
-                          onDrop={()=>{
-                            const from=dragRow.current; const to=rowIdx; if(from==null || from===to) return;
-                            const arr=[...filteredTeamIds]; const id=arr.splice(from,1)[0]; arr.splice(to,0,id);
-                            const inactive = teamOrder.filter(id => !filteredTeamIds.includes(id));
-                            setTeamOrder([...arr, ...inactive]); dragRow.current=null;
-                          }}
+                          role="button"
+                          tabIndex={0}
+                          onClick={()=>setSelectedPersonId(person.id)}
+                          onKeyDown={e=>{ if(e.key==='Enter'||e.key===' ') setSelectedPersonId(person.id) }}
+                          className="w-full text-left"
                         >
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={()=>setSelectedPersonId(person.id)}
-                            onKeyDown={e=>{ if(e.key==='Enter'||e.key===' ') setSelectedPersonId(person.id) }}
-                            className="w-full text-left"
-                          >
-                            <div className="relative bg-white rounded-2xl shadow-sm h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-md hover:bg-blue-50/70 transition">
-                              <div className="font-medium truncate" title="Открыть карточку сотрудника">{person.name}</div>
-                              <div className="mt-1 text-[11px] text-neutral-600">{String(person.role||"").toUpperCase()}</div>
-                              <button
-                                type="button"
-                                draggable={false}
-                                aria-label="Удалить сотрудника"
-                                onMouseDown={(e)=>e.preventDefault()}
-                                onClick={(e)=>{ e.stopPropagation(); deletePerson(person.id); }}
-                                title="Удалить"
-                                className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
-                              >
-                                <MinusIcon className="text-neutral-700"/>
-                              </button>
-                            </div>
+                          <div className="relative bg-white rounded-2xl shadow-sm h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-md hover:bg-blue-50/70 transition">
+                            <div className="font-medium truncate" title="Открыть карточку сотрудника">{person.name}</div>
+                            <div className="mt-1 text-[11px] text-neutral-600">{String(person.role||"").toUpperCase()}</div>
                           </div>
                         </div>
+                      </div>
 
-                        {visible.map(week => {
-                          const total = personWeekTotal(assignments, person.id, week);
-                          const ratio = scaleRatio(total);
-                          const vac = isVacation(person.id, week);
-                          return (
-                            <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
-                              <div className={`bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative ${total>1.0001?"ring-1 ring-red-300":""}`}>
-                                <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
-                                  {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:TEAM_BAR_COLOR}} />)}
-                                </div>
-                                {!vac && (
-                                  <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-900" title={fmtFTE1(total)}>
-                                    {fmtFTE1(total)}
-                                  </div>
-                                )}
-                                {vac && (<div className="absolute inset-0 flex items-center justify-center text-2xl" title="Отпуск">🏖</div>)}
+                      {visible.map(week => {
+                        const total = personWeekTotal(assignments, person.id, week);
+                        const ratio = scaleRatio(total);
+                        const vac = isVacation(person.id, week);
+                        return (
+                          <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
+                            <div className={`bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative ${total>1.0001?"ring-1 ring-red-300":""}`}>
+                              <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
+                                {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:TEAM_BAR_COLOR}} />)}
                               </div>
+                              {!vac && (
+                                <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-900" title={fmtFTE1(total)}>
+                                  {fmtFTE1(total)}
+                                </div>
+                              )}
+                              {vac && (<div className="absolute inset-0 flex items-center justify-center text-2xl" title="Отпуск">🏖</div>)}
                             </div>
-                          );
-                        })}
-                      </Fragment>
-                    );
-                  })}
-                </div>
-              </>
+                          </div>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                })}
+              </div>
             ) : (
-              <div className="space-y-4">
-                {/* На странице Проекты — НЕТ стрелок/Сегодня. Сразу роли (липкие) и список проектов */}
+              // -------- Проекты --------
+              <>
                 <RoleManager
                   roles={roles}
                   setRoles={setRoles}
@@ -474,51 +474,94 @@
                   people={people}
                   setPeople={setPeople}
                   stickyTopClass="top-[var(--app-header-h)]"
+                  rightNode={
+                    <button
+                      className="ml-auto px-3 py-1 rounded-xl border border-neutral-300 bg-white shadow-sm hover:shadow"
+                      onClick={()=>setProjectSubView("employees")}
+                      title="Открыть список сотрудников"
+                    >👥 Смотреть всех сотрудников</button>
+                  }
                 />
-                {/* Список проектов */}
-                <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
-                  {projects.map((project, idx) => (
-                    <Fragment key={project.id}>
-                      <div
-                        className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
-                        draggable
-                        onDragStart={()=>onProjectDragStart(idx)}
-                        onDragOver={e=>e.preventDefault()}
-                        onDrop={()=>onProjectDrop(idx)}
-                        title="Перетащите, чтобы изменить порядок"
-                      >
-                        <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px] cursor-grab active:cursor-grabbing select-none">
-                          <button
-                            className="w-8 h-8 rounded-lg flex items-center justify-center"
-                            style={{background:project.color}}
-                            title="Статус проекта"
-                            onClick={()=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, status:(p.status==="active"?"onhold": p.status==="onhold"?"done": p.status==="done"?"planned":"active")} : p))}
-                          >
-                            <StatusIcon status={project.status}/>
-                          </button>
-                          <div className="font-medium truncate" title={project.name}>{project.name}</div>
-                          <button
-                            type="button"
-                            draggable={false}
-                            aria-label="Удалить проект"
-                            onMouseDown={(e)=>e.preventDefault()}
-                            onClick={()=> deleteProject(project.id)}
-                            title="Удалить проект"
-                            className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
-                          >
-                            <MinusIcon className="text-neutral-700"/>
-                          </button>
+
+                {projectSubView==="employees" ? (
+                  <EmployeesPage
+                    people={people}
+                    setPeople={setPeople}
+                    projects={projects}
+                    projectTeams={projectTeams}
+                    setProjectTeams={setProjectTeams}
+                    deletePerson={deletePerson}
+                    onBack={()=>setProjectSubView("projects")}
+                  />
+                ) : (
+                  <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
+                    {projects.map((project, idx) => (
+                      <Fragment key={project.id}>
+                        <div
+                          className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                          draggable
+                          onDragStart={()=>onProjectDragStart(idx)}
+                          onDragOver={e=>e.preventDefault()}
+                          onDrop={()=>onProjectDrop(idx)}
+                          title="Перетащите, чтобы изменить порядок"
+                        >
+                          <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px] cursor-grab active:cursor-grabbing select-none">
+                            <button
+                              className="w-8 h-8 rounded-lg flex items-center justify-center"
+                              style={{background:project.color}}
+                              title="Статус проекта"
+                              onClick={()=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, status:(p.status==="active"?"onhold": p.status==="onhold"?"done": p.status==="done"?"planned":"active")} : p))}
+                            >
+                              <StatusIcon status={project.status}/>
+                            </button>
+                            <div className="font-medium truncate" title={project.name}>{project.name}</div>
+
+                            {/* Пипетка цвета */}
+                            <button
+                              className="absolute top-2 right-10 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
+                              title="Изменить цвет"
+                              onClick={()=> document.getElementById(`color-${project.id}`)?.click()}
+                              type="button"
+                            >
+                              <EyedropperIcon/>
+                            </button>
+                            <input
+                              id={`color-${project.id}`}
+                              type="color"
+                              className="hidden"
+                              value={project.color}
+                              onChange={(e)=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, color:e.target.value} : p))}
+                            />
+
+                            {/* Удаление */}
+                            <button
+                              type="button"
+                              draggable={false}
+                              aria-label="Удалить проект"
+                              onMouseDown={(e)=>e.preventDefault()}
+                              onClick={()=> deleteProject(project.id)}
+                              title="Удалить проект"
+                              className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
+                            >
+                              <MinusIcon className="text-neutral-700"/>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="border border-neutral-200 p-3">
-                        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
-                          <ProjectTeamSelector project={project} people={activePeople} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/>
+                        <div className="border border-neutral-200 p-3">
+                          <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+                            <ProjectTeamSelector
+                              project={project}
+                              people={peopleActiveAll}
+                              projectTeams={projectTeams}
+                              setProjectTeams={setProjectTeams}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    </Fragment>
-                  ))}
-                </div>
-              </div>
+                      </Fragment>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </main>
 
@@ -541,12 +584,19 @@
               goRight={goRight}
               goToday={goToday}
               roles={roles}
-              parentView={view}
-              setParentView={(v)=>{ setSelectedPersonId(null); setView(v); }}
+              view={view}
+              setView={(v)=>{ setView(v); setSelectedPersonId(null); }}
             />
           )}
 
-          <CreatePersonModal open={createPersonOpen} onClose={()=>setCreatePersonOpen(false)} name={newPersonName} setName={setNewPersonName} role={newPersonRole} setRole={setNewPersonRole} onSubmit={submitNewPerson} roles={roles}/>
+          <CreatePersonModal
+            open={createPersonOpen}
+            onClose={()=>setCreatePersonOpen(false)}
+            name={newPersonName} setName={setNewPersonName}
+            role={newPersonRole} setRole={setNewPersonRole}
+            external={newPersonExternal} setExternal={setNewPersonExternal}
+            onSubmit={submitNewPerson} roles={roles}
+          />
           <CreateProjectModal
             open={createProjectOpen}
             onClose={()=>setCreateProjectOpen(false)}
@@ -560,7 +610,7 @@
             setSearch={setProjSearch}
             teamSel={projTeamSel}
             setTeamSel={setProjTeamSel}
-            people={activePeople}
+            people={peopleActiveAll}
             suggestions={personSuggestions}
             onSubmit={submitNewProject}
           />
@@ -568,7 +618,7 @@
       );
     }
 
-    // Навигатор недель (со слотом leftNode для страницы сотрудника)
+    // Навигатор недель
     function WeekNavigator({
       onLeft,
       onRight,
@@ -606,10 +656,8 @@
       );
     }
 
-    // =================================
-    // FULL-PAGE «Один сотрудник»
-    // =================================
-    function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles, parentView, setParentView }){
+    // ---------- FULL-PAGE «Один сотрудник» ----------
+    function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles, view, setView }){
       if(!person) return null;
       const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
 
@@ -663,24 +711,25 @@
 
       return (
         <div className="fixed inset-0 z-50 bg-[#F7F8FA] overflow-auto no-scrollbar">
-          {/* Липкая шапка: логотип + ТАКОЙ ЖЕ переключатель «Команда/Проекты» (как в основной шапке) */}
+          {/* Шапка с тем же переключателем */}
           <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
               <div className="ml-4 flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm">
                 <button
-                  className={`px-3 py-1 rounded-xl transition ${parentView==="team" ? "bg-white shadow-sm" : "hover:bg-white/70"}`}
-                  onClick={()=>{ onClose(); setParentView("team"); }}
+                  className={`px-3 py-1 rounded-xl transition ${view==="team" ? "bg-white shadow-sm" : "hover:bg-white/70"}`}
+                  onClick={()=>{ setView("team"); onClose(); }}
                 >Команда</button>
                 <button
-                  className={`px-3 py-1 rounded-xl transition ${parentView==="project" ? "bg-white shadow-sm" : "hover:bg-white/70"}`}
-                  onClick={()=>{ onClose(); setParentView("project"); }}
+                  className={`px-3 py-1 rounded-xl transition ${view==="project" ? "bg-white shadow-sm" : "hover:bg-white/70"}`}
+                  onClick={()=>{ setView("project"); onClose(); }}
                 >Проекты</button>
               </div>
+              <div className="ml-auto" />
             </div>
           </div>
 
-          {/* Липкая полоса навигации недель: слева — имя/роль/отпуск; справа — стрелки/Сегодня */}
+          {/* Полоса недель: слева — имя/роль/отпуск; справа — кнопки недель */}
           <div className="max-w-screen-2xl mx-auto px-4">
             <WeekNavigator
               onLeft={goLeft}
@@ -702,15 +751,13 @@
             />
           </div>
 
-          {/* Контент — та же сетка, что у «Команда» */}
+          {/* Контент — сетка как в «Команда» */}
           <div className="max-w-screen-2xl mx-auto px-4">
-            {/* Хедеры недель */}
             <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
               <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
               {visible.map(w => (<div key={w}><WeekHeader iso={w}/></div>))}
             </div>
 
-            {/* Итоговые бейджи */}
             <div className="grid mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
               <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
               {visible.map((w,i)=>(
@@ -720,7 +767,6 @@
               ))}
             </div>
 
-            {/* Строки проектов */}
             <div className="grid pb-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
               {orderedIds.map((pid, idx) => {
                 const pr = projects.find(p=>p.id===pid); if(!pr) return null;
@@ -828,9 +874,7 @@
       );
     }
 
-    // =================================
-    // Inline editable bits
-    // =================================
+    // ---------- Inline editable ----------
     function EditableName({person, setPeople}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(person.name);
@@ -846,8 +890,8 @@
     }
     function EditableRole({person, setPeople, roles}){
       const [editing, setEditing] = useState(false);
-      const [val, setVal] = useState(person.role);
-      useEffect(()=> setVal(person.role), [person.id, person.role]);
+      const [val, setVal] = useState(person.role || "other");
+      useEffect(()=> setVal(person.role || "other"), [person.id, person.role]);
       const commit = ()=>{ const role = val || "other"; setEditing(false); if(role===person.role) return; setPeople(prev => prev.map(p => p.id===person.id ? {...p, role} : p)); };
       return editing ? (
         <select autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
@@ -860,9 +904,7 @@
       );
     }
 
-    // =================================
-    // ProjectTeamSelector
-    // =================================
+    // ---------- ProjectTeamSelector (проекты → добавить сотрудников) ----------
     function ProjectTeamSelector({project, people, projectTeams, setProjectTeams}){
       const [search, setSearch] = useState("");
       const list = useMemo(()=> people.filter(p => !projectTeams[project.id]?.has(p.id) && p.name.toLowerCase().includes(search.toLowerCase())).slice(0,8), [people, project.id, projectTeams, search]);
@@ -897,7 +939,7 @@
               {list.length>0 ? (
                 list.map(sug => (
                   <button key={sug.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ addToTeam(sug.id); setSearch(""); }}>
-                    {sug.name} <span className="text-[10px] text-neutral-500">{String(sug.role).toUpperCase()}</span>
+                    {sug.name} <span className="text-[10px] text-neutral-500">{String(sug.role).toUpperCase()}</span> {sug.external && <span className="ml-1 text-[10px] text-amber-700">внешн.</span>}
                   </button>
                 ))
               ) : (
@@ -911,7 +953,7 @@
               const p = people.find(x=>x.id===pid); if(!p) return null;
               return (
                 <span key={pid} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                  {p.name}
+                  {p.name}{p.external && <span className="ml-1 text-amber-700">(внешн.)</span>}
                   <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>removeFromTeam(pid)}>×</button>
                 </span>
               );
@@ -921,10 +963,136 @@
       );
     }
 
-    // =================================
-    // Role manager (липкий под шапкой на странице «Проекты»)
-    // =================================
-    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass="top-[var(--app-header-h)]"}){
+    // ---------- EmployeesPage (вкладка Проекты → Сотрудники) ----------
+    function EmployeesPage({people, setPeople, projects, projectTeams, setProjectTeams, deletePerson, onBack}){
+      const [search, setSearch] = useState("");
+      const list = useMemo(()=> people.filter(p => p.active && p.name.toLowerCase().includes(search.toLowerCase())), [people, search]);
+
+      // для стабильной сетки повторим паттерн «левый столбец sticky + правая панель»
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <button className="px-3 py-1 rounded-xl border border-neutral-300 bg-white shadow-sm hover:shadow" onClick={onBack}>← Назад к проектам</button>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Найти сотрудника..." className="border border-neutral-300 rounded-xl px-3 py-2 text-sm w-full max-w-sm"/>
+          </div>
+
+          <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
+            {list.map(p => (
+              <Fragment key={p.id}>
+                {/* Левый столбец — карточка сотрудника */}
+                <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
+                  <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 min-w-0 h-[120px] flex flex-col justify-center">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium truncate">{p.name}</span>
+                      <button
+                        className="text-neutral-500 hover:text-red-600 ml-auto"
+                        title="Удалить сотрудника"
+                        onClick={()=>deletePerson(p.id)}
+                      ><TrashIcon/></button>
+                    </div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <select
+                        value={p.role||"other"}
+                        onChange={e=> setPeople(prev => prev.map(x => x.id===p.id ? {...x, role:e.target.value} : x))}
+                        className="text-[12px] px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200"
+                      >
+                        {["designer","dev","manager","pm","other"].map(r => (<option key={r} value={r}>{r.toUpperCase()}</option>))}
+                      </select>
+                      <label className="text-xs flex items-center gap-1 ml-2">
+                        <input type="checkbox" checked={!!p.external} onChange={e=> setPeople(prev => prev.map(x => x.id===p.id ? {...x, external:e.target.checked} : x))}/>
+                        Внешний
+                      </label>
+                    </div>
+                    <div className="mt-1 text-[11px] text-neutral-500">ID: {p.id.slice(0,6)}…</div>
+                  </div>
+                </div>
+
+                {/* Правая панель — проекты сотрудника */}
+                <div className="border border-neutral-200 p-3">
+                  <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+                    <PersonProjectsEditor person={p} projects={projects} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/>
+                  </div>
+                </div>
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Инвертированный селектор: редактируем проекты конкретного сотрудника
+    function PersonProjectsEditor({person, projects, projectTeams, setProjectTeams}){
+      const [search, setSearch] = useState("");
+      const memberOf = useMemo(()=>{
+        const ids = [];
+        for(const pr of projects){
+          if(projectTeams[pr.id]?.has(person.id)) ids.push(pr.id);
+        }
+        return new Set(ids);
+      }, [projects, projectTeams, person.id]);
+
+      const pool = useMemo(()=> projects.filter(pr => !memberOf.has(pr.id) && pr.name.toLowerCase().includes(search.toLowerCase())).slice(0,8), [projects, memberOf, search]);
+
+      const add = (prid) => {
+        setProjectTeams(prev => {
+          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
+          (copy[prid]=copy[prid]||new Set()).add(person.id);
+          return copy;
+        });
+      };
+      const remove = (prid) => {
+        setProjectTeams(prev => {
+          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
+          copy[prid]?.delete(person.id);
+          return copy;
+        });
+      };
+
+      return (
+        <div>
+          <div className="flex items-center gap-2">
+            <input
+              value={search}
+              onChange={e=>setSearch(e.target.value)}
+              placeholder="Добавить проект..."
+              className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+          {search && (
+            <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
+              {pool.length>0 ? (
+                pool.map(pr => (
+                  <button key={pr.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ add(pr.id); setSearch(""); }}>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
+                      {pr.name}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {Array.from(memberOf).map(prid => {
+              const pr = projects.find(p=>p.id===prid); if(!pr) return null;
+              return (
+                <span key={prid} className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
+                  <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
+                  {pr.name}
+                  <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>remove(prid)}>×</button>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- Role manager ----------
+    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass='top-[calc(var(--app-header-h)+48px)]', rightNode=null}){
       const [adding, setAdding] = useState("");
       const [editing, setEditing] = useState(null);
       const [val, setVal] = useState("");
@@ -941,8 +1109,11 @@
 
       return (
         <div className={`bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky ${stickyTopClass} z-50`}>
-          <div className="text-sm font-medium mb-2">Роли</div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex items-center">
+            <div className="text-sm font-medium">Роли</div>
+            <div className="ml-auto">{rightNode}</div>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
             {roles.map(r => (
               <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
                 {editing===r ? (
@@ -969,15 +1140,13 @@
       );
     }
 
-    // =================================
-    // Create Person Modal
-    // =================================
-    function CreatePersonModal({open, onClose, name, setName, role, setRole, onSubmit, roles}){
+    // ---------- Create Person Modal ----------
+    function CreatePersonModal({open, onClose, name, setName, role, setRole, external, setExternal, onSubmit, roles}){
       if(!open) return null;
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[440px] p-4" onClick={(e)=>e.stopPropagation()}>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[460px] p-4" onClick={(e)=>e.stopPropagation()}>
             <div className="text-base font-semibold mb-3">Новый сотрудник</div>
             <div className="space-y-3">
               <div>
@@ -990,6 +1159,10 @@
                   {roles.map(r => (<option key={r} value={r}>{r}</option>))}
                 </select>
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={!!external} onChange={e=>setExternal(e.target.checked)} />
+                Внешний сотрудник (не показывать в «Команда»)
+              </label>
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button className="px-3 py-1 rounded-lg border border-neutral-300 bg-white" onClick={onClose}>Отмена</button>
@@ -1000,9 +1173,7 @@
       );
     }
 
-    // =================================
-    // Create Project Modal
-    // =================================
+    // ---------- Create Project Modal ----------
     function CreateProjectModal({open, onClose, name, setName, color, setColor, status, setStatus, search, setSearch, teamSel, setTeamSel, people, suggestions, onSubmit}){
       if(!open) return null;
       return (
@@ -1039,7 +1210,7 @@
                 <div className="mb-2 border border-neutral-200 rounded-xl overflow-hidden">
                   {suggestions.length>0 ? suggestions.map(s => (
                     <button key={s.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ const c=new Set(teamSel); c.add(s.id); setTeamSel(c); setSearch(""); }}>
-                      {s.name} <span className="text-[10px] text-neutral-500">{String(s.role).toUpperCase()}</span>
+                      {s.name} <span className="text-[10px] text-neutral-500">{String(s.role).toUpperCase()}</span> {s.external && <span className="ml-1 text-[10px] text-amber-700">внешн.</span>}
                     </button>
                   )) : (
                     <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
@@ -1049,7 +1220,7 @@
               <div className="flex flex-wrap gap-2">
                 {Array.from(teamSel).map(pid => { const p = people.find(x=>x.id===pid); if(!p) return null; return (
                   <span key={pid} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                    {p.name}
+                    {p.name}{p.external && <span className="ml-1 text-amber-700">(внешн.)</span>}
                     <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>{ const c=new Set(teamSel); c.delete(pid); setTeamSel(c); }}>×</button>
                   </span>
                 );})}
@@ -1065,9 +1236,7 @@
       );
     }
 
-    // =================================
-    // Auth
-    // =================================
+    // ---------- Auth ----------
     function AuthForm({onSuccess}){
       const [login, setLogin] = useState("");
       const [pass, setPass] = useState("");
@@ -1106,3 +1275,4 @@
   </script>
 </body>
 </html>
+
