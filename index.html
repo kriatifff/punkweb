@@ -13,7 +13,6 @@
   <style>
     :root{
       --app-header-h: 56px;
-      --sheet-header-h: 64px;
       --left-col-w: 220px;
     }
     .no-scrollbar{
@@ -559,9 +558,9 @@
     }
 
     // Навигатор недель (кнопки) + (опц.) фильтр роли справа перед переключателями
-    function WeekNavigator({onLeft, onRight, onToday, showRoleFilter=false, roleFilter="all", setRoleFilter=()=>{}, roles=[]}){
+    function WeekNavigator({onLeft, onRight, onToday, showRoleFilter=false, roleFilter="all", setRoleFilter=()=>{}, roles=[], stickyTopClass='top-[var(--app-header-h)]'}){
       return (
-        <div className="sticky top-[var(--app-header-h)] z-50 bg-[#F7F8FA] py-2 mb-2">
+        <div className={`sticky ${stickyTopClass} z-50 bg-[#F7F8FA] py-2 mb-2`}>
           <div className="flex items-center justify-end gap-2">
             {showRoleFilter && (
               <div className="flex items-center gap-2 mr-2">
@@ -582,7 +581,7 @@
     }
 
     // =================================
-    // PersonSheet
+    // PersonSheet (UI и механика = как у «Команда»)
     // =================================
     function PersonSheet({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onBack, onClose, onSave, setPeople, weeks, visible, goLeft, goRight, goToday, roles }){
       if(!person) return null;
@@ -619,7 +618,6 @@
       const [vFrom, setVFrom] = useState("");
       const [vTo, setVTo] = useState("");
       useEffect(()=>{ setPersonVac(new Set(vacations[person.id] || [])); }, [person.id, vacations]);
-      const toggleVac = (week) => setPersonVac(prev => { const s=new Set(prev); if(s.has(week)) s.delete(week); else s.add(week); return s; });
       const saveVac = () => {
         let setToSave = new Set(personVac);
         if(vFrom && vTo){
@@ -637,39 +635,43 @@
 
       const weekTotals = useMemo(()=> visible.map(w => (isVacation(person.id,w) ? 0 : assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0))), [assignments, person.id, vacations, visible]);
 
-      const rowIds = orderedIds; // простой alias, без useMemo в JSX
+      const rowIds = orderedIds;
 
       return (
-        <div className="fixed inset-0 bg-white flex items-stretch justify-center z-50">
-          <div className="w-[1040px] h-full bg-white border-l border-neutral-200 overflow-hidden" onClick={e=>e.stopPropagation()}>
-            {/* ДВУХСТРОЧНАЯ ЛИПККАЯ ШАПКА */}
-            <div className="sticky top-0 z-50 bg-white border-b border-neutral-200">
-              <div className="px-4 h-8 flex items-center justify-between">
-                <div className="text-sm font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
+        <div className="fixed inset-0 bg-white z-50 flex items-stretch justify-center">
+          {/* Внутренняя панель с тем же поведением скролла, что и у «Команда» */}
+          <div className="w-[1040px] h-full bg-white border-l border-neutral-200 overflow-auto no-scrollbar">
+            {/* Липкий верх — как шапка «Команда» */}
+            <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
+              <div className="px-4 h-full flex items-center gap-3">
+                <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
+                <button onClick={onBack} className="ml-2 text-sm px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow">← Назад</button>
+                <EditableName person={person} setPeople={setPeople}/>
+                <EditableRole person={person} setPeople={setPeople} roles={roles}/>
+                <button onClick={()=>setVacOpen(true)} className="ml-2 inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800" title="Добавить отпуск">🏖 Добавить отпуск</button>
+                <div className="ml-auto">
+                  {/* Тот же WeekNavigator, но липкий под этой шапкой будет ниже */}
+                </div>
                 <button onClick={onClose} className="text-neutral-500 hover:text-neutral-800">✕</button>
-              </div>
-              <div className="px-4 h-10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <button onClick={onBack} className="text-sm px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow">← Назад</button>
-                  <EditableName person={person} setPeople={setPeople}/>
-                  <EditableRole person={person} setPeople={setPeople} roles={roles}/>
-                  <button onClick={()=>setVacOpen(true)} className="ml-2 inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800" title="Добавить отпуск">🏖 Добавить отпуск</button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={goLeft} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Назад на неделю">‹</button>
-                  <button onClick={goToday} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Текущая неделя">Сегодня</button>
-                  <button onClick={goRight} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Вперёд на неделю">›</button>
-                </div>
               </div>
             </div>
 
-            {/* Хедеры недель */}
+            {/* WeekNavigator — липкий сразу под верхней строкой, как на «Команда» */}
+            <WeekNavigator
+              onLeft={goLeft}
+              onRight={goRight}
+              onToday={goToday}
+              showRoleFilter={false}
+              stickyTopClass="top-[var(--app-header-h)]"
+            />
+
+            {/* Хедеры недель (как на «Команда») */}
             <div className="grid px-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
               <div className="sticky left-0 z-50 bg-white border-r border-neutral-200" />
               {visible.map(w => (<div key={w}><WeekHeader iso={w}/></div>))}
             </div>
 
-            {/* Итоговые бейджи */}
+            {/* Итоговые бейджи (как у «Команда») */}
             <div className="grid px-4 mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
               <div className="sticky left-0 z-50 bg-white border-r border-neutral-200" />
               {visible.map((w,i)=>(
@@ -679,7 +681,7 @@
               ))}
             </div>
 
-            {/* Строки проектов */}
+            {/* Строки проектов — та же компоновка и карточки высотой 120px */}
             <div className="grid px-4 pb-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
               {rowIds.map((pid, idx) => {
                 const pr = projects.find(p=>p.id===pid); if(!pr) return null;
@@ -881,7 +883,7 @@
     }
 
     // =================================
-    // Role manager
+    // Role manager (липкий под навигатором на странице «Проекты»)
     // =================================
     function RoleManager({roles, setRoles, setRoleFilter, people, setPeople}){
       const [adding, setAdding] = useState("");
@@ -936,7 +938,7 @@
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[440px] p-4" onClick={e=>e.stopPropagation()}>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[440px] p-4" onClick={(e)=>e.stopPropagation()}>
             <div className="text-base font-semibold mb-3">Новый сотрудник</div>
             <div className="space-y-3">
               <div>
