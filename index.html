@@ -13,15 +13,22 @@
   <style>
     :root{
       --app-header-h: 56px;
-      --sheet-header-h: 44px;
+      --sheet-header-h: 64px; /* увеличили т.к. теперь 2 строки в шапке PersonSheet */
       --left-col-w: 220px;
     }
+    /* Полное скрытие полос прокрутки при сохранении прокрутки */
+    .no-scrollbar{
+      -ms-overflow-style: none; /* IE/Edge */
+      scrollbar-width: none;    /* Firefox */
+    }
+    .no-scrollbar::-webkit-scrollbar{ display: none; } /* Chrome/Safari */
+    /* Тонкие (но мы их скрыли выше) — оставляем на случай локального применения */
     .hide-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
     .hide-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 8px; }
     .hide-scrollbar { scrollbar-width: thin; }
   </style>
 </head>
-<body class="bg-[#F7F8FA]">
+<body class="bg-[#F7F8FA] no-scrollbar">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -48,22 +55,14 @@
         const all = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
         const merged = {...all, ...patch};
         localStorage.setItem(LS_KEY, JSON.stringify(merged));
-        // Хук для удалённого сохранения (если включите бекенд)
         debouncedSaveAllRemote(merged);
       }catch{}
     }
 
     // ---------- OPTIONAL: remote sync (заглушка) ----------
-    async function loadAllRemote(){
-      // TODO: Реализуйте загрузку из вашего бекенда (Supabase/Firebase/ваш API)
-      // Пример: const res = await fetch('https://your.api/state'); return await res.json();
-      return null; // вернуть null если ничего нет
-    }
-    async function saveAllRemote(_state){
-      // TODO: Реализуйте сохранение целого состояния в ваш бекенд
-      // await fetch('https://your.api/state', { method:'PUT', body: JSON.stringify(_state) });
-    }
-    // Небольшой дебаунс, чтобы не спамить сеть
+    async function loadAllRemote(){ return null; }
+    async function saveAllRemote(_state){}
+
     let saveTimer=null;
     function debouncedSaveAllRemote(state){
       clearTimeout(saveTimer);
@@ -165,18 +164,15 @@
       );
     }
 
-    // ---------- Week navigator ----------
+    // ---------- Week navigator (объединён с фильтром роли) ----------
     function useWeeksWindow(){
       const [weeks, setWeeks] = useState(loadJSON("weeks", initialWeeks));
-      // сохраняем "первую видимую неделю" как ISO
       const savedFirstISO = loadJSON("firstWeekISO", weeks[0]);
       const initIdx = Math.max(0, weeks.indexOf(savedFirstISO));
       const [firstIdx, setFirstIdx] = useState(initIdx);
 
-      // расширяем массив недель при необходимости
       const ensureRange = (needIdx) => {
         if(needIdx < 0){
-          // prepend
           const first = new Date(weeks[0]);
           const prepend = Array.from({length: Math.ceil((-needIdx)/8)*8 }, (_,i)=> fmtISO(addWeeks(first, -(i+1)))).reverse();
           const next = [...prepend, ...weeks];
@@ -205,7 +201,6 @@
         const todayISO = fmtISO(startOfISOWeek(new Date()));
         let idx = weeks.indexOf(todayISO);
         if(idx<0){
-          // добавим, если нет
           let m = startOfISOWeek(new Date(todayISO));
           const end = addWeeks(m, 200);
           const set = new Set(weeks);
@@ -220,7 +215,6 @@
         setFirstIdx(f2); saveJSON({firstWeekISO: w2[f2]});
       };
 
-      // список видимых недель
       const visible = useMemo(()=> weeks.slice(firstIdx, firstIdx+VISIBLE_WEEKS), [weeks, firstIdx]);
 
       return {weeks, setWeeks, firstIdx, setFirstIdx, visible, goLeft, goRight, goToday};
@@ -258,13 +252,11 @@
 
       const {weeks, setWeeks, visible, goLeft, goRight, goToday} = useWeeksWindow();
 
-      // Попытаться подтянуть общее состояние из «облака», если вы подключите бекенд
       useEffect(()=>{
         (async()=>{
           const remote = await loadAllRemote();
           if(remote && typeof remote==="object"){
             localStorage.setItem(LS_KEY, JSON.stringify(remote));
-            // мягко применим (чтобы не терять ссылки setState)
             if(remote.people) setPeople(remote.people);
             if(remote.projects) setProjects(remote.projects);
             if(remote.assignments) setAssignments(remote.assignments);
@@ -284,7 +276,6 @@
         })().catch(()=>{});
       }, []);
 
-      // ---- persistence ----
       useEffect(()=> saveJSON({people}), [people]);
       useEffect(()=> saveJSON({projects}), [projects]);
       useEffect(()=> saveJSON({assignments}), [assignments]);
@@ -294,7 +285,6 @@
       useEffect(()=> saveJSON({personProjectOrder}), [personProjectOrder]);
       useEffect(()=> saveJSON({teamOrder}), [teamOrder]);
 
-      // ---- derived ----
       const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
       const dragRow = useRef(null);
       useEffect(()=> setTeamOrder(prev => mergeOrder(prev, people.map(p=>p.id))), [people]);
@@ -307,7 +297,6 @@
       const activeTeamIds = useMemo(()=> teamOrder.filter(id => activePeople.some(p=>p.id===id)), [teamOrder, activePeople]);
       const filteredTeamIds = useMemo(()=> activeTeamIds.filter(id => roleFilter==="all" ? true : (people.find(p=>p.id===id)?.role===roleFilter)), [activeTeamIds, roleFilter, people]);
 
-      // ---- helpers ----
       function deletePerson(pid){
         if(!confirm("Удалить сотрудника?")) return;
         setPeople(prev => prev.filter(p=>p.id!==pid));
@@ -324,7 +313,6 @@
         setPersonProjectOrder(prev => { const out={}; Object.entries(prev).forEach(([pid, arr]) => { out[pid]=(arr||[]).filter(x=>x!==prid); }); return out; });
       }
 
-      // DnD projects (страница «Проекты»)
       const dragProjectIndex = useRef(null);
       const onProjectDragStart = (i) => { dragProjectIndex.current = i; };
       const onProjectDrop = (i) => {
@@ -339,9 +327,9 @@
         });
       };
 
-      // person form (modal)
       const [createPersonOpen, setCreatePersonOpen] = useState(false);
       const [newPersonName, setNewPersonName] = useState("");
+      thead
       const [newPersonRole, setNewPersonRole] = useState("other");
       function submitNewPerson(){
         const name = newPersonName.trim(); if(!name) return;
@@ -350,7 +338,6 @@
         setCreatePersonOpen(false); setNewPersonName(""); setNewPersonRole("other");
       }
 
-      // project form (modal)
       const [createProjectOpen, setCreateProjectOpen] = useState(false);
       const [newProjectName, setNewProjectName] = useState("");
       const [newProjectColor, setNewProjectColor] = useState("#3b82f6");
@@ -366,7 +353,6 @@
         setCreateProjectOpen(false); setNewProjectName(""); setProjSearch(""); setProjTeamSel(new Set()); setNewProjectStatus("active"); setView("project");
       }
 
-      // ============== AUTH ==============
       if(!authed){
         return (
           <div className="min-h-screen grid place-items-center bg-[#F7F8FA]">
@@ -380,8 +366,8 @@
 
       return (
         <div className="min-h-screen bg-[#F7F8FA] text-neutral-900 font-sans">
-          {/* Глобальная шапка (липкая) */}
-          <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
+          {/* Глобальная шапка (липкая, всегда поверх) */}
+          <header className="sticky top-0 z-60 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
               <div className="ml-4 flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm">
@@ -396,23 +382,20 @@
           </header>
 
           <main className="max-w-screen-2xl mx-auto p-4">
-            {/* Навигатор недель (общий для обеих вкладок) */}
-            <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} />
+            {/* Навигатор недель + (опц.) фильтр ролей в одной линии, липко под шапкой */}
+            <WeekNavigator
+              onLeft={goLeft}
+              onRight={goRight}
+              onToday={goToday}
+              showRoleFilter={view==="team"}
+              roleFilter={roleFilter}
+              setRoleFilter={setRoleFilter}
+              roles={roles}
+            />
 
             {view==="team" ? (
               <>
-                {/* Фильтр ролей — липкий под шапкой */}
-                <div className="sticky z-40 bg-[#F7F8FA] pt-2 pb-3" style={{top:'calc(var(--app-header-h) + 44px)'}}>
-                  <div className="flex items-center gap-3">
-                    <label className="text-sm text-neutral-700">Фильтр роли</label>
-                    <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm" value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
-                      <option value="all">Все</option>
-                      {roles.map(r => (<option key={r} value={r}>{r}</option>))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Сетка: лево — sticky плашка, справа — строго VISIBLE_WEEKS колонок (без горизонтального скролла) */}
+                {/* Сетка команды */}
                 <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
                   <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
                   {visible.map(w => (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
@@ -484,8 +467,9 @@
               </>
             ) : (
               <div className="space-y-4">
+                {/* Вся верхняя часть липкая: роли ниже навигатора */}
                 <RoleManager roles={roles} setRoles={setRoles} setRoleFilter={setRoleFilter} people={people} setPeople={setPeople}/>
-                {/* Список проектов: левый столбец — sticky, перетаскивание по списку */}
+                {/* Список проектов: левый столбец sticky, перетаскивание */}
                 <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
                   {projects.map((project, idx) => (
                     <Fragment key={project.id}>
@@ -577,11 +561,21 @@
       );
     }
 
-    // Навигатор недель (кнопки)
-    function WeekNavigator({onLeft, onRight, onToday}){
+    // Навигатор недель (кнопки) + (опц.) фильтр роли справа перед переключателями
+    function WeekNavigator({onLeft, onRight, onToday, showRoleFilter=false, roleFilter="all", setRoleFilter=()=>{}, roles=[]}){
       return (
-        <div className="sticky top-[var(--app-header-h)] z-40 bg-[#F7F8FA] py-2 mb-2">
+        <div className="sticky top-[var(--app-header-h)] z-50 bg-[#F7F8FA] py-2 mb-2">
           <div className="flex items-center justify-end gap-2">
+            {showRoleFilter && (
+              <div className="flex items-center gap-2 mr-2">
+                <label className="text-sm text-neutral-700">Фильтр роли</label>
+                <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm"
+                        value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
+                  <option value="all">Все</option>
+                  {roles.map(r => (<option key={r} value={r}>{r}</option>))}
+                </select>
+              </div>
+            )}
             <button onClick={onLeft} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Назад на неделю">‹</button>
             <button onClick={onToday} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Показать текущую неделю">Сегодня</button>
             <button onClick={onRight} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Вперёд на неделю">›</button>
@@ -647,11 +641,17 @@
       const weekTotals = useMemo(()=> visible.map(w => (isVacation(person.id,w) ? 0 : assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0))), [assignments, person.id, vacations, visible]);
 
       return (
-        <div className="fixed inset-0 bg-white flex items-stretch justify-center z-50">
+        <div className="fixed inset-0 bg-white flex items-stretch justify-center z-60">
           <div className="w-[1040px] h-full bg-white border-l border-neutral-200 overflow-hidden" onClick={e=>e.stopPropagation()}>
-            {/* Локальная липкая шапка */}
-            <div className="sticky top-0 z-50 bg-white border-b border-neutral-200" style={{height:'var(--sheet-header-h)'}}>
-              <div className="px-4 h-full flex items-center justify-between">
+            {/* ДВУХСТРОЧНАЯ ЛИПККАЯ ШАПКА: 1 — логотип, 2 — кнопки/инфо */}
+            <div className="sticky top-0 z-50 bg-white border-b border-neutral-200">
+              {/* строка 1: логотип */}
+              <div className="px-4 h-8 flex items-center justify-between">
+                <div className="text-sm font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
+                <button onClick={onClose} className="text-neutral-500 hover:text-neutral-800">✕</button>
+              </div>
+              {/* строка 2: навигация и действия */}
+              <div className="px-4 h-10 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <button onClick={onBack} className="text-sm px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow">← Назад</button>
                   <EditableName person={person} setPeople={setPeople}/>
@@ -662,12 +662,11 @@
                   <button onClick={goLeft} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Назад на неделю">‹</button>
                   <button onClick={goToday} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Текущая неделя">Сегодня</button>
                   <button onClick={goRight} className="px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow" title="Вперёд на неделю">›</button>
-                  <button onClick={onClose} className="ml-2 text-neutral-500 hover:text-neutral-800">✕</button>
                 </div>
               </div>
             </div>
 
-            {/* Хедеры недель (без горизонтального скролла) */}
+            {/* Хедеры недель */}
             <div className="grid px-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
               <div className="sticky left-0 z-50 bg-white border-r border-neutral-200" />
               {visible.map(w => (<div key={w}><WeekHeader iso={w}/></div>))}
@@ -733,7 +732,7 @@
 
             {/* Модал отпусков */}
             {vacOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={()=>setVacOpen(false)}>
+              <div className="fixed inset-0 z-60 flex items-center justify-center" onClick={()=>setVacOpen(false)}>
                 <div className="absolute inset-0 bg-black/40"/>
                 <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
                   <div className="text-base font-semibold mb-3">Отпуск — {person.name}</div>
@@ -885,7 +884,7 @@
     }
 
     // =================================
-    // Role manager (карандаш + удаление)
+    // Role manager (липкий под навигатором на странице «Проекты»)
     // =================================
     function RoleManager({roles, setRoles, setRoleFilter, people, setPeople}){
       const [adding, setAdding] = useState("");
@@ -903,7 +902,7 @@
       };
 
       return (
-        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky top-[calc(var(--app-header-h)+8px)] z-40">
+        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky top-[calc(var(--app-header-h)+48px)] z-50">
           <div className="text-sm font-medium mb-2">Роли</div>
           <div className="flex flex-wrap gap-2">
             {roles.map(r => (
@@ -938,7 +937,7 @@
     function CreatePersonModal({open, onClose, name, setName, role, setRole, onSubmit, roles}){
       if(!open) return null;
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+        <div className="fixed inset-0 z-60 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
           <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[440px] p-4" onClick={e=>e.stopPropagation()}>
             <div className="text-base font-semibold mb-3">Новый сотрудник</div>
@@ -969,7 +968,7 @@
     function CreateProjectModal({open, onClose, name, setName, color, setColor, status, setStatus, search, setSearch, teamSel, setTeamSel, people, suggestions, onSubmit}){
       if(!open) return null;
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+        <div className="fixed inset-0 z-60 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
           <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-height-[80vh] overflow-auto p-4" onClick={e=>e.stopPropagation()}>
             <div className="text-base font-semibold mb-3">Новый проект</div>
@@ -1070,4 +1069,3 @@
   </script>
 </body>
 </html>
-
