@@ -1,863 +1,1017 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1,viewport-fit=cover"
-  />
-  <title>FTE Planner — Trello/Apple-like</title>
-  <!-- Tailwind CDN -->
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Панквеб FTE Planner</title>
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Tailwind design tokens
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: {
-            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'Roboto'],
-          },
           colors: {
-            primary: {
-              50: '#eef6ff',
-              100: '#d9ebff',
-              200: '#b6d7ff',
-              300: '#8fc1ff',
-              400: '#5ea4ff',
-              500: '#3b82f6', // main
-              600: '#2f6bd9',
-              700: '#2656b3',
-              800: '#214a94',
-              900: '#1f3f78',
-            },
-            success: { 500: '#16a34a' },
-            warning: { 500: '#f59e0b' },
-            danger: { 500: '#ef4444' },
-            ink: {
-              50: '#fafafa',
-              100: '#f5f5f5',
-              200: '#e5e5e5',
-              300: '#d4d4d4',
-              400: '#a3a3a3',
-              500: '#737373',
-              600: '#525252',
-              700: '#404040',
-              800: '#262626',
-              900: '#171717',
-            },
+            brand: {
+              50:  '#effdf4',
+              100: '#d9fbeb',
+              200: '#b6f5d8',
+              300: '#86eabf',
+              400: '#4edb9f',
+              500: '#22c55e', /* фирменный зелёный */
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d',
+            }
           },
-          boxShadow: {
-            soft: '0 8px 30px rgba(0,0,0,0.06)',
-          },
-          borderRadius: {
-            xl2: '1rem',
-          },
-        },
-      },
-    };
-  </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-    rel="stylesheet"
-  />
-  <style>
-    html, body, #root { height: 100%; }
-    /* hide number input spinners for clean Apple-like look */
-    input[type=number]::-webkit-outer-spin-button,
-    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    input[type=number] { -moz-appearance: textfield; }
-  </style>
-</head>
-<body class="bg-ink-50 text-ink-800 font-sans antialiased">
-  <div id="root"></div>
-
-  <!-- React 18 UMD + Babel -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <script type="text/babel">
-    const { useEffect, useMemo, useRef, useState } = React;
-
-    // -----------------------------
-    // Utilities (dates & storage)
-    // -----------------------------
-    const MAX_FTE = 1.2;
-    const STORAGE_KEY = "fte_planner_state_v2";
-
-    const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
-
-    const startOfISOWeek = (d) => {
-      const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-      const day = date.getUTCDay() || 7;
-      if (day !== 1) date.setUTCDate(date.getUTCDate() - (day - 1));
-      date.setUTCHours(0,0,0,0);
-      return date;
-    };
-
-    const addDays = (d, days) => {
-      const c = new Date(d);
-      c.setUTCDate(c.getUTCDate() + days);
-      return c;
-    };
-
-    const addWeeks = (d, weeks) => addDays(d, weeks * 7);
-
-    const isoDate = (d) => d.toISOString().slice(0,10); // YYYY-MM-DD
-
-    const formatNice = (d) =>
-      d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' }).replace('.', '');
-
-    const weekLabel = (start) => {
-      const end = addDays(start, 6);
-      return `${formatNice(start)} — ${formatNice(end)}`;
-    };
-
-    const range = (n) => [...Array(n).keys()];
-
-    function useLocalState(initial) {
-      const [state, setState] = useState(() => {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          return raw ? JSON.parse(raw) : initial;
-        } catch {
-          return initial;
+          boxShadow: { soft: '0 8px 24px rgba(0,0,0,.06)' },
+          fontFamily: { sans: ['Inter','ui-sans-serif','system-ui','Segoe UI','Roboto'] }
         }
-      });
-      useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      }, [state]);
-      return [state, setState];
-    }
-
-    // -----------------------------
-    // Design System
-    // -----------------------------
-    const Button = ({ as = 'button', className = '', variant = 'primary', size='md', ...props }) => {
-      const Comp = as;
-      const base =
-        'inline-flex items-center justify-center rounded-xl font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:opacity-50 disabled:cursor-not-allowed';
-      const sizes = {
-        sm: 'h-8 px-3 text-sm',
-        md: 'h-10 px-4 text-[15px]',
-      };
-      const variants = {
-        primary: 'bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700',
-        secondary: 'bg-white text-ink-800 border border-ink-200 hover:bg-ink-100',
-        ghost: 'bg-transparent text-ink-700 hover:bg-ink-100',
-        danger: 'bg-danger-500 text-white hover:bg-red-600',
-      };
-      return <Comp className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props} />;
-    };
-
-    const Segmented = ({ value, onChange, options }) => {
-      return (
-        <div className="inline-flex bg-white rounded-xl p-1 border border-ink-200 shadow-soft">
-          {options.map((opt) => {
-            const active = opt.value === value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => onChange(opt.value)}
-                className={
-                  'px-3 h-9 rounded-lg text-[15px] transition ' +
-                  (active
-                    ? 'bg-primary-500 text-white'
-                    : 'text-ink-700 hover:bg-ink-100')
-                }
-                aria-pressed={active}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      );
-    };
-
-    const Input = React.forwardRef(({ className='', ...props }, ref) => (
-      <input
-        ref={ref}
-        className={`h-10 px-3 rounded-xl border border-ink-200 bg-white text-[15px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${className}`}
-        {...props}
-      />
-    ));
-    Input.displayName = 'Input';
-
-    const Select = ({ className='', ...props }) => (
-      <select
-        className={`h-10 px-3 rounded-xl border border-ink-200 bg-white text-[15px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${className}`}
-        {...props}
-      />
-    );
-
-    const Tag = ({ color = '#bbb', children }) => (
-      <span className="inline-flex items-center gap-2 px-2.5 h-8 rounded-full bg-white border border-ink-200 text-sm">
-        <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-        <span>{children}</span>
-      </span>
-    );
-
-    const SectionCard = ({ title, actions, children }) => (
-      <div className="bg-white rounded-2xl shadow-soft border border-ink-200">
-        <div className="px-4 sm:px-6 py-3 flex items-center justify-between border-b border-ink-100">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <div className="flex items-center gap-2">{actions}</div>
-        </div>
-        <div className="p-4 sm:p-6">{children}</div>
-      </div>
-    );
-
-    // -----------------------------
-    // Demo Data (initial seed)
-    // -----------------------------
-    const initialState = {
-      people: [
-        { id: 'p1', name: 'Анна', role: 'Frontend', external: false },
-        { id: 'p2', name: 'Игорь', role: 'Backend', external: false },
-        { id: 'p3', name: 'Мария', role: 'QA', external: true },
-      ],
-      projects: [
-        { id: 'pr1', name: 'Новый сайт', color: '#22c55e', status: 'active', team: ['p1','p2'] },
-        { id: 'pr2', name: 'Мобильное приложение', color: '#3b82f6', status: 'planned', team: ['p1','p3'] },
-      ],
-      // assignments: { [isoWeekStart]: { [personId]: { [projectId]: fte } } }
-      assignments: {},
-      // vacations: { [personId]: Array<{ fromIso, toIso }> }
-      vacations: { p2: [], p1: [], p3: [] },
-      ui: {
-        visibleWeeks: 16,
       }
     };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&display=swap" rel="stylesheet"/>
 
-    // -----------------------------
-    // App State Hook
-    // -----------------------------
-    function useAppState() {
-      const [state, setState] = useLocalState(initialState);
+  <style>
+    :root{
+      --app-header-h: 56px;
+      --left-col-w: 300px;
+    }
+    body{ background:#F7F8FA; }
+    .btn{ @apply inline-flex items-center justify-center h-9 px-3 rounded-xl border border-neutral-300 bg-white hover:bg-neutral-50 text-[14px] transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300; }
+    .btn-primary{ @apply border-brand-500 bg-brand-500 text-white hover:bg-brand-600; }
+    .btn-ghost{ @apply border-transparent bg-transparent hover:bg-neutral-100; }
+    .segmented{ @apply inline-flex p-1 bg-white rounded-2xl border border-neutral-200 shadow-soft; }
+    .segmented button{ @apply px-3 h-9 rounded-xl text-[14px] transition; }
+    .segmented .active{ @apply bg-brand-500 text-white; }
+    .segmented .idle{ @apply text-neutral-700 hover:bg-neutral-100; }
+    .no-scrollbar::-webkit-scrollbar{ display:none }
+  </style>
+</head>
+<body class="no-scrollbar">
+  <div id="root"></div>
 
-      const setPeople = (fn) => setState(s => ({ ...s, people: fn(s.people) }));
-      const setProjects = (fn) => setState(s => ({ ...s, projects: fn(s.projects) }));
-      const setAssignments = (fn) => setState(s => ({ ...s, assignments: fn(s.assignments) }));
-      const setVacations = (fn) => setState(s => ({ ...s, vacations: fn(s.vacations) }));
-      const setUI = (fn) => setState(s => ({ ...s, ui: fn(s.ui) }));
+  <!-- React 18 + Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-      return {
-        state, setState,
-        setPeople, setProjects, setAssignments, setVacations, setUI
+  <script type="text/babel">
+    const {useState, useEffect, useMemo, useRef, Fragment} = React;
+
+    // ======== Константы/утилиты ========
+    const MAX_FTE = 1.2;
+    const WEEK_COL_PX = 72;
+    const TEAM_BAR_COLOR = "#22c55e"; // зелёный бар загрузки
+    const VISIBLE_WEEKS = 16;
+
+    const LS_KEY = "fteplanner.v1";
+    const loadAll = () => { try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch{ return {}; } };
+    const loadJSON = (k,f)=> (k in loadAll()? loadAll()[k] : f);
+    const saveJSON = (patch)=>{ try{ const all=loadAll(); const merged={...all, ...patch}; localStorage.setItem(LS_KEY, JSON.stringify(merged)); }catch{} };
+
+    const fmtISO = (date) => date.toISOString().slice(0,10);
+    const addDays = (d, n) => { const x=new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; };
+    const startOfISOWeek = (d) => { const day=d.getDay(); const diff=(day===0?-6:1)-day; const m=new Date(d); m.setDate(d.getDate()+diff); m.setHours(0,0,0,0); return m; };
+    const addWeeks = (m, n) => { const d=new Date(m); d.setDate(d.getDate()+n*7); d.setHours(0,0,0,0); return d; };
+    const pad2 = (n) => (n<10 ? `0${n}` : String(n));
+    const fmtDM = (d) => `${pad2(d.getDate())}.${pad2(d.getMonth()+1)}`;
+    const RU_MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
+    const ruMonthShort = (m) => RU_MONTHS[m] ?? "";
+    const weekLabelParts = (iso) => { const d=new Date(iso); const w=1+Math.floor((d.getDate()-1)/7); return { top:`${w} нед`, bot:ruMonthShort(d.getMonth()) }; };
+    const weekRangeLabel = (iso) => { const d=new Date(iso); const end=addDays(d,6); return `${fmtDM(d)}–${fmtDM(end)}`; };
+    const clamp = (n,min,max)=> Math.max(min, Math.min(max, n));
+    const scaleRatio = (v, max=MAX_FTE) => clamp(v/max, 0, 1);
+    const rndId = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+    const fmtFTE1 = (n) => (Math.round(n*10)/10).toFixed(1);
+    const yearWeekMondays = (year) => { let m=startOfISOWeek(new Date(year,0,1)); const end=new Date(year,11,31); end.setHours(0,0,0,0); const list=[]; while(m<=end){ list.push(fmtISO(m)); m=addDays(m,7);} return list; };
+
+    // ======== Seed (примерные данные) ========
+    const seedPeople = [
+      {id:"p1", name:"Анна", role:"designer", capacityPerWeek:1, active:true, external:false},
+      {id:"p2", name:"Игорь", role:"dev", capacityPerWeek:1, active:true, external:false},
+      {id:"p3", name:"Мария", role:"qa", capacityPerWeek:1, active:true, external:true},
+    ];
+    const seedProjects = [
+      {id:"pr1", name:"Новый сайт", color:"#22c55e", status:"active"},
+      {id:"pr2", name:"Мобильное приложение", color:"#10b981", status:"planned"},
+    ];
+    const seedRoles = ["designer","dev","qa","pm","other"];
+    const seedAssignments = [
+      {personId:"p1", projectId:"pr1", weekStart: fmtISO(startOfISOWeek(new Date())), fte:0.6},
+      {personId:"p1", projectId:"pr2", weekStart: fmtISO(startOfISOWeek(new Date())), fte:0.4},
+      {personId:"p2", projectId:"pr1", weekStart: fmtISO(startOfISOWeek(new Date())), fte:1.0},
+    ];
+
+    // ======== Окно недель (как в Index3) ========
+    function useWeeksWindow(){
+      const year = new Date().getFullYear();
+      const initialWeeks = loadJSON("weeks", yearWeekMondays(year));
+      const savedFirst = loadJSON("firstWeekISO", fmtISO(startOfISOWeek(new Date())));
+      const [weeks, setWeeks] = useState(initialWeeks);
+      const [firstIdx, setFirstIdx] = useState(()=> Math.max(0, weeks.indexOf(savedFirst)));
+
+      const ensureRange = (idx)=>{
+        let w = weeks.slice();
+        if(idx<0){ const yearPrev = new Date(weeks[0]).getFullYear()-1; w = [...yearWeekMondays(yearPrev), ...w]; }
+        if(idx+VISIBLE_WEEKS>w.length){ const yearNext = new Date(weeks.at(-1)).getFullYear()+1; w = [...w, ...yearWeekMondays(yearNext)]; }
+        const f = clamp(idx, 0, Math.max(0, w.length-VISIBLE_WEEKS));
+        return {weeks:w, firstIdx:f};
       };
-    }
-
-    // -----------------------------
-    // Hash Router
-    // -----------------------------
-    function parseHash() {
-      const hash = window.location.hash.replace(/^#/, '');
-      const url = new URL('http://x/' + (hash || 'load'));
-      const path = url.pathname.replace(/^\//,'') || 'load';
-      const params = Object.fromEntries(url.searchParams.entries());
-      return { path, params };
-    }
-
-    function useHashRoute() {
-      const [route, setRoute] = useState(parseHash());
-      useEffect(() => {
-        const onHash = () => setRoute(parseHash());
-        window.addEventListener('hashchange', onHash);
-        if (!window.location.hash) {
-          const today = isoDate(startOfISOWeek(new Date()));
-          window.location.hash = `#load?week=${today}&visible=16`;
+      const goLeft = ()=>{ const {weeks:w2, firstIdx:f2} = ensureRange(firstIdx-1); setWeeks(w2); setFirstIdx(f2); saveJSON({weeks:w2, firstWeekISO:w2[f2]}); };
+      const goRight = ()=>{ const {weeks:w2, firstIdx:f2} = ensureRange(firstIdx+1); setWeeks(w2); setFirstIdx(f2); saveJSON({weeks:w2, firstWeekISO:w2[f2]}); };
+      const goToday = ()=>{
+        const todayISO = fmtISO(startOfISOWeek(new Date()));
+        let idx = weeks.indexOf(todayISO);
+        let w2 = weeks.slice();
+        if(idx<0){
+          // если сегодня вне диапазона — расширяем
+          const set = new Set(w2);
+          let m = startOfISOWeek(new Date(todayISO));
+          const end = addWeeks(m, 200);
+          while(m<=end){ const iso=fmtISO(m); if(!set.has(iso)) w2.push(iso); m = addDays(m,7); }
+          w2.sort();
+          idx = w2.indexOf(todayISO);
         }
-        return () => window.removeEventListener('hashchange', onHash);
-      }, []);
-      return [route, (p) => window.location.hash = p];
+        const {weeks:w3, firstIdx:f3} = (()=>{
+          let {weeks:wx, firstIdx:fx} = {weeks:w2, firstIdx:idx};
+          if(fx+VISIBLE_WEEKS>wx.length) fx = Math.max(0, wx.length - VISIBLE_WEEKS);
+          return {weeks:wx, firstIdx:fx};
+        })();
+        setWeeks(w3); setFirstIdx(f3);
+        saveJSON({weeks:w3, firstWeekISO:w3[f3]});
+      };
+
+      const visible = useMemo(()=> weeks.slice(firstIdx, firstIdx+VISIBLE_WEEKS), [weeks, firstIdx]);
+      return {weeks, setWeeks, firstIdx, setFirstIdx, visible, goLeft, goRight, goToday};
     }
 
-    // -----------------------------
-    // Week Navigator
-    // -----------------------------
-    function WeekNavigator({ weekStartIso, visible = 16, onChange }) {
-      const weekStart = useMemo(() => new Date(weekStartIso + 'T00:00:00.000Z'), [weekStartIso]);
+    // ======== Мелкие иконки ========
+    const TrashIcon = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V5h6v2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>);
+    const PencilIcon = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" stroke-width="1.6"/><path d="M14.06 4.94l3.75 3.75" stroke="currentColor" stroke-width="1.6"/></svg>);
+    const MinusIcon = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>);
+    const EyedropperIcon = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 21l6-6m0 0l9-9a2.828 2.828 0 114 4l-9 9m-4-4l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>);
+    const StatusIcon = ({status})=>{
+      const map = { active:'✓', planned:'•', onhold:'‖', done:'✔︎' };
+      return <span className="text-white font-bold">{map[status] || '•'}</span>;
+    };
+
+    // ======== UI атомики ========
+    const WeekHeader = ({iso})=>{
+      const p = weekLabelParts(iso);
       return (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={() => {
-            const today = isoDate(startOfISOWeek(new Date()));
-            onChange({ week: today, visible });
-          }}>Сегодня</Button>
-          <Button variant="ghost" onClick={() => {
-            const prev = isoDate(addWeeks(weekStart, -1));
-            onChange({ week: prev, visible });
-          }}>← Неделя</Button>
-          <div className="text-ink-600 text-sm select-none">
-            Диапазон: {weekLabel(weekStart)} … {weekLabel(addWeeks(weekStart, Math.max(1, Math.floor(visible-1))))}
-          </div>
-          <Button variant="ghost" onClick={() => {
-            const next = isoDate(addWeeks(weekStart, 1));
-            onChange({ week: next, visible });
-          }}>Неделя →</Button>
-          <Select
-            value={String(visible)}
-            onChange={(e) => onChange({ week: weekStartIso, visible: parseInt(e.target.value, 10) })}
-          >
-            {[8,12,16,24].map(n => <option key={n} value={n}>{n} недель</option>)}
-          </Select>
-          <Input
-            type="date"
-            value={weekStartIso}
-            onChange={(e) => {
-              const d = startOfISOWeek(new Date(e.target.value + 'T00:00:00.000Z'));
-              onChange({ week: isoDate(d), visible });
-            }}
-          />
+        <div className="h-12 flex items-center justify-center">
+          <span className="text-[11px] px-2 py-1 rounded-lg border border-neutral-200 bg-white shadow-sm">
+            <span className="font-semibold">{p.top}</span> · {p.bot} <span className="text-neutral-500">({weekRangeLabel(iso)})</span>
+          </span>
         </div>
       );
-    }
+    };
 
-    // -----------------------------
-    // Header (Sticky)
-    // -----------------------------
-    function Header({ currentTab, onTab, route, setRoute }) {
-      const params = route.params;
-      const week = params.week || isoDate(startOfISOWeek(new Date()));
-      const visible = parseInt(params.visible || '16', 10);
-
-      const handleWeekChange = ({ week, visible }) => {
-        setRoute(`#${currentTab}?week=${week}&visible=${visible}`);
-      };
-
+    const WeekNavigator = ({onLeft,onRight,onToday,showRoleFilter=false,roleFilter="all",setRoleFilter=()=>{},roles=[],stickyTopClass='top-[var(--app-header-h)]',leftNode=null})=>{
       return (
-        <header className="sticky top-0 z-50 bg-ink-50/60 backdrop-blur border-b border-ink-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-primary-500 text-white grid place-items-center font-bold">F</div>
-                  <div className="text-ink-900 font-semibold tracking-tight">FTE Planner</div>
+        <div className={`sticky ${stickyTopClass} z-50 bg-[#F7F8FA] py-2`}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-h-[32px]">{leftNode}</div>
+            <div className="flex items-center gap-2">
+              {showRoleFilter && (
+                <div className="flex items-center gap-2 mr-1">
+                  <label className="text-sm text-neutral-700">Роль</label>
+                  <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm focus-visible:ring-2 focus-visible:ring-brand-300"
+                          value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
+                    <option value="all">Все</option>
+                    {roles.map(r => (<option key={r} value={r}>{r}</option>))}
+                  </select>
                 </div>
-                <Segmented
-                  value={currentTab}
-                  onChange={(tab) => setRoute(`#${tab}?week=${week}&visible=${visible}`)}
-                  options={[
-                    { value: 'load', label: 'Нагрузка' },
-                    { value: 'projects', label: 'Проекты' },
-                    { value: 'people', label: 'Команда' },
-                  ]}
-                />
-              </div>
-              <WeekNavigator weekStartIso={week} visible={visible} onChange={handleWeekChange}/>
+              )}
+              <button onClick={onLeft} className="btn" aria-label="Предыдущая неделя">‹</button>
+              <button onClick={onToday} className="btn">Сегодня</button>
+              <button onClick={onRight} className="btn" aria-label="Следующая неделя">›</button>
             </div>
           </div>
-        </header>
+        </div>
       );
-    }
+    };
 
-    // -----------------------------
-    // Grid Helpers
-    // -----------------------------
-    function WeeksHeader({ start, count }) {
-      const weeks = useMemo(() => range(count).map(i => addWeeks(start, i)), [start, count]);
+    // ======== Модалки создания ========
+    function CreatePersonModal({open, onClose, name, setName, role, setRole, external, setExternal, onSubmit, roles}){
+      if(!open) return null;
       return (
-        <div className="grid" style={{ gridTemplateColumns: `240px repeat(${count}, minmax(120px, 1fr))` }}>
-          <div />
-          {weeks.map((w, idx) => (
-            <div key={idx} className="px-3 py-2 text-xs text-ink-600">{weekLabel(w)}</div>
-          ))}
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+          <div className="absolute inset-0 bg-black/40"/>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[460px] p-4" onClick={(e)=>e.stopPropagation()}>
+            <div className="text-base font-semibold mb-3">Новый сотрудник</div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm mb-1">Имя</label>
+                <input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-xl px-3 py-2 focus-visible:ring-2 focus-visible:ring-brand-300"/>
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Роль</label>
+                <select value={role} onChange={e=>setRole(e.target.value)} className="w-full border border-neutral-300 rounded-xl px-3 py-2">
+                  {roles.map(r => (<option key={r} value={r}>{r.toUpperCase()}</option>))}
+                </select>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={external} onChange={e=>setExternal(e.target.checked)} />
+                Внешний
+              </label>
+              <div className="flex gap-2">
+                <button className="btn w-full" onClick={onClose}>Отмена</button>
+                <button className="btn-primary w-full" onClick={onSubmit}>Добавить</button>
+              </div>
+            </div>
+          </div>
         </div>
       );
     }
 
-    function FTECell({ value, onCommit }) {
+    function CreateProjectModal({open, onClose, name, setName, color, setColor, status, setStatus, search, setSearch, teamSel, setTeamSel, people, suggestions, onSubmit}){
+      if(!open) return null;
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+          <div className="absolute inset-0 bg-black/40"/>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[520px] p-4" onClick={(e)=>e.stopPropagation()}>
+            <div className="text-base font-semibold mb-3">Новый проект</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-sm mb-1">Название</label>
+                <input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-xl px-3 py-2 focus-visible:ring-2 focus-visible:ring-brand-300"/>
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Цвет</label>
+                <input type="color" value={color} onChange={e=>setColor(e.target.value)} className="h-10 w-16 rounded-xl border border-neutral-200"/>
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Статус</label>
+                <select value={status} onChange={e=>setStatus(e.target.value)} className="w-full border border-neutral-300 rounded-xl px-3 py-2">
+                  <option value="active">active</option>
+                  <option value="planned">planned</option>
+                  <option value="onhold">onhold</option>
+                  <option value="done">done</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm mb-1">Добавить команду</label>
+                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск…" className="w-full border border-neutral-300 rounded-xl px-3 py-2"/>
+                {search && (
+                  <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
+                    {suggestions.length>0 ? suggestions.map(p => (
+                      <button key={p.id} className="w-full text-left px-3 py-2 hover:bg-brand-50" onClick={()=>{ const s=new Set(teamSel); s.add(p.id); setTeamSel(s); setSearch(""); }}>
+                        {p.name} <span className="text-[10px] text-neutral-500">{String(p.role).toUpperCase()}</span> {p.external && <span className="ml-1 text-[10px] text-amber-700">внешн.</span>}
+                      </button>
+                    )) : <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>}
+                  </div>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {Array.from(teamSel).map(id => {
+                    const person = people.find(x=>x.id===id);
+                    return (
+                      <span key={id} className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs bg-brand-50 text-brand-800 border border-brand-200">
+                        {person?.name}
+                        <button className="ml-1 hover:text-brand-900" onClick={()=>{ const s=new Set(teamSel); s.delete(id); setTeamSel(s); }}>×</button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button className="btn w-full" onClick={onClose}>Отмена</button>
+              <button className="btn-primary w-full" onClick={onSubmit}>Создать</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ======== Редакторы / менеджеры ========
+    function EditableName({person, setPeople}){
       const [editing, setEditing] = useState(false);
-      const [val, setVal] = useState(value ?? '');
+      const [val, setVal] = useState(person.name || "");
+      useEffect(()=> setVal(person.name||""), [person.id, person.name]);
+      const commit = ()=>{ const name = val.trim() || person.name; setEditing(false); if(name!==person.name) setPeople(prev => prev.map(p => p.id===person.id ? {...p, name} : p)); };
+      return editing ? (
+        <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape'){ setEditing(false); setVal(person.name||""); } }}
+               className="text-sm px-2 py-1 rounded-lg border border-neutral-300"/>
+      ) : (
+        <button className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:bg-neutral-50" title="Редактировать имя" onClick={()=>setEditing(true)}>
+          <PencilIcon className="opacity-70"/> {person.name}
+        </button>
+      );
+    }
+    function EditableRole({person, setPeople, roles}){
+      const [editing, setEditing] = useState(false);
+      const [val, setVal] = useState(person.role || "other");
+      useEffect(()=> setVal(person.role || "other"), [person.id, person.role]);
+      const commit = ()=>{ const role = val || "other"; setEditing(false); if(role===person.role) return; setPeople(prev => prev.map(p => p.id===person.id ? {...p, role} : p)); };
+      return editing ? (
+        <select autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} className="text-[12px] px-2 py-1 rounded-lg bg-white border border-neutral-300">
+          {roles.map(r => (<option key={r} value={r}>{r.toUpperCase()}</option>))}
+        </select>
+      ) : (
+        <button className="inline-flex items-center gap-1 text-[12px] px-2 py-1 rounded-lg bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={()=>setEditing(true)}>
+          <PencilIcon className="opacity-70"/> {(person.role||"OTHER").toUpperCase()}
+        </button>
+      );
+    }
 
-      useEffect(() => { if (!editing) setVal(value ?? ''); }, [value, editing]);
+    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass='top-[calc(var(--app-header-h)+48px)]'}){
+      const [adding, setAdding] = useState("");
+      const [editing, setEditing] = useState(null);
+      const [val, setVal] = useState("");
 
-      const inputRef = useRef(null);
-      useEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
+      const add = ()=>{ const x=adding.trim(); if(!x || roles.includes(x)) return; setRoles([...roles, x]); setAdding(""); };
+      const startEdit = (r)=>{ setEditing(r); setVal(r); };
+      const commit = ()=>{ if(!editing) return; const x=val.trim(); if(!x){ setEditing(null); return; } setRoles(roles.map(r => r===editing ? x : r)); setEditing(null); if(x) setRoleFilter(x); };
+      const remove = (r)=>{
+        if(!confirm(`Удалить роль «${r}»? Людям с этой ролью будет проставлено OTHER.`)) return;
+        setRoles(roles.filter(x=>x!==r));
+        setPeople(prev => prev.map(p => p.role===r ? {...p, role:"other"} : p));
+        setRoleFilter("all");
+      };
 
       return (
-        <div
-          className={`px-3 py-2 h-12 bg-white border border-ink-200 rounded-xl flex items-center hover:border-primary-400 transition`}
-          onClick={() => setEditing(true)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter') setEditing(true); }}
-        >
-          {editing ? (
-            <input
-              ref={inputRef}
-              type="number"
-              step="0.1"
-              min="0"
-              max={MAX_FTE}
-              value={val}
-              onChange={(e) => setVal(e.target.value)}
-              onBlur={() => { setEditing(false); onCommit(val === '' ? null : clamp(parseFloat(val), 0, MAX_FTE)); }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.currentTarget.blur(); }
-                if (e.key === 'Escape') { setEditing(false); setVal(value ?? ''); }
-              }}
-              className="w-full outline-none"
+        <div className={`bg-white rounded-2xl border border-neutral-200 shadow-soft p-3 sticky ${stickyTopClass} z-50`}>
+          <div className="text-sm font-medium">Роли</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {roles.map(r => (
+              <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
+                {editing===r ? (
+                  <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape') setEditing(null); }} className="px-1 py-0.5 border border-neutral-300 rounded"/>
+                ) : (
+                  <>
+                    <button className="hover:underline" onClick={()=>setRoleFilter(r)}>{r}</button>
+                    <button className="text-neutral-500 hover:text-neutral-800" title="Переименовать роль" onClick={()=>startEdit(r)}><PencilIcon/></button>
+                    <button className="text-neutral-500 hover:text-red-600" title="Удалить роль" onClick={()=>remove(r)}><TrashIcon/></button>
+                  </>
+                )}
+              </span>
+            ))}
+            <span className="inline-flex items-center gap-1">
+              <input value={adding} onChange={e=>setAdding(e.target.value)} placeholder="Добавить роль" className="px-2 py-1 text-sm border border-neutral-300 rounded-lg"/>
+              <button className="btn" onClick={add}>Сохранить</button>
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    // ======== Компоненты «Команда» ========
+    function PersonProjectsEditor({person, projects, projectTeams, setProjectTeams}){
+      const [search, setSearch] = useState("");
+      const memberOf = useMemo(()=>{
+        const ids = [];
+        for(const pr of projects){ if(projectTeams[pr.id]?.has(person.id)) ids.push(pr.id); }
+        return new Set(ids);
+      }, [projects, projectTeams, person.id]);
+
+      const pool = useMemo(()=> projects.filter(pr => !memberOf.has(pr.id) && pr.name.toLowerCase().includes(search.toLowerCase())).slice(0,8), [projects, memberOf, search]);
+
+      const add = (prid) => {
+        setProjectTeams(prev => {
+          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
+          (copy[prid]=copy[prid]||new Set()).add(person.id);
+          return copy;
+        });
+      };
+      const remove = (prid) => {
+        setProjectTeams(prev => {
+          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
+          copy[prid]?.delete(person.id);
+          return copy;
+        });
+      };
+
+      return (
+        <div>
+          <div className="flex items-center gap-2">
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Добавить проект..." className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-200"/>
+          </div>
+          {search && (
+            <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
+              {pool.length>0 ? (
+                pool.map(pr => (
+                  <button key={pr.id} className="w-full text-left px-3 py-2 hover:bg-brand-50" onClick={()=>{ add(pr.id); setSearch(""); }}>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
+                      {pr.name}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {Array.from(memberOf).map(prid => {
+              const pr = projects.find(p=>p.id===prid); if(!pr) return null;
+              return (
+                <span key={prid} className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs bg-brand-50 text-brand-800 border border-brand-200">
+                  <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
+                  {pr.name}
+                  <button className="ml-1 hover:text-brand-900" onClick={()=>remove(prid)}>×</button>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    function ProjectTeamSelector({project, people, projectTeams, setProjectTeams}){
+      const [search, setSearch] = useState("");
+      const list = useMemo(()=> people.filter(p => !projectTeams[project.id]?.has(p.id) && p.name.toLowerCase().includes(search.toLowerCase())).slice(0,8), [people, project.id, projectTeams, search]);
+
+      const addToTeam = (pid) => {
+        setProjectTeams(prev => {
+          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
+          (copy[project.id]=copy[project.id]||new Set()).add(pid);
+          return copy;
+        });
+      };
+      const removeFromTeam = (pid) => {
+        setProjectTeams(prev => {
+          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
+          copy[project.id]?.delete(pid);
+          return copy;
+        });
+      };
+
+      return (
+        <div>
+          <div className="flex items-center gap-2">
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Добавить сотрудника..." className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-200"/>
+          </div>
+          {search && (
+            <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
+              {list.length>0 ? (
+                list.map(sug => (
+                  <button key={sug.id} className="w-full text-left px-3 py-2 hover:bg-brand-50" onClick={()=>{ addToTeam(sug.id); setSearch(""); }}>
+                    {sug.name} <span className="text-[10px] text-neutral-500">{String(sug.role).toUpperCase()}</span> {sug.external && <span className="ml-1 text-[10px] text-amber-700">внешн.</span>}
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {Array.from(projectTeams[project.id]||[]).map(pid => {
+              const person = people.find(x=>x.id===pid);
+              return (
+                <span key={pid} className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs bg-neutral-100 border border-neutral-200">
+                  {person?.name}
+                  <button className="ml-1 text-neutral-500 hover:text-red-600" onClick={()=>removeFromTeam(pid)}>×</button>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ======== FULL-PAGE «Один сотрудник» ========
+    function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles, view, setView }){
+      if(!person) return null;
+      const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
+      const [vacOpen, setVacOpen] = useState(false);
+      const [personVac, setPersonVac] = useState(()=> new Set(vacations[person.id] || []));
+      const [vFrom, setVFrom] = useState("");
+      const [vTo, setVTo] = useState("");
+      useEffect(()=>{ setPersonVac(new Set(vacations[person.id] || [])); }, [person.id, vacations]);
+
+      const saveVac = () => {
+        let setToSave = new Set(personVac);
+        if(vFrom && vTo){
+          const d1=new Date(vFrom), d2=new Date(vTo);
+          if(!(isNaN(d1) || isNaN(d2) || d1>d2)){
+            let m=startOfISOWeek(d1); const m2=startOfISOWeek(d2);
+            while(m<=m2){ setToSave.add(fmtISO(m)); m=addDays(m,7); }
+          }
+        }
+        setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=> (c[k]=new Set(v))); c[person.id]=setToSave; return c; });
+        onSave(prev => prev.filter(a => !(a.personId===person.id && setToSave.has(a.weekStart))));
+        setVacOpen(false);
+      };
+      const clearVacationWeek = (week) => setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=> (c[k]=new Set(v))); const s=new Set(c[person.id]||[]); s.delete(week); c[person.id]=s; return c; });
+
+      const visible = visibleWeeks;
+      const orderedIds = useMemo(()=>{
+        const memberProjects = projects.filter(p => teamByProject[p.id]?.has?.(person.id)).map(p => p.id);
+        const arr = order && Array.isArray(order) ? order.filter(id=>memberProjects.includes(id)) : memberProjects;
+        const rest = memberProjects.filter(id => !arr.includes(id));
+        return [...arr, ...rest];
+      }, [projects, person.id, teamByProject, order]);
+
+      const weekTotals = useMemo(()=> visible.map(w => (isVacation(person.id,w) ? 0 : assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0))), [assignments, person.id, vacations, visible]);
+
+      return (
+        <div className="fixed inset-0 z-50 bg-[#F7F8FA] overflow-auto no-scrollbar">
+          {/* Шапка */}
+          <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
+            <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
+              <div className="text-lg font-semibold tracking-tight text-brand-700">Панквеб FTE Planner</div>
+              <div className="ml-4 segmented">
+                <button className={view==="team" ? "active" : "idle"} onClick={()=>{ setView("team"); onClose(); }}>Нагрузка</button>
+                <button className={view==="project" ? "active" : "idle"} onClick={()=>{ setView("project"); onClose(); }}>Проекты</button>
+                <button className={view==="employees" ? "active" : "idle"} onClick={()=>{ setView("employees"); onClose(); }}>Команда</button>
+              </div>
+              <div className="ml-auto"/>
+            </div>
+          </div>
+
+          <div className="max-w-screen-2xl mx-auto px-4">
+            <WeekNavigator
+              onLeft={goLeft}
+              onRight={goRight}
+              onToday={goToday}
+              showRoleFilter={false}
+              stickyTopClass="top-[var(--app-header-h)]"
+              leftNode={
+                <>
+                  <EditableName person={person} setPeople={setPeople}/>
+                  <EditableRole person={person} setPeople={setPeople} roles={roles}/>
+                  <button onClick={()=>setVacOpen(true)} className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800">🏖 Добавить отпуск</button>
+                </>
+              }
             />
-          ) : (
-            <span className="text-[15px]">{value ?? ''}</span>
+          </div>
+
+          {/* Заголовок недель и суммы */}
+          <div className="max-w-screen-2xl mx-auto px-4">
+            <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
+              <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
+              {visible.map(w => (<div key={w}><WeekHeader iso={w}/></div>))}
+            </div>
+
+            <div className="grid mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
+              <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
+              {visible.map((w,i)=>(
+                <div key={w} className="h-6 flex items-center justify-center">
+                  <span className="px-2 py-0.5 rounded-lg border border-neutral-300 bg-white text-[12px] font-medium shadow-sm">{fmtFTE1(weekTotals[i])}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid pb-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
+              {orderedIds.map((pid, idx) => {
+                const pr = projects.find(p=>p.id===pid); if(!pr) return null;
+                return (
+                  <Fragment key={pid}>
+                    <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1" draggable
+                         onDragStart={()=>{ window.__dragPr = idx; }}
+                         onDragOver={e=>e.preventDefault()}
+                         onDrop={()=>{ const from=window.__dragPr; const to=idx; if(from==null || from===to) return; const copy=[...orderedIds]; const id=copy.splice(from,1)[0]; copy.splice(to,0,id); setOrder(copy); delete window.__dragPr; }}>
+                      <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-soft p-3 flex items-center gap-3 min-w-0 h-[120px]">
+                        <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус проекта"
+                                onClick={()=> onSave(prev => prev.slice()) /* no-op: место под будущие статусы */}>
+                          <StatusIcon status={pr.status}/>
+                        </button>
+                        <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
+                        <button className="absolute top-2 right-10 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50" title="Изменить цвет" onClick={()=> document.getElementById(`color-${pr.id}`)?.click()} type="button">
+                          <EyedropperIcon/>
+                        </button>
+                        <input id={`color-${pr.id}`} type="color" className="hidden" value={pr.color} onChange={(e)=> pr.color = e.target.value }/>
+                      </div>
+                    </div>
+
+                    {visible.map(w=>{
+                      const total = assignments.filter(a => a.personId===person.id && a.projectId===pid && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
+                      const vac = isVacation(person.id, w);
+                      const ratio = vac ? 0 : scaleRatio(total);
+                      return (
+                        <div key={w} className="p-1">
+                          <div className={"relative h-[120px] bg-white rounded-2xl border border-neutral-200 shadow-soft flex items-center justify-center "+(total>1.0?"ring-1 ring-red-300":"")}>
+                            <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
+                              {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:TEAM_BAR_COLOR}} />)}
+                            </div>
+                            {!vac && (
+                              <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-900" title={fmtFTE1(total)}>
+                                {fmtFTE1(total)}
+                              </div>
+                            )}
+                            {vac && (<div className="absolute inset-0 flex items-center justify-center text-2xl" title="Отпуск">🏖</div>)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </Fragment>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Модалка отпусков */}
+          {vacOpen && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={()=>setVacOpen(false)}>
+              <div className="absolute inset-0 bg-black/40"/>
+              <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[520px] p-4" onClick={(e)=>e.stopPropagation()}>
+                <div className="text-base font-semibold mb-3">Отпуск</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm mb-1">С</label>
+                    <input type="date" value={vFrom} onChange={e=>setVFrom(e.target.value)} className="w-full border border-neutral-300 rounded-xl px-3 py-2"/>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">По</label>
+                    <input type="date" value={vTo} onChange={e=>setVTo(e.target.value)} className="w-full border border-neutral-300 rounded-xl px-3 py-2"/>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {Array.from(personVac).map(w => (
+                    <span key={w} className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs bg-amber-50 text-amber-800 border border-amber-200">
+                      {w}
+                      <button className="ml-1 hover:text-amber-900" onClick={()=>{ const s=new Set(personVac); s.delete(w); setPersonVac(s); clearVacationWeek(w); }}>×</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <button className="btn w-full" onClick={()=>setVacOpen(false)}>Отмена</button>
+                  <button className="btn-primary w-full" onClick={saveVac}>Сохранить</button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       );
     }
 
-    // -----------------------------
-    // Views
-    // -----------------------------
-    function LoadView({ app, route }) {
-      const { state, setAssignments } = app;
-      const week = new Date((route.params.week || isoDate(startOfISOWeek(new Date()))) + 'T00:00:00.000Z');
-      const visible = parseInt(route.params.visible || state.ui.visibleWeeks || '16', 10);
-
-      const weeks = useMemo(() => range(visible).map(i => addWeeks(week, i)), [week, visible]);
-
-      const commitFTE = (weekIso, personId, projectId, fte) => {
-        setAssignments((as) => {
-          const ws = { ...(as[weekIso] || {}) };
-          const personRec = { ...(ws[personId] || {}) };
-          if (fte === null || isNaN(fte)) {
-            delete personRec[projectId];
-          } else {
-            personRec[projectId] = fte;
-          }
-          ws[personId] = personRec;
-          return { ...as, [weekIso]: ws };
-        });
-      };
-
-      const rowSum = (weekIso, personId) => {
-        const ws = state.assignments[weekIso] || {};
-        const pr = ws[personId] || {};
-        return Object.values(pr).reduce((a,b)=>a+(b||0),0);
-      };
-
-      // simple filters
-      const [q, setQ] = useState('');
-      const filteredPeople = state.people
-        .filter(p => p.name.toLowerCase().includes(q.toLowerCase()) || p.role.toLowerCase().includes(q.toLowerCase()));
+    // ======== Страницы «Проекты» и «Команда» ========
+    function EmployeesPage({people, setPeople, projects, projectTeams, setProjectTeams, deletePerson}){
+      const [search, setSearch] = useState("");
+      const list = useMemo(()=> people.filter(p => (p.active!==false) && (p.name.toLowerCase().includes(search.toLowerCase()) || (p.role||"").toLowerCase().includes(search.toLowerCase()))), [people, search]);
 
       return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-4">
-          <div className="flex items-center gap-3">
-            <Input placeholder="Поиск по имени или роли…" value={q} onChange={(e)=>setQ(e.target.value)} />
-            <span className="text-sm text-ink-600">Всего: {filteredPeople.length}</span>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Поиск…" className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-200"/>
           </div>
 
-          <div className="grid" style={{ gridTemplateColumns: `240px repeat(${visible}, minmax(120px, 1fr))`, gap: '12px' }}>
-            <div />
-            {weeks.map((w,i)=>(
-              <div key={i} className="text-xs text-ink-600 px-1">{weekLabel(w)}</div>
-            ))}
-
-            {filteredPeople.map(person => (
-              <React.Fragment key={person.id}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-ink-200 grid place-items-center">{person.name[0]}</div>
-                  <div>
-                    <div className="font-medium">{person.name}</div>
-                    <div className="text-xs text-ink-600">{person.role}{person.external ? ' · внешний' : ''}</div>
-                  </div>
-                </div>
-                {weeks.map((w,i)=>{
-                  const wIso = isoDate(w);
-                  // choose first project from person's teams for demo purpose
-                  const personProjects = app.state.projects.filter(pr => pr.team.includes(person.id));
-                  const firstProject = personProjects[0]?.id;
-                  const current = (state.assignments[wIso]?.[person.id]?.[firstProject]) ?? null;
-                  return (
-                    <FTECell
-                      key={i}
-                      value={current}
-                      onCommit={(val) => firstProject && commitFTE(wIso, person.id, firstProject, val)}
-                    />
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </div>
-
-          <SectionCard
-            title="Сводка перегрузок"
-            actions={<></>}
-          >
-            <div className="grid md:grid-cols-2 gap-3">
-              {filteredPeople.map((p)=> {
-                const over = weeks.some(w => rowSum(isoDate(w), p.id) > 1.0);
-                return (
-                  <div key={p.id} className="flex items-center justify-between bg-ink-100 rounded-xl px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-white border border-ink-200 grid place-items-center">{p.name[0]}</div>
-                      <div>
-                        <div className="font-medium">{p.name}</div>
-                        <div className="text-xs text-ink-600">{p.role}</div>
-                      </div>
-                    </div>
-                    <div className={"text-sm font-medium " + (over ? "text-danger-500" : "text-ink-600")}>
-                      {over ? "Есть недели > 1.0" : "OK"}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </SectionCard>
-        </div>
-      );
-    }
-
-    function ProjectsView({ app }) {
-      const { state, setProjects } = app;
-      const [name, setName] = useState('');
-      const [color, setColor] = useState('#3b82f6');
-      const [status, setStatus] = useState('active');
-      const [q, setQ] = useState('');
-
-      const addProject = () => {
-        if (!name.trim()) return;
-        setProjects((arr) => [
-          ...arr,
-          { id: 'pr_' + Math.random().toString(36).slice(2,9), name: name.trim(), color, status, team: [] }
-        ]);
-        setName('');
-      };
-
-      const filtered = state.projects.filter(pr =>
-        pr.name.toLowerCase().includes(q.toLowerCase()) ||
-        pr.status.toLowerCase().includes(q.toLowerCase())
-      );
-
-      const setProject = (id, patch) => {
-        setProjects(list => list.map(p => p.id === id ? { ...p, ...patch } : p));
-      };
-
-      const removeFromTeam = (prId, pid) => {
-        setProjects(list => list.map(p => p.id === prId ? { ...p, team: p.team.filter(i => i !== pid)} : p));
-      };
-      const addToTeam = (prId, pid) => {
-        setProjects(list => list.map(p => p.id === prId ? { ...p, team: Array.from(new Set([...p.team, pid])) } : p));
-      };
-
-      return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid lg:grid-cols-[360px_1fr] gap-6">
-          <SectionCard
-            title="Новый проект"
-            actions={null}
-          >
-            <div className="space-y-3">
-              <Input placeholder="Название проекта" value={name} onChange={(e)=>setName(e.target.value)} />
-              <div className="flex items-center gap-3">
-                <label className="text-sm w-24">Цвет</label>
-                <input type="color" value={color} onChange={(e)=>setColor(e.target.value)} className="h-10 w-16 rounded-xl border border-ink-200"/>
-              </div>
-              <div className="flex items-center gap-3">
-                <label className="text-sm w-24">Статус</label>
-                <Select value={status} onChange={(e)=>setStatus(e.target.value)}>
-                  <option value="active">active</option>
-                  <option value="planned">planned</option>
-                  <option value="onhold">onhold</option>
-                  <option value="done">done</option>
-                </Select>
-              </div>
-              <Button onClick={addProject}>Добавить проект</Button>
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Проекты"
-            actions={
-              <div className="flex items-center gap-2">
-                <Input placeholder="Поиск…" value={q} onChange={(e)=>setQ(e.target.value)} />
-              </div>
-            }
-          >
-            <div className="space-y-4">
-              {filtered.map(p => (
-                <div key={p.id} className="bg-ink-50 border border-ink-200 rounded-xl p-4">
-                  <div className="flex flex-wrap items-center gap-3 justify-between">
-                    <div className="flex items-center gap-3">
-                      <Tag color={p.color}>{p.name}</Tag>
-                      <span className="text-xs text-ink-600">[{p.status}]</span>
-                    </div>
+          <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
+            {list.map(p => (
+              <Fragment key={p.id}>
+                <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
+                  <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-soft p-3 min-w-0 h-[120px] flex flex-col justify-center">
                     <div className="flex items-center gap-2">
-                      <Input
-                        value={p.name}
-                        onChange={(e)=>setProject(p.id, { name: e.target.value })}
-                        className="h-8"
-                      />
-                      <input type="color" value={p.color} onChange={(e)=>setProject(p.id, { color: e.target.value })} className="h-8 w-12 rounded-md border border-ink-200"/>
-                      <Select value={p.status} onChange={(e)=>setProject(p.id, { status: e.target.value })} className="h-8">
-                        <option value="active">active</option>
-                        <option value="planned">planned</option>
-                        <option value="onhold">onhold</option>
-                        <option value="done">done</option>
-                      </Select>
+                      <span className="font-medium truncate">{p.name}</span>
+                      <button className="text-neutral-500 hover:text-red-600 ml-auto" title="Удалить сотрудника" onClick={()=>deletePerson(p.id)}><TrashIcon/></button>
                     </div>
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="text-sm text-ink-600 mb-2">Команда проекта</div>
-                    <div className="flex flex-wrap gap-2">
-                      {p.team.map(pid => {
-                        const person = app.state.people.find(x => x.id === pid);
-                        return (
-                          <span key={pid} className="inline-flex items-center gap-2 text-sm px-2.5 h-8 rounded-full bg-white border border-ink-200">
-                            <span className="w-5 h-5 rounded-full bg-ink-200 grid place-items-center text-xs">{person?.name?.[0] || '?'}</span>
-                            {person?.name || '—'}
-                            <button
-                              className="ml-1 text-ink-500 hover:text-danger-500"
-                              onClick={()=>removeFromTeam(p.id, pid)}
-                              title="Удалить из проекта"
-                            >✕</button>
-                          </span>
-                        );
-                      })}
+                    <div className="mt-1 flex items-center gap-2">
+                      <select value={p.role||"other"} onChange={e=> setPeople(prev => prev.map(x => x.id===p.id ? {...x, role:e.target.value} : x))} className="text-[12px] px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200">
+                        {["designer","dev","manager","pm","other"].map(r => (<option key={r} value={r}>{r.toUpperCase()}</option>))}
+                      </select>
+                      <label className="text-xs flex items-center gap-1 ml-2">
+                        <input type="checkbox" checked={!!p.external} onChange={e=> setPeople(prev => prev.map(x => x.id===p.id ? {...x, external:e.target.checked} : x))}/>
+                        Внешний
+                      </label>
                     </div>
-                    <div className="mt-3 flex items-center gap-2">
-                      <Select defaultValue="" onChange={(e)=>{ const pid = e.target.value; if (pid) addToTeam(p.id, pid); e.target.value='';}}>
-                        <option value="">Добавить сотрудника…</option>
-                        {app.state.people
-                          .filter(pe => !p.team.includes(pe.id))
-                          .map(pe => <option key={pe.id} value={pe.id}>{pe.name} — {pe.role}</option>)}
-                      </Select>
-                    </div>
+                    <div className="mt-1 text-[11px] text-neutral-500">ID: {p.id.slice(0,6)}…</div>
                   </div>
                 </div>
-              ))}
-              {!filtered.length && <div className="text-sm text-ink-600">Ничего не найдено…</div>}
-            </div>
-          </SectionCard>
-        </div>
-      );
-    }
 
-    function PeopleView({ app, setRoute }) {
-      const { state, setPeople } = app;
-      const [q, setQ] = useState('');
-      const [name, setName] = useState('');
-      const [role, setRole] = useState('Frontend');
-      const [external, setExternal] = useState(false);
-
-      const filtered = state.people.filter(p =>
-        p.name.toLowerCase().includes(q.toLowerCase()) || p.role.toLowerCase().includes(q.toLowerCase())
-      );
-
-      const addPerson = () => {
-        if (!name.trim()) return;
-        setPeople(arr => [...arr, { id: 'p_'+Math.random().toString(36).slice(2,9), name: name.trim(), role, external }]);
-        setName('');
-        setExternal(false);
-      };
-
-      const setPerson = (id, patch) => setPeople(list => list.map(p => p.id === id ? { ...p, ...patch } : p));
-
-      return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid lg:grid-cols-[360px_1fr] gap-6">
-          <SectionCard title="Новый сотрудник">
-            <div className="space-y-3">
-              <Input placeholder="Имя" value={name} onChange={(e)=>setName(e.target.value)} />
-              <Select value={role} onChange={(e)=>setRole(e.target.value)}>
-                <option>Frontend</option>
-                <option>Backend</option>
-                <option>QA</option>
-                <option>PM</option>
-                <option>Design</option>
-              </Select>
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={external} onChange={(e)=>setExternal(e.target.checked)} />
-                Внешний
-              </label>
-              <Button onClick={addPerson}>Добавить</Button>
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Команда"
-            actions={<Input placeholder="Поиск…" value={q} onChange={(e)=>setQ(e.target.value)} />}
-          >
-            <div className="grid md:grid-cols-2 gap-4">
-              {filtered.map(p => (
-                <div key={p.id} className="bg-ink-50 border border-ink-200 rounded-xl p-4">
-                  <div className="flex items-center gap-3 justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-ink-200 grid place-items-center">{p.name[0]}</div>
-                      <div>
-                        <Input className="h-8 w-48" value={p.name} onChange={(e)=>setPerson(p.id, { name: e.target.value })} />
-                        <div className="flex items-center gap-2 mt-2">
-                          <Select className="h-8" value={p.role} onChange={(e)=>setPerson(p.id, { role: e.target.value })}>
-                            <option>Frontend</option><option>Backend</option><option>QA</option><option>PM</option><option>Design</option>
-                          </Select>
-                          <label className="inline-flex items-center gap-2 text-xs text-ink-700">
-                            <input type="checkbox" checked={p.external} onChange={(e)=>setPerson(p.id, { external: e.target.checked })} />
-                            внешний
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      onClick={()=> setRoute(`#person?id=${p.id}`)}
-                      title="Открыть профиль"
-                    >Открыть →</Button>
+                <div className="border border-neutral-200 p-3">
+                  <div className="bg-white rounded-2xl border border-neutral-200 shadow-soft p-3">
+                    <PersonProjectsEditor person={p} projects={projects} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/>
                   </div>
                 </div>
-              ))}
-            </div>
-          </SectionCard>
-        </div>
-      );
-    }
-
-    function PersonView({ app, route, setRoute }) {
-      const pid = route.params.id;
-      const person = app.state.people.find(p => p.id === pid);
-      const back = () => setRoute(`#people`);
-
-      const week = new Date((route.params.week || isoDate(startOfISOWeek(new Date()))) + 'T00:00:00.000Z');
-      const visible = parseInt(route.params.visible || '16', 10);
-      const weeks = useMemo(() => range(visible).map(i => addWeeks(week, i)), [week, visible]);
-
-      const projects = app.state.projects.filter(pr => pr.team.includes(pid));
-
-      const commit = (weekIso, projectId, fte) => {
-        app.setAssignments((as) => {
-          const ws = { ...(as[weekIso] || {}) };
-          const personRec = { ...(ws[pid] || {}) };
-          if (fte === null || isNaN(fte)) { delete personRec[projectId]; } else { personRec[projectId] = fte; }
-          ws[pid] = personRec;
-          return { ...as, [weekIso]: ws };
-        });
-      };
-
-      const addVacation = () => {
-        const from = prompt('Отпуск: с (YYYY-MM-DD)');
-        const to = prompt('Отпуск: по (YYYY-MM-DD)');
-        if (!from || !to) return;
-        app.setVacations(vs => {
-          const arr = vs[pid] || [];
-          return { ...vs, [pid]: [...arr, { fromIso: from, toIso: to }] };
-        });
-      };
-
-      if (!person) {
-        return (
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-            <SectionCard title="Сотрудник не найден">
-              <Button variant="secondary" onClick={back}>Назад к списку</Button>
-            </SectionCard>
+              </Fragment>
+            ))}
           </div>
-        );
+        </div>
+      );
+    }
+
+    // ======== Аутентификация (как было) ========
+    function AuthForm({onSuccess}){
+      const [login, setLogin] = useState("");
+      const [pass, setPass] = useState("");
+      const [remember, setRemember] = useState(false);
+      const submit = (e)=>{ e.preventDefault(); if(login.trim().toLowerCase()==="панквеб" && pass==="123455"){ onSuccess(remember); } else { alert("Неверные данные"); } };
+      return (
+        <form onSubmit={submit} className="space-y-3">
+          <div>
+            <label className="block text-sm mb-1">Логин</label>
+            <input value={login} onChange={e=>setLogin(e.target.value)} className="w-full border border-neutral-300 rounded-xl px-3 py-2"/>
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Пароль</label>
+            <input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="w-full border border-neutral-300 rounded-xl px-3 py-2"/>
+          </div>
+          <label className="flex items-center gap-2 text-sm select-none">
+            <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} />
+            Запомнить данные
+          </label>
+          <button className="w-full rounded-xl border border-brand-300 bg-brand-50 text-brand-800 py-2">Войти</button>
+        </form>
+      );
+    }
+
+    // ======== Главный App (структура как в Index3) ========
+    function mergeOrder(current=[], actualIds=[]){
+      const cur = Array.isArray(current) ? current : [];
+      const a = actualIds.filter(id => cur.includes(id));
+      const b = actualIds.filter(id => !cur.includes(id));
+      return [...a, ...b];
+    }
+
+    function App(){
+      const [people, setPeople] = useState(loadJSON("people", seedPeople));
+      const [projects, setProjects] = useState(loadJSON("projects", seedProjects));
+      const [assignments, setAssignments] = useState(loadJSON("assignments", seedAssignments));
+      const [roles, setRoles] = useState(loadJSON("roles", [...seedRoles]));
+      const [projectTeams, setProjectTeams] = useState(()=>{
+        const saved = loadJSON("projectTeams", {});
+        const map = {};
+        Object.keys(saved).forEach(k => (map[k]=new Set(saved[k])));
+        if(Object.keys(map).length===0){
+          for(const p of seedProjects) map[p.id]=new Set();
+          for(const a of seedAssignments) (map[a.projectId] = map[a.projectId] || new Set()).add(a.personId);
+        }
+        return map;
+      });
+      const [vacations, setVacations] = useState(()=>{
+        const saved = loadJSON("vacations", {});
+        const map = {}; Object.keys(saved).forEach(k => (map[k] = new Set(saved[k])));
+        return map;
+      });
+      const [personProjectOrder, setPersonProjectOrder] = useState(loadJSON("personProjectOrder", {}));
+      const [teamOrder, setTeamOrder] = useState(()=> loadJSON("teamOrder", seedPeople.map(p=>p.id)));
+
+      const [authed, setAuthed] = useState(loadJSON("authed", false));
+      const [view, setView] = useState(loadJSON("view","team")); // team | project | employees
+      useEffect(()=> saveJSON({view}), [view]);
+
+      const [selectedPersonId, setSelectedPersonId] = useState(null);
+
+      const {weeks, setWeeks, visible, goLeft, goRight, goToday} = useWeeksWindow();
+
+      // remote load (заглушка)
+      useEffect(()=>{ /* оставить как есть */ }, []);
+
+      // save effects
+      useEffect(()=> saveJSON({people}), [people]);
+      useEffect(()=> saveJSON({projects}), [projects]);
+      useEffect(()=> saveJSON({assignments}), [assignments]);
+      useEffect(()=> saveJSON({roles}), [roles]);
+      useEffect(()=>{ const obj={}; Object.entries(projectTeams).forEach(([k,v])=> obj[k]=Array.from(v)); saveJSON({projectTeams:obj}); }, [projectTeams]);
+      useEffect(()=>{ const obj={}; Object.entries(vacations).forEach(([k,v])=> obj[k]=Array.from(v)); saveJSON({vacations:obj}); }, [vacations]);
+      useEffect(()=> saveJSON({personProjectOrder}), [personProjectOrder]);
+      useEffect(()=> saveJSON({teamOrder}), [teamOrder]);
+
+      // helpers
+      const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
+      const dragRow = useRef(null);
+
+      // people collections
+      const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]); // внутр. только
+      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]); // для проектов/команды — все активные
+
+      useEffect(()=>{
+        setTeamOrder(prev => mergeOrder(prev, peopleForTeam.map(p=>p.id)));
+      }, [peopleForTeam]);
+
+      // фильтр ролей
+      const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
+      useEffect(()=> saveJSON({roleFilter}), [roleFilter]);
+
+      // создание сущностей
+      const [createPersonOpen, setCreatePersonOpen] = useState(false);
+      const [newPersonName, setNewPersonName] = useState("");
+      const [newPersonRole, setNewPersonRole] = useState("other");
+      const [newPersonExternal, setNewPersonExternal] = useState(false);
+      function submitNewPerson(){
+        const name = newPersonName.trim(); if(!name) return;
+        const id = rndId();
+        setPeople(p => [...p, { id, name, role:newPersonRole||"other", capacityPerWeek:1, active:true, external: !!newPersonExternal }]);
+        setCreatePersonOpen(false); setNewPersonName(""); setNewPersonRole("other"); setNewPersonExternal(false);
       }
 
+      const [createProjectOpen, setCreateProjectOpen] = useState(false);
+      const [newProjectName, setNewProjectName] = useState("");
+      const [newProjectColor, setNewProjectColor] = useState("#22c55e");
+      const [newProjectStatus, setNewProjectStatus] = useState("active");
+      const [projSearch, setProjSearch] = useState("");
+      const [projTeamSel, setProjTeamSel] = useState(()=> new Set());
+      const personSuggestions = useMemo(()=> peopleActiveAll.filter(p => p.name.toLowerCase().includes(projSearch.toLowerCase()) && !projTeamSel.has(p.id)).slice(0,6), [peopleActiveAll, projSearch, projTeamSel]);
+      function submitNewProject(){
+        const name = newProjectName.trim(); if(!name) return;
+        const id = rndId(); const color = newProjectColor || "#64748b"; const status = newProjectStatus;
+        setProjects(ps => [...ps, { id, name, color, status }]);
+        setProjectTeams(pt => { const copy={}; Object.entries(pt).forEach(([k,v])=>copy[k]=new Set(v)); copy[id]=new Set(projTeamSel); return copy; });
+        setCreateProjectOpen(false); setNewProjectName(""); setProjSearch(""); setProjTeamSel(new Set()); setNewProjectStatus("active"); setView("project");
+      }
+
+      // удаление
+      const deletePerson = (pid)=>{
+        if(!confirm("Удалить сотрудника?")) return;
+        setPeople(ps => ps.filter(p=>p.id!==pid));
+        setAssignments(as => as.filter(a=>a.personId!==pid));
+        setTeamOrder(ord => ord.filter(id=>id!==pid));
+        setPersonProjectOrder(o => { const c={...o}; delete c[pid]; return c; });
+        const copy={}; Object.entries(projectTeams).forEach(([k,v])=> (copy[k]=new Set(v)));
+        Object.keys(copy).forEach(k => copy[k].delete(pid));
+        setProjectTeams(copy);
+      };
+      const deleteProject = (prid)=>{
+        if(!confirm("Удалить проект?")) return;
+        setProjects(ps => ps.filter(p=>p.id!==prid));
+        setAssignments(as => as.filter(a=>a.projectId!==prid));
+        const copy={}; Object.entries(projectTeams).forEach(([k,v])=> (copy[k]=new Set(v)));
+        delete copy[prid]; setProjectTeams(copy);
+      };
+
+      // видимые недели и фильтр списка
+      const visibleIdsFiltered = useMemo(()=> {
+        const base = teamOrder.filter(id => peopleForTeam.some(p=>p.id===id));
+        if(roleFilter==="all") return base;
+        return base.filter(id => (people.find(p=>p.id===id)?.role) === roleFilter);
+      }, [teamOrder, peopleForTeam, roleFilter, people]);
+
       return (
-        <>
-          <div className="border-b border-ink-200 bg-white/70 backdrop-blur">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-primary-500 text-white grid place-items-center font-bold">F</div>
-                <div className="text-ink-900 font-semibold tracking-tight">FTE Planner</div>
-                <div className="ml-4">
-                  <Tag color="#999">{person.role}</Tag>
+        <div className="min-h-screen text-neutral-900 font-sans">
+          {/* Шапка */}
+          <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
+            <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
+              <div className="text-lg font-semibold tracking-tight text-brand-700">Панквеб FTE Planner</div>
+              <div className="ml-4 segmented">
+                <button className={view==="team" ? "active" : "idle"} onClick={()=>setView("team")}>Нагрузка</button>
+                <button className={view==="project" ? "active" : "idle"} onClick={()=>setView("project")}>Проекты</button>
+                <button className={view==="employees" ? "active" : "idle"} onClick={()=>setView("employees")}>Команда</button>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <button onClick={()=>setCreateProjectOpen(true)} className="btn">+ Проект</button>
+                <button onClick={()=>setCreatePersonOpen(true)} className="btn">+ Сотрудник</button>
+              </div>
+            </div>
+          </header>
+
+          {!authed ? (
+            <div className="min-h-[calc(100vh-var(--app-header-h))] grid place-items-center">
+              <div className="bg-white w-[360px] rounded-2xl shadow-soft border border-neutral-200 p-5">
+                <div className="text-center mb-4"><div className="text-2xl font-semibold">Вход</div></div>
+                <AuthForm onSuccess={(remember)=>{ if(remember){ saveJSON({authed:true, remember:true}); } else { saveJSON({remember:false, authed:false}); } setAuthed(true); }} />
+              </div>
+            </div>
+          ) : (
+            <main className="max-w-screen-2xl mx-auto p-4">
+              {/* Навигатор недель — только во «Нагрузке» */}
+              {view==="team" && (
+                <WeekNavigator
+                  onLeft={goLeft}
+                  onRight={goRight}
+                  onToday={goToday}
+                  showRoleFilter={true}
+                  roleFilter={roleFilter}
+                  setRoleFilter={setRoleFilter}
+                  roles={roles}
+                />
+              )}
+
+              {view==="team" ? (
+                // ===== Нагрузка =====
+                <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
+                  <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
+                  {visible.map(w => (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
+
+                  {visibleIdsFiltered.map((pid, rowIdx) => {
+                    const person = people.find(p=>p.id===pid);
+                    return (
+                      <Fragment key={pid}>
+                        {/* Липкая карточка слева (перетаскиваем строки) */}
+                        <div
+                          className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                          draggable
+                          onDragStart={()=>{ dragRow.current=rowIdx; }}
+                          onDragOver={e=>e.preventDefault()}
+                          onDrop={()=>{
+                            const from=dragRow.current; const to=rowIdx; if(from==null || from===to) return;
+                            const arr=[...visibleIdsFiltered]; const id=arr.splice(from,1)[0]; arr.splice(to,0,id);
+                            const inactive = teamOrder.filter(id => !visibleIdsFiltered.includes(id));
+                            setTeamOrder([...arr, ...inactive]); dragRow.current=null;
+                          }}
+                        >
+                          <div role="button" tabIndex={0} onClick={()=>setSelectedPersonId(person.id)} onKeyDown={e=>{ if(e.key==='Enter'||e.key===' ') setSelectedPersonId(person.id) }} className="w-full text-left">
+                            <div className="relative bg-white rounded-2xl shadow-soft h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-lg hover:bg-brand-50/60 transition">
+                              <div className="font-medium truncate" title="Открыть карточку сотрудника">{person.name}</div>
+                              <div className="mt-1 text-[11px] text-neutral-600">{String(person.role||"").toUpperCase()}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Ячейки недель */}
+                        {visible.map(w=>{
+                          const vac = isVacation(person.id, w);
+                          const total = assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
+                          const ratio = vac ? 0 : scaleRatio(total);
+                          return (
+                            <div key={w} className="p-1">
+                              <div className={"relative h-[120px] bg-white rounded-2xl border border-neutral-200 shadow-soft flex items-center justify-center "+(total>1.0?"ring-1 ring-red-300":"")}>
+                                <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
+                                  {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:TEAM_BAR_COLOR}} />)}
+                                </div>
+                                {!vac && (
+                                  <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-900" title={fmtFTE1(total)}>
+                                    {fmtFTE1(total)}
+                                  </div>
+                                )}
+                                {vac && (<div className="absolute inset-0 flex items-center justify-center text-2xl" title="Отпуск">🏖</div>)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" onClick={back}>← Назад</Button>
-                <Button onClick={addVacation}>Добавить отпуск</Button>
-              </div>
-            </div>
-          </div>
+              ) : view==="project" ? (
+                // ===== Проекты =====
+                <>
+                  <RoleManager roles={roles} setRoles={setRoles} setRoleFilter={setRoleFilter} people={people} setPeople={setPeople} stickyTopClass="top-[var(--app-header-h)]" />
+                  <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
+                    {projects.map((project, idx) => (
+                      <Fragment key={project.id}>
+                        <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                             draggable
+                             onDragStart={()=>{ window.__dragPr = idx; }}
+                             onDragOver={e=>e.preventDefault()}
+                             onDrop={()=>{ const from=window.__dragPr; const to=idx; if(from==null || from===to) return; const copy=[...projects]; const item=copy.splice(from,1)[0]; copy.splice(to,0,item); setProjects(copy); delete window.__dragPr; }}
+                             title="Перетащите, чтобы изменить порядок">
+                          <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-soft p-3 flex items-center gap-3 min-w-0 h-[120px] select-none cursor-grab active:cursor-grabbing">
+                            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={{background:project.color}} title="Статус проекта">
+                              <StatusIcon status={project.status}/>
+                            </button>
+                            <input value={project.name} onChange={e=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, name:e.target.value} : p))} className="font-medium truncate grow outline-none"/>
+                            <button className="absolute top-2 right-10 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50" title="Изменить цвет" onClick={()=> document.getElementById(`color-${project.id}`)?.click()} type="button">
+                              <EyedropperIcon/>
+                            </button>
+                            <input id={`color-${project.id}`} type="color" className="hidden" value={project.color} onChange={(e)=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, color:e.target.value} : p))}/>
+                            <button onClick={()=> deleteProject(project.id)} title="Удалить проект" className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition">
+                              <MinusIcon/>
+                            </button>
+                          </div>
+                        </div>
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-white border border-ink-200 grid place-items-center text-lg">{person.name[0]}</div>
-              <div>
-                <div className="text-xl font-semibold">{person.name}</div>
-                <div className="text-sm text-ink-600">{person.role}{person.external ? ' · внешний' : ''}</div>
-              </div>
-            </div>
+                        <div className="border border-neutral-200 p-3">
+                          <div className="bg-white rounded-2xl border border-neutral-200 shadow-soft p-3">
+                            <ProjectTeamSelector project={project} people={peopleActiveAll} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/>
+                          </div>
+                        </div>
+                      </Fragment>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                // ===== Команда =====
+                <EmployeesPage people={people} setPeople={setPeople} projects={projects} projectTeams={projectTeams} setProjectTeams={setProjectTeams} deletePerson={deletePerson}/>
+              )}
+            </main>
+          )}
 
-            <SectionCard
-              title="Нагрузка по проектам"
-              actions={null}
-            >
-              <div className="grid" style={{ gridTemplateColumns: `240px repeat(${visible}, minmax(120px, 1fr))`, gap: '12px' }}>
-                <div />
-                {weeks.map((w,i)=>(
-                  <div key={i} className="text-xs text-ink-600 px-1">{weekLabel(w)}</div>
-                ))}
+          {selectedPersonId && (
+            <PersonPage
+              person={people.find(p=>p.id===selectedPersonId)}
+              projects={projects}
+              assignments={assignments}
+              teamByProject={projectTeams}
+              vacations={vacations}
+              setVacations={setVacations}
+              order={personProjectOrder[selectedPersonId]}
+              setOrder={o=> setPersonProjectOrder(prev => ({...prev, [selectedPersonId]: o}))}
+              onClose={()=> setSelectedPersonId(null)}
+              onSave={setAssignments}
+              setPeople={setPeople}
+              weeksAll={weeks}
+              visibleWeeks={visible}
+              goLeft={goLeft}
+              goRight={goRight}
+              goToday={goToday}
+              roles={roles}
+              view={view}
+              setView={(v)=>{ setView(v); setSelectedPersonId(null); }}
+            />
+          )}
 
-                {projects.map(pr => (
-                  <React.Fragment key={pr.id}>
-                    <div className="flex items-center gap-3">
-                      <span className="w-3 h-3 rounded-full" style={{ background: pr.color }} />
-                      <div className="font-medium">{pr.name}</div>
-                    </div>
-                    {weeks.map((w,i)=>{
-                      const wIso = isoDate(w);
-                      const current = (app.state.assignments[wIso]?.[pid]?.[pr.id]) ?? null;
-                      return (
-                        <FTECell key={i} value={current} onCommit={(v)=>commit(wIso, pr.id, v)} />
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Отпуска" actions={null}>
-              <div className="flex flex-wrap gap-2">
-                {(app.state.vacations[pid]||[]).map((v, i)=>(
-                  <span key={i} className="inline-flex items-center gap-2 px-3 h-8 rounded-full bg-ink-100 border border-ink-200 text-sm">
-                    {v.fromIso} → {v.toIso}
-                    <button
-                      className="text-ink-500 hover:text-danger-500"
-                      onClick={()=>{
-                        app.setVacations(vs=>{
-                          const arr = (vs[pid]||[]).slice();
-                          arr.splice(i,1);
-                          return { ...vs, [pid]: arr };
-                        });
-                      }}
-                      title="Удалить"
-                    >✕</button>
-                  </span>
-                ))}
-                {!(app.state.vacations[pid]||[]).length && <span className="text-sm text-ink-600">Нет отпусков</span>}
-              </div>
-            </SectionCard>
-          </div>
-        </>
-      );
-    }
-
-    // -----------------------------
-    // App
-    // -----------------------------
-    function App() {
-      const app = useAppState();
-      const [route, setRoute] = useHashRoute();
-      const currentTab = ['load','projects','people'].includes(route.path) ? route.path : 'load';
-
-      return (
-        <div className="min-h-full">
-          <Header currentTab={currentTab} onTab={()=>{}} route={route} setRoute={setRoute} />
-          {route.path === 'load' && <LoadView app={app} route={route} />}
-          {route.path === 'projects' && <ProjectsView app={app} route={route} />}
-          {route.path === 'people' && <PeopleView app={app} route={route} setRoute={setRoute} />}
-          {route.path === 'person' && <PersonView app={app} route={route} setRoute={setRoute} />}
-          <footer className="max-w-7xl mx-auto px-4 sm:px-6 py-10 text-xs text-ink-500">
-            Построено в стиле Trello/Apple • Локальное сохранение • Введите значения FTE по ячейке (Enter/Blur), Esc — отмена
-          </footer>
+          <CreatePersonModal open={createPersonOpen} onClose={()=>setCreatePersonOpen(false)} name={newPersonName} setName={setNewPersonName} role={newPersonRole} setRole={setNewPersonRole} external={newPersonExternal} setExternal={setNewPersonExternal} onSubmit={submitNewPerson} roles={roles}/>
+          <CreateProjectModal open={createProjectOpen} onClose={()=>setCreateProjectOpen(false)} name={newProjectName} setName={setNewProjectName} color={newProjectColor} setColor={setNewProjectColor} status={newProjectStatus} setStatus={setNewProjectStatus} search={projSearch} setSearch={setProjSearch} teamSel={projTeamSel} setTeamSel={setProjTeamSel} people={peopleActiveAll} suggestions={personSuggestions} onSubmit={submitNewProject}/>
         </div>
       );
     }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    // sanity checks
+    try{
+      console.assert(fmtFTE1(1.16)==="1.2","fmtFTE1 rounds to 1 decimal");
+      console.assert(scaleRatio(1.2)===1,"scaleRatio clamps to 1");
+      const parts = weekLabelParts(fmtISO(startOfISOWeek(new Date())));
+      console.assert(!!parts.top && !!parts.bot, "weekLabelParts returns two lines");
+    }catch{}
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
 </html>
