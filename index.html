@@ -98,8 +98,9 @@
     const seedAssignments = [
       { id:"a1", personId:"p1", projectId:"pr1", weekStart: initialWeeks[4], fte:0.3 },
       { id:"a2", personId:"p1", projectId:"pr2", weekStart: initialWeeks[4], fte:0.2 },
-      { id:"a3", personId:"p2", projectId:"pr2", weekStart: initialWeeks[5], fte:0.4 },
-    ];
+      { id:"a3", personId:"p2", personId:"p2", projectId:"pr2", weekStart: initialWeeks[5], fte:0.4 },
+    ].map(x=>({ ...x })); // безопасно
+
     const seedRoles = ["designer","dev","manager","pm","other"];
 
     // ---------- Aggregations ----------
@@ -367,8 +368,8 @@
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
               <div className="ml-4 flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm">
-                <button className={`px-3 py-1 rounded-xl transition ${view==="team" ? "bg-white shadow-sm" : "hover:bg-white/70"}`} onClick={()=>setView("team")}>Команда</button>
-                <button className={`px-3 py-1 rounded-xl transition ${view==="project" ? "bg-white shadow-sm" : "hover:bg-white/70"}`} onClick={()=>setView("project")}>Проекты</button>
+                <button className={`px-3 py-1 rounded-xl transition ${view==="team" ? "bg-white shadow-sm" : "hover:bg-white/70"}`} onClick={()=>{ setSelectedPersonId(null); setView("team"); }}>Команда</button>
+                <button className={`px-3 py-1 rounded-xl transition ${view==="project" ? "bg-white shadow-sm" : "hover:bg-white/70"}`} onClick={()=>{ setSelectedPersonId(null); setView("project"); }}>Проекты</button>
               </div>
               <div className="ml-auto flex items-center gap-2">
                 <button onClick={()=>setCreateProjectOpen(true)} className="rounded-xl border border-neutral-300 px-3 py-1 bg-white shadow-sm hover:shadow transition">+ Проект</button>
@@ -378,16 +379,18 @@
           </header>
 
           <main className="max-w-screen-2xl mx-auto p-4">
-            {/* Навигатор недель + (опц.) фильтр роли в одной линии, липко под шапкой */}
-            <WeekNavigator
-              onLeft={goLeft}
-              onRight={goRight}
-              onToday={goToday}
-              showRoleFilter={view==="team"}
-              roleFilter={roleFilter}
-              setRoleFilter={setRoleFilter}
-              roles={roles}
-            />
+            {/* На странице Команда — показываем навигатор недель */}
+            {view==="team" && (
+              <WeekNavigator
+                onLeft={goLeft}
+                onRight={goRight}
+                onToday={goToday}
+                showRoleFilter={true}
+                roleFilter={roleFilter}
+                setRoleFilter={setRoleFilter}
+                roles={roles}
+              />
+            )}
 
             {view==="team" ? (
               <>
@@ -463,9 +466,16 @@
               </>
             ) : (
               <div className="space-y-4">
-                {/* Вся верхняя часть липкая: роли ниже навигатора */}
-                <RoleManager roles={roles} setRoles={setRoles} setRoleFilter={setRoleFilter} people={people} setPeople={setPeople}/>
-                {/* Список проектов: левый столбец sticky, перетаскивание */}
+                {/* На странице Проекты — НЕТ стрелок/Сегодня. Сразу роли (липкие) и список проектов */}
+                <RoleManager
+                  roles={roles}
+                  setRoles={setRoles}
+                  setRoleFilter={setRoleFilter}
+                  people={people}
+                  setPeople={setPeople}
+                  stickyTopClass="top-[var(--app-header-h)]"
+                />
+                {/* Список проектов */}
                 <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
                   {projects.map((project, idx) => (
                     <Fragment key={project.id}>
@@ -522,7 +532,6 @@
               setVacations={setVacations}
               order={personProjectOrder[selectedPersonId]}
               setOrder={o=> setPersonProjectOrder(prev => ({...prev, [selectedPersonId]: o}))}
-              onBack={()=>{ setSelectedPersonId(null); setView("team"); }}
               onClose={()=> setSelectedPersonId(null)}
               onSave={setAssignments}
               setPeople={setPeople}
@@ -532,6 +541,8 @@
               goRight={goRight}
               goToday={goToday}
               roles={roles}
+              parentView={view}
+              setParentView={(v)=>{ setSelectedPersonId(null); setView(v); }}
             />
           )}
 
@@ -557,7 +568,7 @@
       );
     }
 
-    // Навигатор недель (теперь со слотом leftNode для произвольного контента слева)
+    // Навигатор недель (со слотом leftNode для страницы сотрудника)
     function WeekNavigator({
       onLeft,
       onRight,
@@ -598,7 +609,7 @@
     // =================================
     // FULL-PAGE «Один сотрудник»
     // =================================
-    function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onBack, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles }){
+    function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles, parentView, setParentView }){
       if(!person) return null;
       const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
 
@@ -652,18 +663,24 @@
 
       return (
         <div className="fixed inset-0 z-50 bg-[#F7F8FA] overflow-auto no-scrollbar">
-          {/* Липкая шапка с логотипом и кнопками справа */}
+          {/* Липкая шапка: логотип + ТАКОЙ ЖЕ переключатель «Команда/Проекты» (как в основной шапке) */}
           <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
-              <div className="ml-auto flex items-center gap-2">
-                <button onClick={onBack} className="text-sm px-2 py-1 rounded-lg border border-neutral-300 bg-white hover:shadow">← Назад</button>
-                <button onClick={onClose} className="text-neutral-600 hover:text-neutral-900">✕</button>
+              <div className="ml-4 flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm">
+                <button
+                  className={`px-3 py-1 rounded-xl transition ${parentView==="team" ? "bg-white shadow-sm" : "hover:bg-white/70"}`}
+                  onClick={()=>{ onClose(); setParentView("team"); }}
+                >Команда</button>
+                <button
+                  className={`px-3 py-1 rounded-xl transition ${parentView==="project" ? "bg-white shadow-sm" : "hover:bg-white/70"}`}
+                  onClick={()=>{ onClose(); setParentView("project"); }}
+                >Проекты</button>
               </div>
             </div>
           </div>
 
-          {/* Липкая полоса навигации недель: слева — имя/роль/отпуск; справа — кнопки недель */}
+          {/* Липкая полоса навигации недель: слева — имя/роль/отпуск; справа — стрелки/Сегодня */}
           <div className="max-w-screen-2xl mx-auto px-4">
             <WeekNavigator
               onLeft={goLeft}
@@ -905,9 +922,9 @@
     }
 
     // =================================
-    // Role manager (липкий под навигатором на странице «Проекты»)
+    // Role manager (липкий под шапкой на странице «Проекты»)
     // =================================
-    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople}){
+    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass="top-[var(--app-header-h)]"}){
       const [adding, setAdding] = useState("");
       const [editing, setEditing] = useState(null);
       const [val, setVal] = useState("");
@@ -923,7 +940,7 @@
       };
 
       return (
-        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky top-[calc(var(--app-header-h)+48px)] z-50">
+        <div className={`bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky ${stickyTopClass} z-50`}>
           <div className="text-sm font-medium mb-2">Роли</div>
           <div className="flex flex-wrap gap-2">
             {roles.map(r => (
