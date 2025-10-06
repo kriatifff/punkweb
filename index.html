@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -13,7 +12,7 @@
   <style>
     :root {
       --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      --bg-main: #F8F9FC;
+      --bg-main: #F7F8FA;
       --bg-panel: #FFFFFF;
       --bg-panel-secondary: #F1F3F9;
       --bg-header: rgba(255, 255, 255, 0.85);
@@ -24,21 +23,15 @@
       --accent-blue: #3B82F6;
       --accent-blue-light: #EFF6FF;
       --accent-red: #EF4444;
+      --accent-red-light: #FFEBEB;
       --accent-yellow: #F59E0B;
       --accent-green: #10B981;
       --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
       --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
       --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
       --header-h: 60px;
-      --left-panel-w: 320px;
-      --right-panel-w: 360px;
-      --timeline-header-h: 64px;
-      --timeline-row-h: 56px;
-      --timeline-cell-w: 100px;
-      --color-conflict-overload: #FECACA; /* red-200 */
-      --color-conflict-warning: #FEF3C7; /* yellow-200 */
-      --color-conflict-underload: #DBEAFE; /* blue-200 */
-      --color-vacation: #E5E7EB; /* gray-200 */
+      --left-col-w: 240px;
+      --week-col-px: 80px;
     }
     *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; padding: 0; }
@@ -55,357 +48,206 @@
     .no-scrollbar::-webkit-scrollbar { display: none; }
 
     /* Login Page */
-    .login-container {
-      display: grid;
-      place-items: center;
-      height: 100vh;
-      background-color: var(--bg-main);
-    }
+    .login-container { display: grid; place-items: center; height: 100vh; }
     .login-box {
-      width: 360px;
-      padding: 32px;
-      background-color: var(--bg-panel);
-      border-radius: 16px;
-      box-shadow: var(--shadow-lg);
-      border: 1px solid var(--border-color);
+      width: 360px; padding: 32px; background-color: var(--bg-panel); border-radius: 16px;
+      box-shadow: var(--shadow-lg); border: 1px solid var(--border-color);
     }
-    .login-box h1 {
-      font-size: 24px;
-      font-weight: 600;
-      text-align: center;
-      margin: 0 0 24px;
-    }
+    .login-box h1 { font-size: 24px; font-weight: 600; text-align: center; margin: 0 0 24px; }
     .login-form .form-group { margin-bottom: 16px; }
     .login-form label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
     .login-form input {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      font-size: 14px;
-      transition: box-shadow 0.2s;
+      width: 100%; padding: 10px 12px; border: 1px solid var(--border-color);
+      border-radius: 8px; font-size: 14px; transition: box-shadow 0.2s;
     }
     .login-form input:focus {
-      outline: none;
-      border-color: var(--accent-blue);
+      outline: none; border-color: var(--accent-blue);
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
     }
+    .login-form .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .login-error { color: var(--accent-red); text-align: center; margin-top: 16px; font-size: 13px; }
+
+    /* Buttons & Controls */
     .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-weight: 500;
-      border: 1px solid transparent;
-      cursor: pointer;
-      transition: background-color 0.2s, box-shadow 0.2s;
-      font-size: 14px;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px;
+      border-radius: 8px; font-weight: 500; border: 1px solid transparent; cursor: pointer;
+      transition: background-color 0.2s, box-shadow 0.2s; font-size: 14px; white-space: nowrap;
     }
-    .btn-primary {
-      background-color: var(--accent-blue);
-      color: white;
-      border-color: var(--accent-blue);
-    }
+    .btn-primary { background-color: var(--accent-blue); color: white; border-color: var(--accent-blue); }
     .btn-primary:hover { background-color: #2563EB; }
     .btn-secondary {
-        background-color: var(--bg-panel);
-        color: var(--text-primary);
-        border: 1px solid var(--border-color);
-        box-shadow: var(--shadow-sm);
+        background-color: var(--bg-panel); color: var(--text-primary);
+        border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);
     }
     .btn-secondary:hover { background-color: var(--bg-panel-secondary); }
     .btn-block { width: 100%; padding-top: 12px; padding-bottom: 12px; }
-    .login-error { color: var(--accent-red); text-align: center; margin-top: 16px; font-size: 13px; }
-
-    /* Main App Layout */
-    .app-layout {
-      display: grid;
-      grid-template-rows: var(--header-h) 1fr;
-      grid-template-columns: var(--left-panel-w) 1fr;
-      height: 100vh;
-      overflow: hidden;
+    .btn-danger { background-color: var(--accent-red-light); color: var(--accent-red); border-color: var(--accent-red-light)}
+    .btn-danger:hover { background-color: #FEE2E2; }
+    
+    .segmented-control {
+      display: flex; background-color: var(--bg-panel-secondary);
+      border-radius: 8px; padding: 4px; box-shadow: var(--shadow-sm);
     }
+    .segmented-control button {
+      padding: 6px 16px; border: none; background: transparent; border-radius: 6px;
+      cursor: pointer; font-weight: 500; color: var(--text-secondary); transition: all 0.2s;
+    }
+    .segmented-control button.active {
+      background: var(--bg-panel); color: var(--text-primary); box-shadow: var(--shadow-md);
+    }
+
+    /* Main Layout */
     .app-header {
-      grid-column: 1 / 3;
-      display: flex;
-      align-items: center;
-      padding: 0 24px;
-      background: var(--bg-header);
-      backdrop-filter: blur(8px);
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; padding: 0 24px; height: var(--header-h);
+      background: var(--bg-header); backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--border-color);
-      z-index: 100;
     }
     .app-header .logo { font-size: 20px; font-weight: 700; color: var(--accent-blue); }
     .app-header .header-controls { display: flex; align-items: center; gap: 12px; margin-left: auto; }
-    
-    .left-sidebar {
-      grid-row: 2 / 3;
-      background-color: var(--bg-panel);
-      border-right: 1px solid var(--border-color);
-      padding: 16px;
-      overflow-y: auto;
-    }
-    
-    .main-content {
-      grid-row: 2 / 3;
-      grid-column: 2 / 3;
-      overflow: auto;
-      background-color: var(--bg-main);
-      display: flex;
-      flex-direction: column;
-    }
+    .app-container { max-width: 90rem; margin: 0 auto; padding: 1.5rem; }
 
-    .main-view-controls {
-      padding: 12px 24px;
-      border-bottom: 1px solid var(--border-color);
+    /* Common Card Styles */
+    .card {
       background: var(--bg-panel);
-      display: flex;
-      align-items: center;
-      gap: 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow .2s, border-color .2s;
     }
-
-    .segmented-control {
+    .card:hover { box-shadow: var(--shadow-md); }
+    
+    /* Team View (Planner) */
+    .planner-grid {
+      display: grid;
+      grid-template-columns: var(--left-col-w) 1fr;
+      position: relative;
+    }
+    .planner-grid .left-col, .planner-grid .timeline-col {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    .planner-grid .header {
+      position: sticky; top: var(--header-h); z-index: 50;
+      background: var(--bg-main);
+      padding-bottom: 8px;
+    }
+    .planner-grid .header-content {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        padding: 8px 0;
+        height: 56px;
+    }
+    .planner-grid .week-header {
       display: flex;
-      background-color: var(--bg-panel-secondary);
-      border-radius: 8px;
+      justify-content: center;
+      align-items: center;
+      height: 56px;
+      text-align: center;
+      font-size: 12px;
+    }
+    .week-header .week-num { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+    .planner-grid .person-card {
+      height: 100px;
+      margin-bottom: 8px;
+      padding: 16px;
+      cursor: pointer;
+    }
+    .planner-grid .person-card .person-name { font-weight: 600; }
+    .planner-grid .person-card .person-role { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; text-transform: uppercase; }
+    
+    .planner-grid .timeline-row {
+      display: flex;
+      height: 100px;
+      margin-bottom: 8px;
+    }
+    .planner-grid .week-cell {
+      width: var(--week-col-px);
+      min-width: var(--week-col-px);
       padding: 4px;
     }
-    .segmented-control button {
-      padding: 4px 12px;
-      border: none;
-      background: transparent;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 500;
-      color: var(--text-secondary);
-      transition: all 0.2s;
-    }
-    .segmented-control button.active {
-      background: var(--bg-panel);
-      color: var(--text-primary);
-      box-shadow: var(--shadow-sm);
-    }
-    
-    .timeline-container {
-      flex-grow: 1;
-      overflow: auto;
+    .planner-grid .util-cell {
+      height: 100%;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
       position: relative;
     }
-
-    .timeline-grid {
-      display: grid;
-      grid-template-columns: 240px 1fr; /* User column + timeline */
-    }
-    
-    .timeline-header, .timeline-body {
-      display: grid;
-      grid-template-columns: subgrid;
-      grid-column: 1 / 3;
-    }
-
-    .timeline-header-users, .timeline-header-weeks {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      background: var(--bg-panel-secondary);
-    }
-
-    .timeline-header-users {
-      border-right: 1px solid var(--border-color);
-      border-bottom: 1px solid var(--border-color);
-      height: var(--timeline-header-h);
-      display: flex;
-      align-items: center;
-      padding-left: 16px;
-      font-weight: 600;
-    }
-
-    .timeline-header-weeks-wrapper {
-        overflow: hidden;
-    }
-
-    .timeline-header-weeks {
-      display: flex;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .timeline-header-weeks .week-cell {
-      min-width: var(--timeline-cell-w);
-      width: var(--timeline-cell-w);
-      height: var(--timeline-header-h);
-      border-right: 1px solid var(--border-color);
-      text-align: center;
-      padding: 8px 0;
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
-    .week-cell .week-num { font-weight: 600; font-size: 14px; color: var(--text-primary); }
-
-    .timeline-body-users, .timeline-body-weeks {
-      display: flex;
-      flex-direction: column;
-    }
-    .timeline-body-users {
-      border-right: 1px solid var(--border-color);
-    }
-    .timeline-body-users .user-row {
-      height: var(--timeline-row-h);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 0 16px;
-      border-bottom: 1px solid var(--border-color);
-      background: var(--bg-panel);
-    }
-    .user-row .user-name { font-weight: 500; }
-    .user-row .user-fte { font-size: 11px; color: var(--text-tertiary); }
-    
-    .timeline-body-weeks .user-timeline {
-      height: var(--timeline-row-h);
-      border-bottom: 1px solid var(--border-color);
-      display: flex;
-      position: relative; /* For allocations */
-    }
-    .user-timeline .week-cell {
-      min-width: var(--timeline-cell-w);
-      width: var(--timeline-cell-w);
-      border-right: 1px solid var(--border-color);
-    }
-
-    .allocation-bar {
-      position: absolute;
-      top: 10px;
-      bottom: 10px;
-      height: calc(var(--timeline-row-h) - 20px);
+    .planner-grid .util-bar-wrapper {
+      width: 50px;
+      height: calc(100% - 24px);
+      background-color: var(--bg-panel-secondary);
       border-radius: 6px;
       overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 0 8px;
-      font-size: 11px;
-      color: white;
-      cursor: grab;
-      user-select: none;
-      box-shadow: var(--shadow-sm);
-      border: 1px solid rgba(0,0,0,0.1);
-    }
-    .allocation-bar-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-    .allocation-bar-subtitle { opacity: 0.8; }
-    .allocation-vacation {
-        background-color: var(--color-vacation);
-        background-image: repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(0,0,0,0.05) 5px, rgba(0,0,0,0.05) 10px);
-    }
-
-
-    /* Matrix View */
-    .matrix-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .matrix-table th, .matrix-table td {
-      border: 1px solid var(--border-color);
-      padding: 8px;
-      text-align: center;
-      font-size: 13px;
-    }
-    .matrix-table th {
-      background: var(--bg-panel-secondary);
-      position: sticky;
-      top: 0;
-    }
-    .matrix-table th:first-child, .matrix-table td:first-child {
-      position: sticky;
-      left: 0;
-      background: var(--bg-panel-secondary);
-      text-align: left;
-      font-weight: 500;
-      min-width: 200px;
-    }
-    .matrix-cell {
-      height: 48px;
-      cursor: pointer;
       position: relative;
     }
-    .matrix-cell .util-bar {
+    .planner-grid .util-bar {
       position: absolute;
       bottom: 0; left: 0; right: 0;
-      height: 4px;
-      background-color: var(--accent-blue);
+      background-color: var(--accent-green);
+      transition: height .2s;
     }
-    .matrix-cell[data-util-level="over"] .util-bar { background-color: var(--accent-red); }
-    .matrix-cell[data-util-level="warn"] .util-bar { background-color: var(--accent-yellow); }
-
-    /* Accordion */
-    .accordion-item {
-      border-bottom: 1px solid var(--border-color);
-    }
-    .accordion-header {
-      width: 100%;
-      background: none;
-      border: none;
-      padding: 16px 8px;
-      text-align: left;
-      font-size: 16px;
+    .planner-grid .util-value {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 13px;
       font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
     }
-    .accordion-content {
-      padding: 0 8px 16px;
-    }
-    .accordion-header .icon { transition: transform 0.2s; }
-    .accordion-header.open .icon { transform: rotate(90deg); }
+    .planner-grid .util-cell.overload .util-bar { background-color: var(--accent-red); }
+    .planner-grid .util-cell.vacation .util-bar-wrapper { background-color: #e5e7eb; }
 
-    /* Task Card */
-    .task-card {
-      padding: 12px;
-      background: var(--bg-panel);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      margin-bottom: 8px;
-      cursor: grab;
-      box-shadow: var(--shadow-sm);
+
+    /* Project & Employee Views */
+    .management-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
     }
-    .task-card:active {
-      cursor: grabbing;
-      box-shadow: var(--shadow-md);
+    .management-card {
+        padding: 16px;
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 16px;
+        align-items: center;
     }
-    .task-card-title { font-weight: 500; }
-    .task-card-meta {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-      font-size: 11px;
-      color: var(--text-secondary);
+    .management-card .info-block { display: flex; align-items: center; gap: 16px; }
+    .management-card .color-swatch {
+        width: 32px; height: 32px; border-radius: 8px; display: flex;
+        justify-content: center; align-items: center; color: white;
     }
-    .tag {
-      background: var(--bg-panel-secondary);
-      padding: 2px 6px;
-      border-radius: 4px;
+    .management-card .name { font-weight: 600; font-size: 16px; }
+    .management-card .meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .management-card .actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+    
+    .team-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px; background-color: var(--accent-blue-light);
+      color: var(--accent-blue); font-size: 13px; font-weight: 500;
+      padding: 4px 10px; border-radius: 99px;
     }
+    .pill button {
+      background: none; border: none; cursor: pointer; color: inherit;
+      opacity: 0.6; font-size: 16px; line-height: 1; padding: 0;
+    }
+    .pill button:hover { opacity: 1; }
 
     /* Modal */
     .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 1000;
-      display: grid;
-      place-items: center;
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
+      display: grid; place-items: center; animation: fadeIn .2s;
     }
     .modal-content {
-      background: var(--bg-panel);
-      padding: 24px;
-      border-radius: 12px;
-      min-width: 500px;
-      max-width: 90vw;
-      box-shadow: var(--shadow-lg);
+      background: var(--bg-panel); padding: 24px; border-radius: 12px;
+      min-width: 480px; max-width: 90vw; box-shadow: var(--shadow-lg);
+      animation: slideIn .2s;
     }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .modal-title { font-size: 20px; font-weight: 600; }
     .modal-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-tertiary); }
@@ -414,569 +256,549 @@
     .modal-body .form-group-full { grid-column: 1 / 3; }
     .modal-body label { font-weight: 500; margin-bottom: 6px; font-size: 13px; }
     .modal-body input, .modal-body select {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      font-size: 14px;
+      width: 100%; padding: 8px 12px; border: 1px solid var(--border-color);
+      border-radius: 8px; font-size: 14px; background-color: var(--bg-main);
     }
+    .modal-body input[type="color"] { padding: 2px; height: 40px; }
     .modal-footer { margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; }
 
-    /* Utility classes */
-    .text-sm { font-size: 12px; }
-    .font-semibold { font-weight: 600; }
-    .ml-auto { margin-left: auto; }
-    .d-flex { display: flex; }
-    .align-items-center { align-items: center; }
-    .gap-2 { gap: 8px; }
-    .gap-3 { gap: 12px; }
-
+    /* Person Page */
+    .person-page-overlay {
+        position: fixed; inset: 0;
+        z-index: 200;
+        background-color: var(--bg-main);
+        overflow-y: auto;
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo, useRef, useCallback, createContext, useContext } = React;
+    const { useState, useEffect, useMemo, useRef, useCallback, createContext, useContext, Fragment } = React;
 
     // ---------- CONTEXT ----------
     const AppContext = createContext(null);
     
     // ---------- CONSTANTS & HELPERS ----------
-    const LS_KEY = 'fte_planner_data_v2';
-    const GHOST_ELEMENT_ID = 'drag-ghost';
-    const WEEK_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
-    const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
-    const ROLES = { ADMIN: 'Admin', PM: 'PM', VIEWER: 'Viewer' };
-    const PERMISSIONS = {
-      [ROLES.ADMIN]: { canEditUsers: true, canEditProjects: true, canEditAllocations: true },
-      [ROLES.PM]: { canEditUsers: false, canEditProjects: true, canEditAllocations: true },
-      [ROLES.VIEWER]: { canEditUsers: false, canEditProjects: false, canEditAllocations: false },
-    };
+    const LS_KEY = 'fteplanner.v2_merged';
+    const MAX_FTE = 1.2;
+    const WEEK_COL_PX = 80;
+    const VISIBLE_WEEKS = 16;
+    const TEAM_BAR_COLOR = "#22c55e";
 
-    // Date helpers
-    const getStartOfWeek = (date) => {
-      const d = new Date(date);
-      const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-      return new Date(new Date(d.setDate(diff)).setHours(0, 0, 0, 0));
-    };
-    const addDays = (date, days) => new Date(date.getTime() + days * DAY_MILLISECONDS);
-    const formatDate = (date) => date.toISOString().split('T')[0];
-    const getWeekNumber = (d) => {
-        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-        var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-        var weekNo = Math.ceil((((d - yearStart) / DAY_MILLISECONDS) + 1)/7);
-        return weekNo;
-    }
+    // Date/format helpers
+    const fmtISO = (date) => date.toISOString().slice(0,10);
+    const addDays = (d, n) => { const x=new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; };
+    const pad2 = (n) => (n<10 ? `0${n}` : String(n));
+    const startOfISOWeek = (d) => { const day=d.getDay(); const diff=(day===0?-6:1)-day; const m=new Date(d); m.setDate(d.getDate()+diff); m.setHours(0,0,0,0); return m; };
+    const addWeeks = (m, n) => { const d=new Date(m); d.setDate(d.getDate()+n*7); d.setHours(0,0,0,0); return d; };
+    const rndId = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+    const fmtFTE1 = (n) => (Math.round(n*10)/10).toFixed(1);
+    const RU_MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
+    const ruMonthShort = (m) => RU_MONTHS[m] ?? "";
+    const weekLabelParts = (iso) => { const d=new Date(iso); const w=1+Math.floor((d.getDate()-1)/7); return { top:`${w} нед`, bot:ruMonthShort(d.getMonth()) }; };
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+    const scaleRatio = (v, max=MAX_FTE) => clamp(v/max, 0, 1);
+    
+    // Aggregations
+    const personWeekTotal = (allocs, pid, w) => allocs.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
+    const fteFor = (allocs, pid, pr, w) => allocs.filter(a=>a.personId===pid && a.projectId===pr && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
 
-    // ---------- SEED DATA ----------
-    const seedData = {
-      users: [
-        { id: 'u1', name: 'Иван Петров', role: ROLES.ADMIN, skills: ['frontend', 'backend'], fte: 1.0, weeklyHours: 40, password: 'admin123', email: 'admin@fte' },
-        { id: 'u2', name: 'Мария Сидорова', role: ROLES.PM, skills: ['management'], fte: 1.0, weeklyHours: 40, password: 'pm123', email: 'pm@fte' },
-        { id: 'u3', name: 'Алексей Иванов', role: ROLES.VIEWER, skills: ['qa'], fte: 1.0, weeklyHours: 40, password: 'viewer123', email: 'viewer@fte' },
-        { id: 'u4', name: 'Елена Кузнецова', role: ROLES.PM, skills: ['backend', 'devops'], fte: 1.0, weeklyHours: 40, password: '1', email: 'elena@fte'},
-        { id: 'u5', name: 'Дмитрий Смирнов', role: ROLES.PM, skills: ['frontend'], fte: 0.5, weeklyHours: 40, password: '1', email: 'dmitry@fte'},
-      ],
-      projects: [
-        { id: 'p1', name: 'Корпоративный портал', status: 'В работе', priority: 'High', pmId: 'u2', startDate: '2025-10-01', endDate: '2025-12-31', color: '#3B82F6' },
-        { id: 'p2', name: 'Мобильное приложение', status: 'План', priority: 'Medium', pmId: 'u4', startDate: '2025-11-01', endDate: '2026-02-28', color: '#10B981' },
-        { id: 'p3', name: 'Рефакторинг легаси', status: 'Пауза', priority: 'Low', pmId: 'u2', startDate: '2025-09-01', endDate: '2025-11-30', color: '#F59E0B' },
-      ],
-      tasks: [
-        { id: 't1', projectId: 'p1', name: 'Авторизация OAuth2', type: 'Фича', requiredSkill: 'backend', effortHours: 80, deadline: '2025-10-30' },
-        { id: 't2', projectId: 'p1', name: 'Дизайн главной страницы', type: 'Дизайн', requiredSkill: 'frontend', effortHours: 40, deadline: '2025-10-20' },
-        { id: 't3', projectId: 'p2', name: 'Настройка CI/CD', type: 'Техдолг', requiredSkill: 'devops', effortHours: 60, deadline: '2025-11-15' },
-        { id: 't4', projectId: 'p2', name: 'Проектирование API', type: 'BA', requiredSkill: 'backend', effortHours: 120, deadline: '2025-11-30' },
-      ],
-      allocations: {
-        'base': [
-          { id: 'a1', taskId: 't1', userId: 'u4', startDate: '2025-10-06', endDate: '2025-10-17', hoursPerWeek: 20 },
-          { id: 'a2', taskId: 't2', userId: 'u5', startDate: '2025-10-06', endDate: '2025-10-17', hoursPerWeek: 20 },
-          { id: 'a3', taskId: 't1', userId: 'u1', startDate: '2025-10-20', endDate: '2025-10-31', hoursPerWeek: 20 },
-        ]
-      },
-      scenarios: [ { id: 'base', name: 'Основной план' } ],
-      activeScenarioId: 'base',
-      calendar: {
-          holidays: [],
-          vacations: [
-              { id: 'v1', userId: 'u5', startDate: '2025-10-20', endDate: '2025-10-24', type: 'Отпуск' }
-          ],
-      }
-    };
-
-    // ---------- CORE LOGIC (CALCULATOR) ----------
-    const FTECalculator = {
-      getUserAvailableHours(user, weekStartDate, calendar) {
-        if (!user) return 0;
-        let baseHours = user.weeklyHours * user.fte;
-        // Subtract vacation hours
-        const weekEndDate = addDays(weekStartDate, 6);
-        for (const vac of calendar.vacations) {
-            if (vac.userId === user.id) {
-                const vacStart = new Date(vac.startDate);
-                const vacEnd = new Date(vac.endDate);
-                if (weekStartDate <= vacEnd && weekEndDate >= vacStart) {
-                    // Simple logic: assume full day is 8 hours, 5 days a week.
-                    // A more complex implementation would check day by day.
-                    baseHours -= user.weeklyHours; // For simplicity, a week of vacation zeroes out availability
-                    if (baseHours < 0) baseHours = 0;
-                }
-            }
-        }
-        return baseHours;
-      },
-      getUserAllocatedHours(userId, weekStartDate, allocations, tasks) {
-        let totalHours = 0;
-        const weekEndDate = addDays(weekStartDate, 6);
-
-        for (const alloc of allocations) {
-          if (alloc.userId === userId) {
-            const allocStart = new Date(alloc.startDate);
-            const allocEnd = new Date(alloc.endDate);
-            if (weekStartDate <= allocEnd && weekEndDate >= allocStart) {
-              totalHours += alloc.hoursPerWeek || 0;
-            }
-          }
-        }
-        return totalHours;
-      },
-      getUtilization(allocated, available) {
-        if (available <= 0) return allocated > 0 ? 200 : 0; // Handle division by zero
-        return Math.round((allocated / available) * 100);
-      },
-      getConflictLevel(utilization) {
-        if (utilization > 100) return 'over';
-        if (utilization >= 80) return 'warn';
-        if (utilization > 0 && utilization < 50) return 'under';
-        return 'normal';
-      }
+    // Order merge helper
+    const mergeOrder = (existing, nextIds) => {
+      const seen=new Set(); const res=[];
+      for(const id of (existing||[])) if(nextIds.includes(id) && !seen.has(id)){ res.push(id); seen.add(id); }
+      for(const id of nextIds) if(!seen.has(id)){ res.push(id); seen.add(id); }
+      return res;
     };
     
-    // ---------- COMPONENTS ----------
+    // ---------- SEED DATA ----------
+    const base = startOfISOWeek(new Date());
+    const initialWeeks = Array.from({length:24}, (_,i)=> fmtISO(addWeeks(base, i-4)));
+    const seedData = {
+        people: [
+            { id:"p1", name:"Саша", role:"manager", capacityPerWeek:1, active:true, external:false },
+            { id:"p2", name:"Катя К.", role:"designer", capacityPerWeek:1, active:true, external:false },
+            { id:"p3", name:"Иван П.", role:"dev", capacityPerWeek:1, active:true, external:true },
+        ],
+        projects: [
+            { id:"pr1", name:"HR Подкасты", status:"active", color:"#3b82f6" },
+            { id:"pr2", name:"Арктика Медиа", status:"active", color:"#f43f5e" },
+            { id:"pr3", name:"Падел-теннис", status:"planned", color:"#06b6d4" },
+        ],
+        allocations: [
+            { id:"a1", personId:"p1", projectId:"pr1", weekStart: initialWeeks[4], fte:0.3 },
+            { id:"a2", personId:"p1", projectId:"pr2", weekStart: initialWeeks[4], fte:0.2 },
+            { id:"a3", personId:"p2", projectId:"pr2", weekStart: initialWeeks[5], fte:0.4 },
+        ],
+        roles: ["designer","dev","manager","pm","other"],
+        projectTeams: {
+            "pr1": ["p1"], "pr2": ["p1", "p2"], "pr3": []
+        },
+        vacations: {},
+        weeks: initialWeeks,
+        teamOrder: ["p1", "p2", "p3"]
+    };
 
+    // ---------- DATA PERSISTENCE HOOK ----------
+    function usePersistentState(key, defaultValue) {
+        const [state, setState] = useState(() => {
+            try {
+                const storedValue = localStorage.getItem(key);
+                if (storedValue) {
+                    const parsed = JSON.parse(storedValue);
+                    // Handle Set objects serialization
+                    if (parsed.vacations) {
+                        Object.keys(parsed.vacations).forEach(k => {
+                            parsed.vacations[k] = new Set(parsed.vacations[k]);
+                        });
+                    }
+                    if (parsed.projectTeams) {
+                        Object.keys(parsed.projectTeams).forEach(k => {
+                            parsed.projectTeams[k] = new Set(parsed.projectTeams[k]);
+                        });
+                    }
+                    return parsed;
+                }
+            } catch (error) {
+                console.error("Error reading from localStorage", error);
+            }
+            return defaultValue;
+        });
+
+        useEffect(() => {
+            try {
+                // Handle Set objects for JSON.stringify
+                const toStore = { ...state };
+                if (toStore.vacations) {
+                    const serializableVacations = {};
+                    Object.entries(toStore.vacations).forEach(([key, value]) => {
+                        serializableVacations[key] = Array.from(value);
+                    });
+                    toStore.vacations = serializableVacations;
+                }
+                if (toStore.projectTeams) {
+                    const serializableTeams = {};
+                    Object.entries(toStore.projectTeams).forEach(([key, value]) => {
+                        serializableTeams[key] = Array.from(value);
+                    });
+                    toStore.projectTeams = serializableTeams;
+                }
+                localStorage.setItem(key, JSON.stringify(toStore));
+            } catch (error) {
+                console.error("Error writing to localStorage", error);
+            }
+        }, [key, state]);
+
+        return [state, setState];
+    }
+    
+    // ---------- MAIN APP COMPONENT ----------
     function App() {
-      const [data, setData] = useState(() => {
-        try {
-          const stored = localStorage.getItem(LS_KEY);
-          return stored ? JSON.parse(stored) : seedData;
-        } catch (e) {
-          return seedData;
-        }
-      });
-      const [currentUser, setCurrentUser] = useState(null);
+      const [appData, setAppData] = usePersistentState(LS_KEY, seedData);
+      const [authed, setAuthed] = useState(() => !!localStorage.getItem(LS_KEY + '_authed'));
+      const [view, setView] = useState('team'); // team | projects | employees
+      const [selectedPersonId, setSelectedPersonId] = useState(null);
 
-      useEffect(() => {
-        try {
-          localStorage.setItem(LS_KEY, JSON.stringify(data));
-        } catch (e) {
-          console.error("Failed to save to localStorage", e);
-        }
-      }, [data]);
-
-      const permissions = useMemo(() => currentUser ? PERMISSIONS[currentUser.role] : {}, [currentUser]);
-
-      const login = (email, password) => {
-        const user = data.users.find(u => u.email === email && u.password === password);
-        if (user) {
-          setCurrentUser(user);
-          return true;
-        }
-        return false;
+      const updateData = (key, value) => {
+        setAppData(prev => ({ ...prev, [key]: value }));
       };
-
-      const logout = () => {
-        setCurrentUser(null);
-      };
-
+      
       const appContextValue = {
-        data,
-        setData,
-        currentUser,
-        permissions,
-        logout
+        ...appData,
+        updateData,
+        setAppData,
+        view, setView,
+        selectedPersonId, setSelectedPersonId
       };
 
-      if (!currentUser) {
-        return <LoginPage onLogin={login} />;
+      if (!authed) {
+        return <LoginPage onAuthSuccess={(remember) => {
+            if (remember) localStorage.setItem(LS_KEY + '_authed', 'true');
+            setAuthed(true);
+        }} />;
       }
       
       return (
         <AppContext.Provider value={appContextValue}>
-          <PlannerPage />
+            <AppHeader onLogout={() => {
+                localStorage.removeItem(LS_KEY + '_authed');
+                setAuthed(false);
+            }}/>
+            <main className="app-container">
+                {view === 'team' && <TeamView />}
+                {view === 'projects' && <ProjectsView />}
+                {view === 'employees' && <EmployeesView />}
+            </main>
+            {selectedPersonId && <PersonPage />}
         </AppContext.Provider>
       );
     }
     
-    function LoginPage({ onLogin }) {
-      const [email, setEmail] = useState('admin@fte');
-      const [password, setPassword] = useState('admin123');
+    function LoginPage({ onAuthSuccess }) {
+      const [login, setLogin] = useState("панквеб");
+      const [pass, setPass] = useState("");
+      const [remember, setRemember] = useState(true);
       const [error, setError] = useState('');
 
-      const handleSubmit = (e) => {
-        e.preventDefault();
-        setError('');
-        if (!onLogin(email, password)) {
-          setError('Неверный логин или пароль');
-        }
+      const submit = (e) => { 
+        e.preventDefault(); 
+        if(login.trim().toLowerCase()==="панквеб" && pass==="123455"){ 
+          onAuthSuccess(remember); 
+        } else { 
+          setError("Неверные данные");
+        } 
       };
-      
+
       return (
         <div className="login-container">
           <div className="login-box">
             <h1>FTE Planner</h1>
-            <form onSubmit={handleSubmit} className="login-form">
+            <form onSubmit={submit} className="login-form">
               <div className="form-group">
-                <label htmlFor="email">Логин (email)</label>
-                <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+                <label>Логин</label>
+                <input value={login} onChange={e=>setLogin(e.target.value)} />
               </div>
               <div className="form-group">
-                <label htmlFor="password">Пароль</label>
-                <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+                <label>Пароль</label>
+                <input type="password" value={pass} onChange={e=>setPass(e.target.value)} />
+              </div>
+              <div className="checkbox-group">
+                <input type="checkbox" id="remember" checked={remember} onChange={e=>setRemember(e.target.checked)} />
+                <label htmlFor="remember">Запомнить данные</label>
               </div>
               {error && <p className="login-error">{error}</p>}
-              <button type="submit" className="btn btn-primary btn-block" style={{marginTop: '24px'}}>Войти</button>
+              <button className="btn btn-primary btn-block" style={{marginTop: '24px'}}>Войти</button>
             </form>
           </div>
         </div>
       );
     }
 
-    function PlannerPage() {
-      const { data, setData, currentUser, permissions, logout } = useContext(AppContext);
-      const [view, setView] = useState('gantt'); // gantt | matrix
-      const [dateRange, setDateRange] = useState({
-          start: getStartOfWeek(new Date()),
-          end: addDays(getStartOfWeek(new Date()), 12 * 7 - 1)
-      });
-      const [draggedTask, setDraggedTask] = useState(null);
+    function AppHeader({ onLogout }) {
+        const { view, setView } = useContext(AppContext);
+        const [isCreatePersonOpen, setCreatePersonOpen] = useState(false);
+        const [isCreateProjectOpen, setCreateProjectOpen] = useState(false);
 
-      const weeks = useMemo(() => {
-        const list = [];
-        let current = new Date(dateRange.start);
-        while (current <= dateRange.end) {
-          list.push(current);
-          current = addDays(current, 7);
-        }
-        return list;
-      }, [dateRange]);
-
-      const handleTaskDrop = (userId, weekStartDate) => {
-        if (!draggedTask || !permissions.canEditAllocations) return;
-        
-        const task = data.tasks.find(t => t.id === draggedTask.taskId);
-        if (!task) return;
-
-        // Default to a 2 week allocation
-        const endDate = formatDate(addDays(weekStartDate, 13));
-        const newAllocation = {
-            id: 'alloc_' + Date.now(),
-            taskId: task.id,
-            userId: userId,
-            startDate: formatDate(weekStartDate),
-            endDate: endDate,
-            hoursPerWeek: (task.effortHours / (task.effortHours/20)) || 20 // Simple distribution
-        };
-        
-        setData(prev => {
-            const newAllocs = [...(prev.allocations[prev.activeScenarioId] || []), newAllocation];
-            return {
-                ...prev,
-                allocations: { ...prev.allocations, [prev.activeScenarioId]: newAllocs }
-            };
-        });
-        setDraggedTask(null);
-      };
-
-      const handleExportJSON = () => {
-        const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data))}`;
-        const link = document.createElement("a");
-        link.href = jsonString;
-        link.download = "fte-planner-backup.json";
-        link.click();
-      };
-
-      return (
-        <div className="app-layout">
-          <header className="app-header">
-            <div className="logo">FTE Planner</div>
-            <div className="header-controls">
-              <span className="text-sm">Пользователь: <b>{currentUser.name}</b> ({currentUser.role})</span>
-              <button className="btn btn-secondary" onClick={handleExportJSON}>Экспорт JSON</button>
-              <button className="btn btn-secondary" onClick={logout}>Выйти</button>
-            </div>
-          </header>
-
-          <aside className="left-sidebar no-scrollbar">
-            <LeftSidebar setDraggedTask={setDraggedTask} />
-          </aside>
-
-          <main className="main-content no-scrollbar">
-            <div className="main-view-controls">
-              <div className="segmented-control">
-                  <button className={view === 'gantt' ? 'active' : ''} onClick={() => setView('gantt')}>Гантт</button>
-                  <button className={view === 'matrix' ? 'active' : ''} onClick={() => setView('matrix')}>Матрица</button>
-              </div>
-            </div>
-            <div className="timeline-container">
-              {view === 'gantt' && <GanttView weeks={weeks} onTaskDrop={handleTaskDrop} />}
-              {view === 'matrix' && <MatrixView weeks={weeks} />}
-            </div>
-          </main>
-        </div>
-      );
-    }
-    
-    function LeftSidebar({ setDraggedTask }) {
-      const [openAccordion, setOpenAccordion] = useState('tasks');
-      const { data } = useContext(AppContext);
-
-      const unallocatedTasks = useMemo(() => {
-          const allocatedTaskIds = new Set(data.allocations[data.activeScenarioId].map(a => a.taskId));
-          return data.tasks.filter(t => !allocatedTaskIds.has(t.id));
-      }, [data.tasks, data.allocations, data.activeScenarioId]);
-
-      const toggleAccordion = (id) => setOpenAccordion(openAccordion === id ? null : id);
-
-      return (
-        <div>
-            <Accordion title="Задачи" id="tasks" isOpen={openAccordion === 'tasks'} onToggle={toggleAccordion}>
-                {unallocatedTasks.map(task => 
-                    <TaskCard key={task.id} task={task} setDraggedTask={setDraggedTask} />
-                )}
-            </Accordion>
-            <Accordion title="Проекты" id="projects" isOpen={openAccordion === 'projects'} onToggle={toggleAccordion}>
-                {data.projects.map(project => (
-                    <div key={project.id} className="task-card">
-                        <div className="task-card-title" style={{ borderLeft: `4px solid ${project.color}`, paddingLeft: '8px' }}>{project.name}</div>
-                        <div className="task-card-meta">
-                            <span className="tag">{project.status}</span>
-                            <span className="tag">{project.priority}</span>
-                        </div>
-                    </div>
-                ))}
-            </Accordion>
-            <Accordion title="Команда" id="team" isOpen={openAccordion === 'team'} onToggle={toggleAccordion}>
-                {data.users.map(user => (
-                    <div key={user.id} className="task-card">
-                        <div className="task-card-title">{user.name}</div>
-                        <div className="task-card-meta">
-                            <span className="tag">{user.role}</span>
-                            <span className="tag">FTE: {user.fte}</span>
-                        </div>
-                    </div>
-                ))}
-            </Accordion>
-        </div>
-      );
-    }
-
-    function Accordion({ id, title, isOpen, onToggle, children }) {
         return (
-            <div className="accordion-item">
-                <button className={`accordion-header ${isOpen ? 'open' : ''}`} onClick={() => onToggle(id)}>
-                    {title}
-                    <span className="icon">▶</span>
-                </button>
-                {isOpen && <div className="accordion-content">{children}</div>}
+            <>
+            <header className="app-header">
+                <div className="logo">FTE Planner</div>
+                <div style={{ margin: '0 auto' }}>
+                    <div className="segmented-control">
+                        <button className={view === "team" ? "active" : ""} onClick={()=>setView("team")}>Нагрузка</button>
+                        <button className={view === "projects" ? "active" : ""} onClick={()=>setView("projects")}>Проекты</button>
+                        <button className={view === "employees" ? "active" : ""} onClick={()=>setView("employees")}>Команда</button>
+                    </div>
+                </div>
+                <div className="header-controls">
+                    <button className="btn btn-secondary" onClick={() => setCreateProjectOpen(true)}>+ Проект</button>
+                    <button className="btn btn-secondary" onClick={() => setCreatePersonOpen(true)}>+ Сотрудник</button>
+                    <button className="btn btn-secondary" onClick={onLogout}>Выйти</button>
+                </div>
+            </header>
+            {isCreatePersonOpen && <CreatePersonModal onClose={() => setCreatePersonOpen(false)} />}
+            {isCreateProjectOpen && <CreateProjectModal onClose={() => setCreateProjectOpen(false)} />}
+            </>
+        )
+    }
+
+    function WeekNavigator({ onLeft, onRight, onToday }) {
+        return (
+            <div className="header-content">
+                <div className="segmented-control">
+                    <button onClick={onLeft}>‹</button>
+                    <button onClick={onToday}>Сегодня</button>
+                    <button onClick={onRight}>›</button>
+                </div>
             </div>
         )
     }
 
-    function TaskCard({ task, setDraggedTask }) {
-        const { data } = useContext(AppContext);
-        const project = data.projects.find(p => p.id === task.projectId);
+    function TeamView() {
+        const { people, allocations, vacations, teamOrder, setSelectedPersonId } = useContext(AppContext);
+        // Weeks window logic
+        const [weeks, setWeeks] = useState(initialWeeks);
+        const [firstIdx, setFirstIdx] = useState(4); // Start with a bit of history
+        const visibleWeeks = useMemo(() => weeks.slice(firstIdx, firstIdx + VISIBLE_WEEKS), [weeks, firstIdx]);
 
-        const handleDragStart = (e) => {
-            setDraggedTask({ taskId: task.id });
-            e.dataTransfer.effectAllowed = 'move';
-        };
+        const goLeft = () => setFirstIdx(p => Math.max(0, p - 1));
+        const goRight = () => setFirstIdx(p => Math.min(weeks.length - VISIBLE_WEEKS, p + 1));
+        const goToday = () => {
+            const todayISO = fmtISO(startOfISOWeek(new Date()));
+            const idx = weeks.indexOf(todayISO);
+            if (idx > -1) setFirstIdx(Math.max(0, idx));
+        }
 
+        const activePeople = useMemo(() => teamOrder.map(id => people.find(p => p.id === id)).filter(Boolean), [teamOrder, people]);
+        
         return (
-            <div 
-                className="task-card" 
-                draggable="true"
-                onDragStart={handleDragStart}
-                onDragEnd={() => setDraggedTask(null)}
-            >
-                <div className="task-card-title">{task.name}</div>
-                <div className="task-card-meta">
-                    <span className="tag" style={{ borderLeft: `3px solid ${project?.color}`}}>{project?.name}</span>
-                    <span className="tag">#{task.requiredSkill}</span>
-                    <span className="tag">{task.effortHours}ч</span>
+            <div className="planner-grid">
+                <div className="left-col">
+                    <div className="header"></div>
+                    <div>
+                        {activePeople.map(person => (
+                            <div key={person.id} className="card person-card" onClick={() => setSelectedPersonId(person.id)}>
+                                <div className="person-name">{person.name}</div>
+                                <div className="person-role">{person.role}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="timeline-col" style={{overflowX: 'auto'}}>
+                    <div className="header">
+                        <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} />
+                    </div>
+                    <div className="header" style={{top: `calc(var(--header-h) + 56px)`}}>
+                        <div style={{display: 'flex'}}>
+                            {visibleWeeks.map(w => (
+                                <div key={w} className="week-header" style={{width: WEEK_COL_PX}}>
+                                    <div>
+                                        <div className="week-num">{weekLabelParts(w).top}</div>
+                                        <div>{weekLabelParts(w).bot}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        {activePeople.map(person => (
+                            <div key={person.id} className="timeline-row">
+                                {visibleWeeks.map(week => {
+                                    const total = personWeekTotal(allocations, person.id, week);
+                                    const ratio = scaleRatio(total);
+                                    const isVac = vacations[person.id]?.has(week);
+                                    return (
+                                        <div key={week} className="week-cell">
+                                            <div className={`util-cell card ${total > 1 ? 'overload' : ''} ${isVac ? 'vacation' : ''}`}>
+                                                <div className="util-bar-wrapper">
+                                                    {!isVac && <div className="util-bar" style={{height: `${ratio*100}%`}} />}
+                                                </div>
+                                                <div className="util-value">{isVac ? '🏖' : fmtFTE1(total)}</div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         );
     }
-
-    function GanttView({ weeks, onTaskDrop }) {
-      const { data } = useContext(AppContext);
-      const timelineBodyRef = useRef(null);
-
-      const users = data.users;
-      const currentAllocations = data.allocations[data.activeScenarioId] || [];
-
-      const handleDragOver = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-      };
-
-      return (
-        <div className="timeline-grid">
-            <div className="timeline-header">
-                <div className="timeline-header-users">Команда</div>
-                <div className="timeline-header-weeks-wrapper">
-                  <div className="timeline-header-weeks">
-                      {weeks.map(week => (
-                          <div key={week.toISOString()} className="week-cell">
-                              <div className="week-num">Неделя {getWeekNumber(week)}</div>
-                              <div>{formatDate(week).slice(5)}</div>
-                          </div>
-                      ))}
-                  </div>
-                </div>
-            </div>
-
-            <div className="timeline-body" ref={timelineBodyRef}>
-                <div className="timeline-body-users">
-                    {users.map(user => (
-                        <div key={user.id} className="user-row">
-                            <div className="user-name">{user.name}</div>
-                            <div className="user-fte">{user.role}, FTE: {user.fte}</div>
-                        </div>
-                    ))}
-                </div>
-                <div className="timeline-body-weeks">
-                    {users.map(user => (
-                        <div 
-                            key={user.id} 
-                            className="user-timeline"
-                            onDragOver={handleDragOver}
-                            onDrop={(e) => {
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const x = e.clientX - rect.left;
-                                const weekIndex = Math.floor((x + timelineBodyRef.current.parentElement.parentElement.scrollLeft) / 100);
-                                const targetWeek = weeks[weekIndex];
-                                if (targetWeek) {
-                                    onTaskDrop(user.id, targetWeek);
-                                }
-                            }}
-                        >
-                            <GanttAllocations user={user} weeks={weeks} allocations={currentAllocations} />
-                            {weeks.map(week => <div key={week.toISOString()} className="week-cell"></div>)}
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-      );
-    }
-
-    function GanttAllocations({ user, weeks, allocations }) {
-      const { data } = useContext(AppContext);
-      const timelineStart = weeks[0].getTime();
-      const weekWidth = 100; // Corresponds to --timeline-cell-w
-
-      const userAllocations = useMemo(() => {
-          return allocations.filter(a => a.userId === user.id);
-      }, [user, allocations]);
-      
-      const userVacations = useMemo(() => {
-          return data.calendar.vacations.filter(v => v.userId === user.id);
-      }, [user.id, data.calendar.vacations]);
-      
-      const allItems = [...userAllocations, ...userVacations];
-
-      return (
-        <>
-        {allItems.map(item => {
-            const startDate = new Date(item.startDate);
-            const endDate = new Date(item.endDate);
-            const isVacation = !!item.type;
-
-            const startOffset = (getStartOfWeek(startDate).getTime() - timelineStart) / WEEK_MILLISECONDS * weekWidth;
-            const durationDays = (endDate - startDate) / DAY_MILLISECONDS + 1;
-            const width = (durationDays / 7) * weekWidth;
-            
-            if (startOffset < -width || startOffset > weeks.length * weekWidth) return null;
-            
-            const task = !isVacation ? data.tasks.find(t => t.id === item.taskId) : null;
-            const project = task ? data.projects.find(p => p.id === task.projectId) : null;
-            
-            return (
-                <div
-                    key={item.id}
-                    className={`allocation-bar ${isVacation ? 'allocation-vacation' : ''}`}
-                    style={{
-                        left: `${startOffset}px`,
-                        width: `${width}px`,
-                        backgroundColor: !isVacation ? project?.color : undefined,
-                    }}
-                    title={isVacation ? `${item.type}: ${item.startDate} - ${item.endDate}` : `${project?.name} - ${task?.name}\n${item.hoursPerWeek} ч/нед`}
-                >
-                    <div className="allocation-bar-title">{isVacation ? item.type : task?.name}</div>
-                    <div className="allocation-bar-subtitle">{!isVacation && `${item.hoursPerWeek} ч/нед`}</div>
-                </div>
-            );
-        })}
-        </>
-      )
-    }
     
-    function MatrixView({ weeks }) {
-      const { data } = useContext(AppContext);
-      const currentAllocations = data.allocations[data.activeScenarioId] || [];
+    function ProjectsView() {
+        const { projects, people, projectTeams, setAppData } = useContext(AppContext);
+        
+        const deleteProject = (id) => {
+            if (!confirm("Удалить проект?")) return;
+            setAppData(prev => ({
+                ...prev,
+                projects: prev.projects.filter(p => p.id !== id),
+                allocations: prev.allocations.filter(a => a.projectId !== id),
+            }))
+        }
 
-      return (
-        <div className="timeline-container">
-            <table className="matrix-table">
-                <thead>
-                    <tr>
-                        <th>Сотрудник</th>
-                        {weeks.map(week => (
-                            <th key={week.toISOString()}>
-                                Н{getWeekNumber(week)}<br/>
-                                <span className="text-sm text-tertiary">{formatDate(week).slice(5)}</span>
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {data.users.map(user => (
-                        <tr key={user.id}>
-                            <td>{user.name}</td>
-                            {weeks.map(week => {
-                                const available = FTECalculator.getUserAvailableHours(user, week, data.calendar);
-                                const allocated = FTECalculator.getUserAllocatedHours(user.id, week, currentAllocations, data.tasks);
-                                const utilization = FTECalculator.getUtilization(allocated, available);
-                                const conflictLevel = FTECalculator.getConflictLevel(utilization);
-                                
-                                return (
-                                    <td 
-                                        key={week.toISOString()} 
-                                        className="matrix-cell"
-                                        data-util-level={conflictLevel}
-                                        title={`Загрузка: ${allocated} / ${available} ч.`}
-                                    >
-                                        <span>{utilization}%</span>
-                                        <div className="util-bar" style={{width: `${Math.min(utilization, 100)}%`}}></div>
-                                    </td>
-                                );
+        return (
+            <div className="management-grid">
+                {projects.map(project => (
+                    <div key={project.id} className="card management-card">
+                        <div className="info-block">
+                            <div className="color-swatch" style={{backgroundColor: project.color}}></div>
+                            <div>
+                                <div className="name">{project.name}</div>
+                                <div className="meta">{project.status}</div>
+                            </div>
+                        </div>
+                        <div className="team-pills">
+                            {(Array.from(projectTeams[project.id] || [])).map(pid => {
+                                const person = people.find(p => p.id === pid);
+                                return person ? <span key={pid} className="pill">{person.name}</span> : null;
                             })}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-      );
+                        </div>
+                        <div className="actions">
+                            <button className="btn btn-secondary">Редактировать</button>
+                            <button className="btn btn-danger" onClick={() => deleteProject(project.id)}>Удалить</button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )
     }
     
+    function EmployeesView() {
+        const { people, setAppData } = useContext(AppContext);
+        
+        const deletePerson = (id) => {
+            if (!confirm("Удалить сотрудника?")) return;
+            setAppData(prev => ({
+                ...prev,
+                people: prev.people.filter(p => p.id !== id),
+                allocations: prev.allocations.filter(a => a.personId !== id),
+            }))
+        }
+        
+        return (
+            <div className="management-grid">
+                {people.map(person => (
+                    <div key={person.id} className="card management-card">
+                        <div className="info-block">
+                             <div>
+                                <div className="name">{person.name}</div>
+                                <div className="meta">{person.role} {person.external && '(Внешний)'}</div>
+                            </div>
+                        </div>
+                        <div> {/* Placeholder for projects */} </div>
+                        <div className="actions">
+                            <button className="btn btn-secondary">Редактировать</button>
+                            <button className="btn btn-danger" onClick={() => deletePerson(person.id)}>Удалить</button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )
+    }
+
+    function PersonPage() {
+        // This is a simplified version for brevity. A full implementation would be much larger.
+        const { selectedPersonId, setSelectedPersonId, people, projects, allocations } = useContext(AppContext);
+        const person = people.find(p => p.id === selectedPersonId);
+        
+        if (!person) return null;
+
+        const personProjects = useMemo(() => {
+            const projectIds = new Set(allocations.filter(a => a.personId === person.id).map(a => a.projectId));
+            return projects.filter(p => projectIds.has(p.id));
+        }, [person.id, allocations, projects]);
+        
+        return (
+            <div className="person-page-overlay no-scrollbar">
+                <AppHeader onLogout={() => {}} />
+                <div className="app-container">
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px'}}>
+                        <h1>{person.name} <span className="meta" style={{fontSize: '16px'}}>{person.role}</span></h1>
+                        <button className="btn btn-secondary" onClick={() => setSelectedPersonId(null)}>Закрыть</button>
+                    </div>
+                    
+                    <div className="card" style={{padding: '24px'}}>
+                        <h3>Проекты сотрудника</h3>
+                        <p>Здесь будет детальная сетка загрузки по проектам, как в исходном файле index3.html</p>
+                        <ul>
+                            {personProjects.map(p => <li key={p.id}>{p.name}</li>)}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    function CreatePersonModal({ onClose }) {
+        const { setAppData, roles } = useContext(AppContext);
+        const [name, setName] = useState('');
+        const [role, setRole] = useState(roles[0] || 'other');
+        const [external, setExternal] = useState(false);
+
+        const handleSubmit = () => {
+            if (!name.trim()) return;
+            const newPerson = {
+                id: rndId(), name: name.trim(), role,
+                capacityPerWeek: 1, active: true, external,
+            };
+            setAppData(prev => ({ ...prev, people: [...prev.people, newPerson] }));
+            onClose();
+        };
+
+        return (
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="modal-content" onClick={e => e.stopPropagation()}>
+                    <div className="modal-header">
+                        <h2 className="modal-title">Новый сотрудник</h2>
+                        <button onClick={onClose} className="modal-close-btn">&times;</button>
+                    </div>
+                    <div className="modal-body">
+                        <div className="form-group">
+                            <label>Имя</label>
+                            <input value={name} onChange={e => setName(e.target.value)} autoFocus/>
+                        </div>
+                        <div className="form-group">
+                            <label>Роль</label>
+                            <select value={role} onChange={e => setRole(e.target.value)}>
+                                {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                        </div>
+                        <label style={{display:'flex', alignItems:'center', gap: '8px', marginTop: '8px'}}>
+                            <input type="checkbox" checked={external} onChange={e => setExternal(e.target.checked)} />
+                            Внешний сотрудник
+                        </label>
+                    </div>
+                    <div className="modal-footer">
+                        <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
+                        <button className="btn btn-primary" onClick={handleSubmit}>Создать</button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+    
+    function CreateProjectModal({ onClose }) {
+        const { setAppData } = useContext(AppContext);
+        const [name, setName] = useState('');
+        const [status, setStatus] = useState('active');
+        const [color, setColor] = useState('#3B82F6');
+
+        const handleSubmit = () => {
+            if (!name.trim()) return;
+            const newProject = {
+                id: rndId(), name: name.trim(), status, color
+            };
+            setAppData(prev => ({
+                ...prev,
+                projects: [...prev.projects, newProject],
+                projectTeams: { ...prev.projectTeams, [newProject.id]: new Set() }
+            }));
+            onClose();
+        }
+
+        return (
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="modal-content" onClick={e => e.stopPropagation()}>
+                    <div className="modal-header">
+                        <h2 className="modal-title">Новый проект</h2>
+                        <button onClick={onClose} className="modal-close-btn">&times;</button>
+                    </div>
+                    <div className="modal-body">
+                         <div className="form-grid">
+                            <div className="form-group form-group-full">
+                                <label>Название</label>
+                                <input value={name} onChange={e => setName(e.target.value)} autoFocus/>
+                            </div>
+                            <div className="form-group">
+                                <label>Статус</label>
+                                <select value={status} onChange={e => setStatus(e.target.value)}>
+                                    <option value="active">Active</option>
+                                    <option value="planned">Planned</option>
+                                    <option value="onhold">On Hold</option>
+                                    <option value="done">Done</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Цвет</label>
+                                <input type="color" value={color} onChange={e => setColor(e.target.value)} />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="modal-footer">
+                        <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
+                        <button className="btn btn-primary" onClick={handleSubmit}>Создать</button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 
   </script>
 </body>
 </html>
-```
