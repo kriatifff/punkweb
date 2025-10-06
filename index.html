@@ -23,7 +23,7 @@
       --accent-blue: #3B82F6;
       --accent-blue-light: #EFF6FF;
       --accent-red: #EF4444;
-      --accent-red-light: #FFEBEB;
+      --accent-red-light: #FEF2F2;
       --accent-yellow: #F59E0B;
       --accent-green: #10B981;
       --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -36,16 +36,15 @@
     *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; padding: 0; }
     body {
-      font-family: var(--font-sans);
-      background-color: var(--bg-main);
-      color: var(--text-primary);
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      font-size: 14px;
+      font-family: var(--font-sans); background-color: var(--bg-main); color: var(--text-primary);
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; font-size: 14px;
     }
     #root { height: 100%; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .no-scrollbar::-webkit-scrollbar { display: none; }
+
+    /* Drag & Drop Indicator */
+    .drag-over { background-color: var(--accent-blue-light) !important; border: 1px dashed var(--accent-blue) !important; }
 
     /* Login Page */
     .login-container { display: grid; place-items: center; height: 100vh; }
@@ -60,10 +59,7 @@
       width: 100%; padding: 10px 12px; border: 1px solid var(--border-color);
       border-radius: 8px; font-size: 14px; transition: box-shadow 0.2s;
     }
-    .login-form input:focus {
-      outline: none; border-color: var(--accent-blue);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
-    }
+    .login-form input:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
     .login-form .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 14px; user-select: none; }
     .login-error { color: var(--accent-red); text-align: center; margin-top: 16px; font-size: 13px; }
 
@@ -76,47 +72,28 @@
     .btn:disabled { cursor: not-allowed; opacity: 0.6; }
     .btn-primary { background-color: var(--accent-blue); color: white; border-color: var(--accent-blue); }
     .btn-primary:hover:not(:disabled) { background-color: #2563EB; }
-    .btn-secondary {
-        background-color: var(--bg-panel); color: var(--text-primary);
-        border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);
-    }
+    .btn-secondary { background-color: var(--bg-panel); color: var(--text-primary); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
     .btn-secondary:hover:not(:disabled) { background-color: var(--bg-panel-secondary); }
     .btn-block { width: 100%; padding-top: 12px; padding-bottom: 12px; }
-    .btn-danger { background-color: var(--accent-red-light); color: var(--accent-red); border-color: var(--accent-red-light)}
-    .btn-danger:hover:not(:disabled) { background-color: #FEE2E2; }
+    .btn-danger { background-color: var(--accent-red-light); color: var(--accent-red); border-color: var(--accent-red-light); }
+    .btn-danger:hover:not(:disabled) { background-color: #FECACA; }
     .icon-btn { padding: 8px; }
     
-    .segmented-control {
-      display: flex; background-color: var(--bg-panel-secondary);
-      border-radius: 8px; padding: 4px; box-shadow: var(--shadow-sm);
-    }
-    .segmented-control button {
-      padding: 6px 16px; border: none; background: transparent; border-radius: 6px;
-      cursor: pointer; font-weight: 500; color: var(--text-secondary); transition: all 0.2s;
-    }
-    .segmented-control button.active {
-      background: var(--bg-panel); color: var(--text-primary); box-shadow: var(--shadow-md);
-    }
+    .segmented-control { display: flex; background-color: var(--bg-panel-secondary); border-radius: 8px; padding: 4px; box-shadow: var(--shadow-sm); }
+    .segmented-control button { padding: 6px 16px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-weight: 500; color: var(--text-secondary); transition: all 0.2s; }
+    .segmented-control button.active { background: var(--bg-panel); color: var(--text-primary); box-shadow: var(--shadow-md); }
 
     /* Main Layout */
     .app-header {
-      position: sticky; top: 0; z-index: 100;
-      display: flex; align-items: center; padding: 0 24px; height: var(--header-h);
-      background: var(--bg-header); backdrop-filter: blur(8px);
-      border-bottom: 1px solid var(--border-color);
+      position: sticky; top: 0; z-index: 100; display: flex; align-items: center; padding: 0 24px; height: var(--header-h);
+      background: var(--bg-header); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border-color);
     }
     .app-header .logo { font-size: 20px; font-weight: 700; color: var(--accent-blue); }
     .app-header .header-controls { display: flex; align-items: center; gap: 12px; margin-left: auto; }
     .app-container { max-width: 90rem; margin: 0 auto; padding: 1.5rem; }
 
     /* Common Card Styles */
-    .card {
-      background: var(--bg-panel);
-      border-radius: 12px;
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow-sm);
-      transition: box-shadow .2s, border-color .2s;
-    }
+    .card { background: var(--bg-panel); border-radius: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); transition: box-shadow .2s, border-color .2s; }
     .card.draggable { cursor: grab; }
     .card.draggable:active { cursor: grabbing; box-shadow: var(--shadow-lg); }
     .card:hover { box-shadow: var(--shadow-md); }
@@ -128,7 +105,8 @@
     .planner-grid .header-content { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; height: 56px; }
     .planner-grid .week-header { display: flex; justify-content: center; align-items: center; height: 56px; text-align: center; font-size: 12px; }
     .week-header .week-num { font-weight: 600; font-size: 14px; color: var(--text-primary); }
-    .planner-grid .person-card { height: 100px; margin-bottom: 8px; padding: 16px; cursor: pointer; }
+    .planner-grid .person-card-wrapper { height: 100px; margin-bottom: 8px; padding: 0; }
+    .planner-grid .person-card { width: 100%; height: 100%; text-align: left; padding: 16px; }
     .planner-grid .person-card .person-name { font-weight: 600; }
     .planner-grid .person-card .person-role { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; text-transform: uppercase; }
     .planner-grid .timeline-row { display: flex; height: 100px; margin-bottom: 8px; }
@@ -141,32 +119,24 @@
     .planner-grid .util-cell.vacation .util-bar-wrapper { background-color: #e5e7eb; background-image: repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(0,0,0,0.05) 5px, rgba(0,0,0,0.05) 10px); }
 
     /* Project & Employee Views */
-    .management-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .management-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .management-card-wrapper { padding: 0; }
     .management-card { padding: 16px; display: flex; gap: 16px; align-items: center; }
     .management-card .info-block { flex-grow: 1; display: flex; align-items: center; gap: 16px; }
-    .management-card .color-swatch { width: 32px; height: 32px; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: white; }
+    .management-card .color-swatch { width: 32px; height: 32px; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: white; flex-shrink: 0; }
     .management-card .name { font-weight: 600; font-size: 16px; }
     .management-card .meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
     .management-card .actions { display: flex; align-items: center; gap: 8px; }
-    .role-manager-card { padding: 16px; margin-bottom: 24px; }
-    .role-pills { display: flex; flex-wrap: wrap; gap: 8px; }
-    .pill {
-      display: inline-flex; align-items: center; gap: 6px; background-color: var(--bg-panel-secondary);
-      color: var(--text-secondary); font-size: 13px; font-weight: 500;
-      padding: 4px 10px; border-radius: 99px;
-    }
+    .role-manager-card { padding: 24px; margin-bottom: 24px; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; background-color: var(--bg-panel-secondary); color: var(--text-secondary); font-size: 13px; font-weight: 500; padding: 4px 10px; border-radius: 99px; }
     .pill button { background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; padding: 0; }
     .pill button:hover { opacity: 1; }
 
     /* Modal */
-    .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;
-      display: grid; place-items: center; animation: fadeIn .2s;
-    }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: grid; place-items: center; animation: fadeIn .2s; }
     .modal-content {
-      background: var(--bg-panel); padding: 24px; border-radius: 12px;
-      min-width: 480px; max-width: 90vw; max-height: 90vh; overflow-y: auto;
-      box-shadow: var(--shadow-lg); animation: slideIn .2s;
+      background: var(--bg-panel); padding: 24px; border-radius: 12px; min-width: 480px; max-width: 90vw; max-height: 90vh;
+      overflow-y: auto; box-shadow: var(--shadow-lg); animation: slideIn .2s;
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); } }
@@ -177,19 +147,17 @@
     .modal-body .form-group { display: flex; flex-direction: column; }
     .modal-body .form-group-full { grid-column: 1 / 3; }
     .modal-body label { font-weight: 500; margin-bottom: 6px; font-size: 13px; }
-    .modal-body input, .modal-body select {
-      width: 100%; padding: 8px 12px; border: 1px solid var(--border-color);
-      border-radius: 8px; font-size: 14px; background-color: var(--bg-main);
-    }
+    .modal-body input, .modal-body select { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; background-color: var(--bg-main); }
     .modal-body input[type="color"] { padding: 2px; height: 40px; }
     .modal-footer { margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; }
 
     /* Person Page */
     .person-page-overlay { position: fixed; inset: 0; z-index: 200; background-color: var(--bg-main); overflow-y: auto; }
     .person-page-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
-    .person-page-planner .project-row { height: 60px; padding: 8px; }
+    .person-page-planner .project-row-wrapper { height: 60px; margin-bottom: 8px; }
+    .person-page-planner .project-row { padding: 8px; width: 100%; height: 100%; display: flex; align-items: center; gap: 12px; text-align: left; }
     .person-page-planner .fte-cell { height: 100%; cursor: pointer; font-weight: 500; }
-    .person-page-planner .fte-cell input { width: 100%; height: 100%; text-align: center; border-radius: 8px; border: 2px solid var(--accent-blue); background: var(--accent-blue-light); outline: none; }
+    .person-page-planner .fte-cell input { width: 100%; height: 100%; text-align: center; border-radius: 8px; border: 2px solid var(--accent-blue); background: var(--accent-blue-light); outline: none; font-weight: 600; }
 
   </style>
 </head>
@@ -197,11 +165,11 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo, useRef, useCallback, createContext, useContext, Fragment } = React;
+    const {useState, useEffect, useMemo, useRef, useCallback, createContext, useContext, Fragment} = React;
 
     // ---------- CONTEXT & STATE MANAGEMENT ----------
     const AppContext = createContext(null);
-    const LS_KEY = 'fteplanner.v3_final';
+    const LS_KEY = "fteplanner.final.v1";
 
     // ---------- HELPERS ----------
     const fmtISO = (d) => d.toISOString().slice(0,10);
@@ -214,12 +182,8 @@
     const weekLabelParts = (iso) => { const d=new Date(iso); const w=1+Math.floor((d.getDate()-1)/7); return { top:`${w} нед`, bot:RU_MONTHS[d.getMonth()] }; };
     const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
     const scaleRatio = (v, max=1.2) => clamp(v/max, 0, 1);
-    
-    // Aggregations
     const personWeekTotal = (allocs, pid, w) => allocs.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
     const fteFor = (allocs, pid, pr, w) => allocs.filter(a=>a.personId===pid && a.projectId===pr && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
-
-    // Order merge helper
     const mergeOrder = (existing, nextIds) => {
       const seen=new Set(existing); const res=[...(existing || [])];
       for(const id of nextIds) if(!seen.has(id)){ res.push(id); seen.add(id); }
@@ -259,8 +223,9 @@
                 const stored = localStorage.getItem(LS_KEY);
                 if (stored) {
                     const parsed = JSON.parse(stored);
-                    Object.keys(parsed.vacations).forEach(k => { parsed.vacations[k] = new Set(parsed.vacations[k]); });
-                    Object.keys(parsed.projectTeams).forEach(k => { parsed.projectTeams[k] = new Set(parsed.projectTeams[k]); });
+                    const deserializeSet = (key) => { Object.keys(parsed[key] || {}).forEach(k => { parsed[key][k] = new Set(parsed[key][k]); }); };
+                    deserializeSet('vacations');
+                    deserializeSet('projectTeams');
                     return parsed;
                 }
             } catch (e) { console.error("LS read error", e); }
@@ -270,13 +235,9 @@
         useEffect(() => {
             try {
                 const toStore = { ...data };
-                const serializable = (key) => {
-                    const obj = {};
-                    Object.entries(toStore[key]).forEach(([k, v]) => { obj[k] = Array.from(v); });
-                    toStore[key] = obj;
-                };
-                serializable('vacations');
-                serializable('projectTeams');
+                const serializeSet = (key) => { const obj = {}; Object.entries(toStore[key]).forEach(([k, v]) => { obj[k] = Array.from(v); }); toStore[key] = obj; };
+                serializeSet('vacations');
+                serializeSet('projectTeams');
                 localStorage.setItem(LS_KEY, JSON.stringify(toStore));
             } catch (e) { console.error("LS write error", e); }
         }, [data]);
@@ -290,7 +251,7 @@
       const [authed, setAuthed] = useState(() => !!localStorage.getItem(LS_KEY + '_authed'));
       const [view, setView] = useState('team'); 
       const [selectedPersonId, setSelectedPersonId] = useState(null);
-      const [modal, setModal] = useState(null); // { type: 'createPerson' | 'editPerson', props: {} }
+      const [modal, setModal] = useState(null);
       
       const appContextValue = {
         data, setData, view, setView,
@@ -307,10 +268,7 @@
       
       return (
         <AppContext.Provider value={appContextValue}>
-            <AppHeader onLogout={() => {
-                localStorage.removeItem(LS_KEY + '_authed');
-                setAuthed(false);
-            }}/>
+            <AppHeader onLogout={() => { localStorage.removeItem(LS_KEY + '_authed'); setAuthed(false); }}/>
             <main className="app-container">
                 {view === 'team' && <TeamView />}
                 {view === 'projects' && <ProjectsView />}
@@ -341,10 +299,7 @@
             <form onSubmit={submit} className="login-form">
               <div className="form-group"><label>Логин</label><input value={login} onChange={e=>setLogin(e.target.value)} /></div>
               <div className="form-group"><label>Пароль</label><input type="password" value={pass} onChange={e=>setPass(e.target.value)} /></div>
-              <div className="checkbox-group">
-                <input type="checkbox" id="remember" checked={remember} onChange={e=>setRemember(e.target.checked)} />
-                <label htmlFor="remember">Запомнить данные</label>
-              </div>
+              <div className="checkbox-group"><input type="checkbox" id="remember" checked={remember} onChange={e=>setRemember(e.target.checked)} /><label htmlFor="remember">Запомнить данные</label></div>
               {error && <p className="login-error">{error}</p>}
               <button className="btn btn-primary btn-block" style={{marginTop: '24px'}}>Войти</button>
             </form>
@@ -387,9 +342,7 @@
                     </div>
                 )}
                 <div className="segmented-control">
-                    <button onClick={onLeft} className="icon-btn">‹</button>
-                    <button onClick={onToday}>Сегодня</button>
-                    <button onClick={onRight} className="icon-btn">›</button>
+                    <button onClick={onLeft} className="icon-btn">‹</button><button onClick={onToday}>Сегодня</button><button onClick={onRight} className="icon-btn">›</button>
                 </div>
             </div>
         )
@@ -398,49 +351,51 @@
     // VIEWS
     function TeamView() {
         const { data, setData, setSelectedPersonId } = useContext(AppContext);
-        const [weeks, setWeeks] = useState(initialWeeks);
         const [firstIdx, setFirstIdx] = useState(8);
         const [roleFilter, setRoleFilter] = useState('all');
-        const visibleWeeks = useMemo(() => weeks.slice(firstIdx, firstIdx + 16), [weeks, firstIdx]);
+        const visibleWeeks = useMemo(() => data.weeks.slice(firstIdx, firstIdx + 16), [data.weeks, firstIdx]);
 
         const goLeft = () => setFirstIdx(p => Math.max(0, p - 4));
-        const goRight = () => setFirstIdx(p => Math.min(weeks.length - 16, p + 4));
-        const goToday = () => {
-            const todayISO = fmtISO(startOfISOWeek(new Date()));
-            const idx = weeks.indexOf(todayISO);
-            if (idx > -1) setFirstIdx(Math.max(0, idx - 4));
-        }
+        const goRight = () => setFirstIdx(p => Math.min(data.weeks.length - 16, p + 4));
+        const goToday = () => { const idx = data.weeks.indexOf(fmtISO(startOfISOWeek(new Date()))); if (idx > -1) setFirstIdx(Math.max(0, idx - 4)); }
 
         const filteredPeople = useMemo(() => {
-            return data.teamOrder
-                .map(id => data.people.find(p => p.id === id))
+            return data.teamOrder.map(id => data.people.find(p => p.id === id))
                 .filter(p => p && p.active && !p.external && (roleFilter === 'all' || p.role === roleFilter));
         }, [data.teamOrder, data.people, roleFilter]);
+        
+        const dragItem = useRef(null); const dragOverItem = useRef(null);
+        const handleSort = () => {
+            if (dragItem.current === null || dragOverItem.current === null) return;
+            setData(prev => {
+                const filteredIds = prev.teamOrder.filter(id => filteredPeople.find(p => p.id === id));
+                const movedItem = filteredIds.splice(dragItem.current, 1)[0];
+                filteredIds.splice(dragOverItem.current, 0, movedItem);
+                const otherIds = prev.teamOrder.filter(id => !filteredPeople.find(p => p.id === id));
+                return {...prev, teamOrder: [...filteredIds, ...otherIds]};
+            });
+            dragItem.current = null; dragOverItem.current = null;
+        };
         
         return (
             <div className="planner-grid">
                 <div className="left-col">
                     <div className="header"></div>
                     <div>
-                        {filteredPeople.map(person => (
-                            <div key={person.id} className="card person-card" onClick={() => setSelectedPersonId(person.id)}>
-                                <div className="person-name">{person.name}</div>
-                                <div className="person-role">{person.role}</div>
+                        {filteredPeople.map((person, index) => (
+                            <div key={person.id} className="person-card-wrapper" draggable onDragStart={() => dragItem.current = index} onDragEnter={() => dragOverItem.current = index} onDragEnd={handleSort} onDragOver={e=>e.preventDefault()}>
+                                <button onClick={() => setSelectedPersonId(person.id)} className="card person-card draggable">
+                                    <div className="person-name">{person.name}</div><div className="person-role">{person.role}</div>
+                                </button>
                             </div>
                         ))}
                     </div>
                 </div>
                 <div className="timeline-col" style={{overflowX: 'auto'}}>
-                    <div className="header">
-                        <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} roleFilter={roleFilter} setRoleFilter={setRoleFilter} roles={data.roles} />
-                    </div>
+                    <div className="header"><WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} roleFilter={roleFilter} setRoleFilter={setRoleFilter} roles={data.roles} /></div>
                     <div className="header" style={{top: `calc(var(--header-h) + 56px)`}}>
                         <div style={{display: 'flex'}}>
-                            {visibleWeeks.map(w => (
-                                <div key={w} className="week-header" style={{width: WEEK_COL_PX}}>
-                                    <div><div className="week-num">{weekLabelParts(w).top}</div><div>{weekLabelParts(w).bot}</div></div>
-                                </div>
-                            ))}
+                            {visibleWeeks.map(w => <div key={w} className="week-header" style={{width: WEEK_COL_PX}}><div><div className="week-num">{weekLabelParts(w).top}</div><div>{weekLabelParts(w).bot}</div></div></div>)}
                         </div>
                     </div>
                     <div>
@@ -471,30 +426,23 @@
     
     function ProjectsView() {
         const { data, setData, setModal } = useContext(AppContext);
-        
-        const deleteProject = (id) => {
-            if (!confirm("Удалить проект?")) return;
-            setData(prev => ({ ...prev,
-                projects: prev.projects.filter(p => p.id !== id),
-                allocations: prev.allocations.filter(a => a.projectId !== id),
-            }))
-        }
+        const deleteProject = (id) => { if (confirm("Удалить проект?")) setData(p => ({...p, projects: p.projects.filter(x => x.id !== id), allocations: p.allocations.filter(a => a.projectId !== id)}))};
+        const dragItem = useRef(null); const dragOverItem = useRef(null);
+        const handleSort = () => { if(dragItem.current === null || dragOverItem.current === null) return; setData(prev => { const items = [...prev.projects]; const moved = items.splice(dragItem.current, 1)[0]; items.splice(dragOverItem.current, 0, moved); return {...prev, projects: items}; }); dragItem.current = null; dragOverItem.current = null; };
 
         return (
             <div className="management-grid">
                 <RoleManager/>
-                {data.projects.map(project => (
-                    <div key={project.id} className="card management-card draggable">
-                        <div className="info-block">
-                            <div className="color-swatch" style={{backgroundColor: project.color}} />
-                            <div>
-                                <div className="name">{project.name}</div>
-                                <div className="meta">{project.status}</div>
+                {data.projects.map((project, index) => (
+                    <div key={project.id} className="management-card-wrapper" draggable onDragStart={() => dragItem.current = index} onDragEnter={() => dragOverItem.current = index} onDragEnd={handleSort} onDragOver={e=>e.preventDefault()}>
+                        <div className="card management-card draggable">
+                            <div className="info-block">
+                                <div className="color-swatch" style={{backgroundColor: project.color}} /><div className="truncate"><div className="name">{project.name}</div><div className="meta">{project.status}</div></div>
                             </div>
-                        </div>
-                        <div className="actions">
-                            <button className="btn btn-secondary" onClick={() => setModal({type: 'editProject', props: {project}})}>Редактировать</button>
-                            <button className="btn btn-danger" onClick={() => deleteProject(project.id)}>Удалить</button>
+                            <div className="actions">
+                                <button className="btn btn-secondary" onClick={() => setModal({type: 'editProject', props: {project}})}>Редактировать</button>
+                                <button className="btn btn-danger" onClick={() => deleteProject(project.id)}>Удалить</button>
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -504,28 +452,22 @@
     
     function EmployeesView() {
         const { data, setData, setModal } = useContext(AppContext);
-        
-        const deletePerson = (id) => {
-            if (!confirm("Удалить сотрудника?")) return;
-            setData(prev => ({ ...prev,
-                people: prev.people.filter(p => p.id !== id),
-                allocations: prev.allocations.filter(a => a.personId !== id),
-            }))
-        }
-        
+        const deletePerson = (id) => { if (confirm("Удалить сотрудника?")) setData(p => ({...p, people: p.people.filter(x => x.id !== id), allocations: p.allocations.filter(a => a.personId !== id)}))};
+        const dragItem = useRef(null); const dragOverItem = useRef(null);
+        const handleSort = () => { if(dragItem.current === null || dragOverItem.current === null) return; setData(prev => { const items = [...prev.people]; const moved = items.splice(dragItem.current, 1)[0]; items.splice(dragOverItem.current, 0, moved); return {...prev, people: items, teamOrder: mergeOrder(items.map(i=>i.id), prev.teamOrder)}; }); dragItem.current = null; dragOverItem.current = null; };
+
         return (
             <div className="management-grid">
-                {data.people.map(person => (
-                    <div key={person.id} className="card management-card draggable">
-                        <div className="info-block">
-                             <div>
-                                <div className="name">{person.name}</div>
-                                <div className="meta">{person.role} {person.external && '(Внешний)'}</div>
+                {data.people.map((person, index) => (
+                    <div key={person.id} className="management-card-wrapper" draggable onDragStart={() => dragItem.current = index} onDragEnter={() => dragOverItem.current = index} onDragEnd={handleSort} onDragOver={e=>e.preventDefault()}>
+                        <div className="card management-card draggable">
+                            <div className="info-block">
+                                <div><div className="name">{person.name}</div><div className="meta">{person.role} {person.external && '(Внешний)'}</div></div>
                             </div>
-                        </div>
-                        <div className="actions">
-                            <button className="btn btn-secondary" onClick={() => setModal({type: 'editPerson', props: {person}})}>Редактировать</button>
-                            <button className="btn btn-danger" onClick={() => deletePerson(person.id)}>Удалить</button>
+                            <div className="actions">
+                                <button className="btn btn-secondary" onClick={() => setModal({type: 'editPerson', props: {person}})}>Редактировать</button>
+                                <button className="btn btn-danger" onClick={() => deletePerson(person.id)}>Удалить</button>
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -537,39 +479,29 @@
         const { data, setData, selectedPersonId, setSelectedPersonId } = useContext(AppContext);
         const person = data.people.find(p => p.id === selectedPersonId);
         
-        const [weeks, setWeeks] = useState(initialWeeks);
         const [firstIdx, setFirstIdx] = useState(8);
-        const visibleWeeks = useMemo(() => weeks.slice(firstIdx, firstIdx + 12), [weeks, firstIdx]);
-
+        const visibleWeeks = useMemo(() => data.weeks.slice(firstIdx, firstIdx + 12), [data.weeks, firstIdx]);
         const goLeft = () => setFirstIdx(p => Math.max(0, p - 4));
-        const goRight = () => setFirstIdx(p => Math.min(weeks.length - 12, p + 4));
-        const goToday = () => {
-            const todayISO = fmtISO(startOfISOWeek(new Date()));
-            const idx = weeks.indexOf(todayISO);
-            if (idx > -1) setFirstIdx(Math.max(0, idx - 4));
-        }
+        const goRight = () => setFirstIdx(p => Math.min(data.weeks.length - 12, p + 4));
+        const goToday = () => { const idx = data.weeks.indexOf(fmtISO(startOfISOWeek(new Date()))); if (idx > -1) setFirstIdx(Math.max(0, idx - 4)); };
 
         const personProjects = useMemo(() => {
             const projectIds = new Set(data.allocations.filter(a => a.personId === person.id).map(a => a.projectId));
             Object.entries(data.projectTeams).forEach(([pid, team]) => { if(team.has(person.id)) projectIds.add(pid); });
-            return data.projects.filter(p => projectIds.has(p.id));
-        }, [person.id, data.allocations, data.projects, data.projectTeams]);
+            const orderedIds = mergeOrder(data.personProjectOrder[person.id], Array.from(projectIds));
+            return orderedIds.map(id => data.projects.find(p => p.id === id)).filter(Boolean);
+        }, [person.id, data]);
 
-        const [editKey, setEditKey] = useState(null);
-        const [editVal, setEditVal] = useState("");
-        const beginEdit = (prId, week, cur) => { setEditKey(`${prId}|${week}`); setEditVal(fmtFTE1(cur||0)); }
+        const [editKey, setEditKey] = useState(null); const [editVal, setEditVal] = useState("");
+        const beginEdit = (prId, week) => { const fte=fteFor(data.allocations, person.id, prId, week); setEditKey(`${prId}|${week}`); setEditVal(fte > 0 ? fmtFTE1(fte) : ""); };
         const commitEdit = (prId, week) => {
-            const val = parseFloat((editVal||"").replace(",","."));
-            setEditKey(null);
-            if (isNaN(val) || val < 0) return;
+            const val = parseFloat((editVal||"").replace(",",".")); setEditKey(null); if (isNaN(val) || val < 0) return;
             setData(prev => {
                 const rest = prev.allocations.filter(a => !(a.personId === person.id && a.projectId === prId && a.weekStart === week));
-                if (val > 0) {
-                    return { ...prev, allocations: [...rest, { id: rndId(), personId: person.id, projectId: prId, weekStart: week, fte: val }] };
-                }
+                if (val > 0) return { ...prev, allocations: [...rest, { id: rndId(), personId: person.id, projectId: prId, weekStart: week, fte: val }] };
                 return { ...prev, allocations: rest };
             });
-        }
+        };
         
         if (!person) return null;
         
@@ -585,39 +517,21 @@
                     
                     <div className="planner-grid person-page-planner">
                         <div className="left-col">
-                            <div className="header"></div>
-                            <div>
-                                {personProjects.map(pr => (
-                                    <div key={pr.id} className="card project-row">
-                                        <div className="info-block"><div className="color-swatch" style={{backgroundColor: pr.color}}/><div>{pr.name}</div></div>
-                                    </div>
-                                ))}
-                            </div>
+                            <div className="header"></div><div>{personProjects.map(pr => <div key={pr.id} className="project-row-wrapper"><button className="card project-row draggable"><div className="color-swatch" style={{backgroundColor: pr.color}}/><div className="name truncate">{pr.name}</div></button></div>)}</div>
                         </div>
                          <div className="timeline-col" style={{overflowX: 'auto'}}>
-                            <div className="header">
-                                <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} />
-                            </div>
-                            <div className="header" style={{top: `calc(var(--header-h) + 56px)`}}>
-                                <div style={{display: 'flex'}}>
-                                    {visibleWeeks.map(w => <div key={w} className="week-header" style={{width: WEEK_COL_PX}}><div><div className="week-num">{weekLabelParts(w).top}</div><div>{weekLabelParts(w).bot}</div></div></div>)}
-                                </div>
-                            </div>
+                            <div className="header"><div className="header-content"><div className="segmented-control"><button onClick={goLeft} className="icon-btn">‹</button><button onClick={goToday}>Сегодня</button><button onClick={goRight} className="icon-btn">›</button></div></div></div>
+                            <div className="header" style={{top: `calc(var(--header-h) + 56px)`}}><div style={{display: 'flex'}}>{visibleWeeks.map(w => <div key={w} className="week-header" style={{width: WEEK_COL_PX}}><div><div className="week-num">{weekLabelParts(w).top}</div><div>{weekLabelParts(w).bot}</div></div></div>)}</div></div>
                             <div>
                                 {personProjects.map(pr => (
                                     <div key={pr.id} className="timeline-row">
                                         {visibleWeeks.map(week => {
-                                            const fte = fteFor(data.allocations, person.id, pr.id, week);
-                                            const k = `${pr.id}|${week}`;
-                                            const editing = editKey === k;
+                                            const k = `${pr.id}|${week}`; const editing = editKey === k; const isVac = data.vacations[person.id]?.has(week);
                                             return (
                                                 <div key={week} className="week-cell">
-                                                    <div className="card fte-cell" onClick={() => beginEdit(pr.id, week, fte)}>
-                                                        {editing ? (
-                                                            <input autoFocus value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={() => commitEdit(pr.id, week)} onKeyDown={e => {if(e.key==='Enter') e.target.blur(); if(e.key==='Escape') setEditKey(null);}}/>
-                                                        ) : (
-                                                            <div style={{display:'grid', placeItems:'center', height:'100%'}}>{fmtFTE1(fte)}</div>
-                                                        )}
+                                                    <div className={`card fte-cell ${isVac ? 'vacation' : ''}`} onClick={() => !isVac && beginEdit(pr.id, week)}>
+                                                        {editing ? (<input autoFocus value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={() => commitEdit(pr.id, week)} onKeyDown={e => {if(e.key==='Enter') e.target.blur(); if(e.key==='Escape') setEditKey(null);}}/>)
+                                                                 : (<div style={{display:'grid', placeItems:'center', height:'100%'}}>{isVac ? '🏖' : fmtFTE1(fteFor(data.allocations, person.id, pr.id, week))}</div>)}
                                                     </div>
                                                 </div>
                                             )
@@ -636,9 +550,7 @@
     function ModalRenderer() {
         const { modal, setModal } = useContext(AppContext);
         if (!modal) return null;
-        
         const closeModal = () => setModal(null);
-
         switch(modal.type) {
             case 'createPerson': return <PersonModal onClose={closeModal} />;
             case 'editPerson': return <PersonModal onClose={closeModal} person={modal.props.person} />;
@@ -650,22 +562,14 @@
 
     function PersonModal({ onClose, person }) {
         const { setData, data } = useContext(AppContext);
-        const [name, setName] = useState(person?.name || '');
-        const [role, setRole] = useState(person?.role || data.roles[0]);
-        const [external, setExternal] = useState(person?.external || false);
+        const [name, setName] = useState(person?.name || ''); const [role, setRole] = useState(person?.role || data.roles[0]); const [external, setExternal] = useState(person?.external || false);
         const isEditing = !!person;
-
         const handleSubmit = () => {
             if (!name.trim()) return;
-            if (isEditing) {
-                setData(p => ({...p, people: p.people.map(x => x.id === person.id ? {...x, name, role, external} : x)}));
-            } else {
-                const newPerson = { id: rndId(), name: name.trim(), role, external, active: true, capacityPerWeek: 1 };
-                setData(p => ({...p, people: [...p.people, newPerson], teamOrder: [...p.teamOrder, newPerson.id]}));
-            }
+            if (isEditing) setData(p => ({...p, people: p.people.map(x => x.id === person.id ? {...x, name: name.trim(), role, external} : x)}));
+            else { const newPerson = { id: rndId(), name: name.trim(), role, external, active: true, capacityPerWeek: 1 }; setData(p => ({...p, people: [...p.people, newPerson], teamOrder: [...p.teamOrder, newPerson.id]})); }
             onClose();
         };
-
         return (
             <div className="modal-overlay" onClick={onClose}>
                 <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -683,33 +587,23 @@
     
     function ProjectModal({ onClose, project }) {
         const { setData } = useContext(AppContext);
-        const [name, setName] = useState(project?.name || '');
-        const [status, setStatus] = useState(project?.status || 'active');
-        const [color, setColor] = useState(project?.color || '#3B82F6');
+        const [name, setName] = useState(project?.name || ''); const [status, setStatus] = useState(project?.status || 'active'); const [color, setColor] = useState(project?.color || '#3B82F6');
         const isEditing = !!project;
-
         const handleSubmit = () => {
             if (!name.trim()) return;
-            if (isEditing) {
-                setData(p => ({...p, projects: p.projects.map(x => x.id === project.id ? {...x, name, status, color} : x)}));
-            } else {
-                const newProject = { id: rndId(), name: name.trim(), status, color };
-                setData(p => ({...p, projects: [...p.projects, newProject], projectTeams: {...p.projectTeams, [newProject.id]: new Set()}}));
-            }
+            if (isEditing) setData(p => ({...p, projects: p.projects.map(x => x.id === project.id ? {...x, name: name.trim(), status, color} : x)}));
+            else { const newProject = { id: rndId(), name: name.trim(), status, color }; setData(p => ({...p, projects: [...p.projects, newProject], projectTeams: {...p.projectTeams, [newProject.id]: new Set()}})); }
             onClose();
         }
-
         return (
             <div className="modal-overlay" onClick={onClose}>
                 <div className="modal-content" onClick={e => e.stopPropagation()}>
                     <div className="modal-header"><h2 className="modal-title">{isEditing ? "Редактировать" : "Новый"} проект</h2><button onClick={onClose} className="modal-close-btn">&times;</button></div>
-                    <div className="modal-body">
-                         <div className="form-grid">
-                            <div className="form-group form-group-full"><label>Название</label><input value={name} onChange={e => setName(e.target.value)} autoFocus/></div>
-                            <div className="form-group"><label>Статус</label><select value={status} onChange={e => setStatus(e.target.value)}><option value="active">Active</option><option value="planned">Planned</option><option value="onhold">On Hold</option><option value="done">Done</option></select></div>
-                            <div className="form-group"><label>Цвет</label><input type="color" value={color} onChange={e => setColor(e.target.value)} /></div>
-                        </div>
-                    </div>
+                    <div className="modal-body"><div className="form-grid">
+                        <div className="form-group form-group-full"><label>Название</label><input value={name} onChange={e => setName(e.target.value)} autoFocus/></div>
+                        <div className="form-group"><label>Статус</label><select value={status} onChange={e => setStatus(e.target.value)}><option value="active">Active</option><option value="planned">Planned</option><option value="onhold">On Hold</option><option value="done">Done</option></select></div>
+                        <div className="form-group"><label>Цвет</label><input type="color" value={color} onChange={e => setColor(e.target.value)} /></div>
+                    </div></div>
                     <div className="modal-footer"><button className="btn btn-secondary" onClick={onClose}>Отмена</button><button className="btn btn-primary" onClick={handleSubmit} disabled={!name.trim()}>Сохранить</button></div>
                 </div>
             </div>
@@ -717,30 +611,14 @@
     }
 
     function RoleManager() {
-        const { data, setData } = useContext(AppContext);
-        const [newRole, setNewRole] = useState("");
-        const addRole = () => {
-            const trimmed = newRole.trim();
-            if (trimmed && !data.roles.includes(trimmed)) {
-                setData(p => ({...p, roles: [...p.roles, trimmed]}));
-                setNewRole("");
-            }
-        };
-        const removeRole = (roleToRemove) => {
-            if (!confirm(`Удалить роль «${roleToRemove}»?`)) return;
-            setData(p => ({...p, 
-                roles: p.roles.filter(r => r !== roleToRemove),
-                people: p.people.map(person => person.role === roleToRemove ? {...person, role: 'other'} : person)
-            }));
-        }
-
+        const { data, setData } = useContext(AppContext); const [newRole, setNewRole] = useState("");
+        const addRole = () => { const trimmed = newRole.trim(); if (trimmed && !data.roles.includes(trimmed)) { setData(p => ({...p, roles: [...p.roles, trimmed]})); setNewRole(""); } };
+        const removeRole = (role) => { if (confirm(`Удалить роль «${role}»?`)) setData(p => ({...p, roles: p.roles.filter(r => r !== role), people: p.people.map(x => x.role === role ? {...x, role: 'other'} : x)}))};
         return (
             <div className="card role-manager-card">
-                <h3 style={{margin: '0 0 16px'}}>Управление ролями</h3>
-                <div className="role-pills">
-                    {data.roles.map(role => (
-                        <span key={role} className="pill">{role} <button onClick={() => removeRole(role)}>&times;</button></span>
-                    ))}
+                <h3 style={{margin: '0 0 16px', fontWeight: 600}}>Управление ролями</h3>
+                <div style={{display: 'flex', flexWrap: 'wrap', gap: '8px'}}>
+                    {data.roles.map(role => (<span key={role} className="pill">{role} <button onClick={() => removeRole(role)}>&times;</button></span>))}
                 </div>
                 <div style={{display:'flex', gap:'8px', marginTop:'16px'}}>
                     <input value={newRole} onChange={e => setNewRole(e.target.value)} placeholder="Новая роль" style={{borderRadius:'8px', border:'1px solid var(--border-color)', padding:'8px 12px', flexGrow:1}}/>
