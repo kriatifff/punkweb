@@ -1,1275 +1,982 @@
+```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Панквеб FTE Planner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- React & Babel -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FTE Planner</title>
+  
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
+
   <style>
-    :root{
-      --app-header-h: 56px;
-      --left-col-w: 220px;
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --bg-main: #F8F9FC;
+      --bg-panel: #FFFFFF;
+      --bg-panel-secondary: #F1F3F9;
+      --bg-header: rgba(255, 255, 255, 0.85);
+      --border-color: #E2E8F0;
+      --text-primary: #1A202C;
+      --text-secondary: #4A5568;
+      --text-tertiary: #718096;
+      --accent-blue: #3B82F6;
+      --accent-blue-light: #EFF6FF;
+      --accent-red: #EF4444;
+      --accent-yellow: #F59E0B;
+      --accent-green: #10B981;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --header-h: 60px;
+      --left-panel-w: 320px;
+      --right-panel-w: 360px;
+      --timeline-header-h: 64px;
+      --timeline-row-h: 56px;
+      --timeline-cell-w: 100px;
+      --color-conflict-overload: #FECACA; /* red-200 */
+      --color-conflict-warning: #FEF3C7; /* yellow-200 */
+      --color-conflict-underload: #DBEAFE; /* blue-200 */
+      --color-vacation: #E5E7EB; /* gray-200 */
     }
-    .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
-    .no-scrollbar::-webkit-scrollbar{ display:none; }
-    .hide-scrollbar::-webkit-scrollbar{ width:8px; height:8px; }
-    .hide-scrollbar::-webkit-scrollbar-thumb{ background:rgba(0,0,0,0.15); border-radius:8px; }
-    .hide-scrollbar{ scrollbar-width:thin; }
-    .btn{
-      @apply rounded-xl border border-neutral-300 bg-white px-3 py-1 shadow-sm hover:shadow transition;
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-size: 14px;
     }
-    .segmented{
-      @apply flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm;
+    #root { height: 100%; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+
+    /* Login Page */
+    .login-container {
+      display: grid;
+      place-items: center;
+      height: 100vh;
+      background-color: var(--bg-main);
     }
-    .segmented button{
-      @apply px-3 py-1 rounded-xl transition;
+    .login-box {
+      width: 360px;
+      padding: 32px;
+      background-color: var(--bg-panel);
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border-color);
     }
-    .segmented .active{ @apply bg-white shadow-sm; }
-    .segmented .idle{ @apply hover:bg-white/70; }
+    .login-box h1 {
+      font-size: 24px;
+      font-weight: 600;
+      text-align: center;
+      margin: 0 0 24px;
+    }
+    .login-form .form-group { margin-bottom: 16px; }
+    .login-form label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+    .login-form input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 14px;
+      transition: box-shadow 0.2s;
+    }
+    .login-form input:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 500;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background-color 0.2s, box-shadow 0.2s;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background-color: var(--accent-blue);
+      color: white;
+      border-color: var(--accent-blue);
+    }
+    .btn-primary:hover { background-color: #2563EB; }
+    .btn-secondary {
+        background-color: var(--bg-panel);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-sm);
+    }
+    .btn-secondary:hover { background-color: var(--bg-panel-secondary); }
+    .btn-block { width: 100%; padding-top: 12px; padding-bottom: 12px; }
+    .login-error { color: var(--accent-red); text-align: center; margin-top: 16px; font-size: 13px; }
+
+    /* Main App Layout */
+    .app-layout {
+      display: grid;
+      grid-template-rows: var(--header-h) 1fr;
+      grid-template-columns: var(--left-panel-w) 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .app-header {
+      grid-column: 1 / 3;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      background: var(--bg-header);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border-color);
+      z-index: 100;
+    }
+    .app-header .logo { font-size: 20px; font-weight: 700; color: var(--accent-blue); }
+    .app-header .header-controls { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+    
+    .left-sidebar {
+      grid-row: 2 / 3;
+      background-color: var(--bg-panel);
+      border-right: 1px solid var(--border-color);
+      padding: 16px;
+      overflow-y: auto;
+    }
+    
+    .main-content {
+      grid-row: 2 / 3;
+      grid-column: 2 / 3;
+      overflow: auto;
+      background-color: var(--bg-main);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-view-controls {
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-panel);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .segmented-control {
+      display: flex;
+      background-color: var(--bg-panel-secondary);
+      border-radius: 8px;
+      padding: 4px;
+    }
+    .segmented-control button {
+      padding: 4px 12px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+    .segmented-control button.active {
+      background: var(--bg-panel);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .timeline-container {
+      flex-grow: 1;
+      overflow: auto;
+      position: relative;
+    }
+
+    .timeline-grid {
+      display: grid;
+      grid-template-columns: 240px 1fr; /* User column + timeline */
+    }
+    
+    .timeline-header, .timeline-body {
+      display: grid;
+      grid-template-columns: subgrid;
+      grid-column: 1 / 3;
+    }
+
+    .timeline-header-users, .timeline-header-weeks {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--bg-panel-secondary);
+    }
+
+    .timeline-header-users {
+      border-right: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+      height: var(--timeline-header-h);
+      display: flex;
+      align-items: center;
+      padding-left: 16px;
+      font-weight: 600;
+    }
+
+    .timeline-header-weeks-wrapper {
+        overflow: hidden;
+    }
+
+    .timeline-header-weeks {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .timeline-header-weeks .week-cell {
+      min-width: var(--timeline-cell-w);
+      width: var(--timeline-cell-w);
+      height: var(--timeline-header-h);
+      border-right: 1px solid var(--border-color);
+      text-align: center;
+      padding: 8px 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .week-cell .week-num { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+
+    .timeline-body-users, .timeline-body-weeks {
+      display: flex;
+      flex-direction: column;
+    }
+    .timeline-body-users {
+      border-right: 1px solid var(--border-color);
+    }
+    .timeline-body-users .user-row {
+      height: var(--timeline-row-h);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-panel);
+    }
+    .user-row .user-name { font-weight: 500; }
+    .user-row .user-fte { font-size: 11px; color: var(--text-tertiary); }
+    
+    .timeline-body-weeks .user-timeline {
+      height: var(--timeline-row-h);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      position: relative; /* For allocations */
+    }
+    .user-timeline .week-cell {
+      min-width: var(--timeline-cell-w);
+      width: var(--timeline-cell-w);
+      border-right: 1px solid var(--border-color);
+    }
+
+    .allocation-bar {
+      position: absolute;
+      top: 10px;
+      bottom: 10px;
+      height: calc(var(--timeline-row-h) - 20px);
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 8px;
+      font-size: 11px;
+      color: white;
+      cursor: grab;
+      user-select: none;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+    .allocation-bar-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .allocation-bar-subtitle { opacity: 0.8; }
+    .allocation-vacation {
+        background-color: var(--color-vacation);
+        background-image: repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(0,0,0,0.05) 5px, rgba(0,0,0,0.05) 10px);
+    }
+
+
+    /* Matrix View */
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .matrix-table th, .matrix-table td {
+      border: 1px solid var(--border-color);
+      padding: 8px;
+      text-align: center;
+      font-size: 13px;
+    }
+    .matrix-table th {
+      background: var(--bg-panel-secondary);
+      position: sticky;
+      top: 0;
+    }
+    .matrix-table th:first-child, .matrix-table td:first-child {
+      position: sticky;
+      left: 0;
+      background: var(--bg-panel-secondary);
+      text-align: left;
+      font-weight: 500;
+      min-width: 200px;
+    }
+    .matrix-cell {
+      height: 48px;
+      cursor: pointer;
+      position: relative;
+    }
+    .matrix-cell .util-bar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 4px;
+      background-color: var(--accent-blue);
+    }
+    .matrix-cell[data-util-level="over"] .util-bar { background-color: var(--accent-red); }
+    .matrix-cell[data-util-level="warn"] .util-bar { background-color: var(--accent-yellow); }
+
+    /* Accordion */
+    .accordion-item {
+      border-bottom: 1px solid var(--border-color);
+    }
+    .accordion-header {
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 16px 8px;
+      text-align: left;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .accordion-content {
+      padding: 0 8px 16px;
+    }
+    .accordion-header .icon { transition: transform 0.2s; }
+    .accordion-header.open .icon { transform: rotate(90deg); }
+
+    /* Task Card */
+    .task-card {
+      padding: 12px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: grab;
+      box-shadow: var(--shadow-sm);
+    }
+    .task-card:active {
+      cursor: grabbing;
+      box-shadow: var(--shadow-md);
+    }
+    .task-card-title { font-weight: 500; }
+    .task-card-meta {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .tag {
+      background: var(--bg-panel-secondary);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      display: grid;
+      place-items: center;
+    }
+    .modal-content {
+      background: var(--bg-panel);
+      padding: 24px;
+      border-radius: 12px;
+      min-width: 500px;
+      max-width: 90vw;
+      box-shadow: var(--shadow-lg);
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .modal-title { font-size: 20px; font-weight: 600; }
+    .modal-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-tertiary); }
+    .modal-body .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .modal-body .form-group { display: flex; flex-direction: column; }
+    .modal-body .form-group-full { grid-column: 1 / 3; }
+    .modal-body label { font-weight: 500; margin-bottom: 6px; font-size: 13px; }
+    .modal-body input, .modal-body select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .modal-footer { margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; }
+
+    /* Utility classes */
+    .text-sm { font-size: 12px; }
+    .font-semibold { font-weight: 600; }
+    .ml-auto { margin-left: auto; }
+    .d-flex { display: flex; }
+    .align-items-center { align-items: center; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+
   </style>
 </head>
-<body class="bg-[#F7F8FA] no-scrollbar">
+<body>
   <div id="root"></div>
 
   <script type="text/babel">
-    const {useState, useEffect, useMemo, useRef, Fragment} = React;
+    const { useState, useEffect, useMemo, useRef, useCallback, createContext, useContext } = React;
 
-    // ---------- Config ----------
-    const MAX_FTE = 1.2;
-    const WEEK_COL_PX = 72;
-    const TEAM_BAR_COLOR = "#22c55e";
-    const VISIBLE_WEEKS = 16;
-
-    // ---------- Persistence ----------
-    const LS_KEY = "fteplanner.v1";
-    function loadAll(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch{ return {}; } }
-    function loadJSON(key, fallback){
-      const all = loadAll();
-      return (key in all) ? all[key] : fallback;
-    }
-    function saveJSON(patch){
-      try{
-        const all = loadAll();
-        const merged = {...all, ...patch};
-        localStorage.setItem(LS_KEY, JSON.stringify(merged));
-        debouncedSaveAllRemote(merged);
-      }catch{}
-    }
-
-    // ---------- OPTIONAL: remote sync (заглушка) ----------
-    async function loadAllRemote(){ return null; }
-    async function saveAllRemote(_state){}
-
-    let saveTimer=null;
-    function debouncedSaveAllRemote(state){
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(()=>{ saveAllRemote(state).catch(()=>{}); }, 400);
-    }
-
-    // ---------- Date/format helpers ----------
-    const fmtISO = (date) => date.toISOString().slice(0,10);
-    const addDays = (d, n) => { const x=new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; };
-    const pad2 = (n) => (n<10 ? `0${n}` : String(n));
-    const fmtDM = (d) => `${pad2(d.getDate())}.${pad2(d.getMonth()+1)}`;
-    const RU_MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
-    const ruMonthShort = (m) => RU_MONTHS[m] ?? "";
-    const startOfISOWeek = (d) => { const day=d.getDay(); const diff=(day===0?-6:1)-day; const m=new Date(d); m.setDate(d.getDate()+diff); m.setHours(0,0,0,0); return m; };
-    const addWeeks = (m, n) => { const d=new Date(m); d.setDate(d.getDate()+n*7); d.setHours(0,0,0,0); return d; };
-    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-    const scaleRatio = (v, max=MAX_FTE) => clamp(v/max, 0, 1);
-    const weekLabelParts = (iso) => { const d=new Date(iso); const w=1+Math.floor((d.getDate()-1)/7); return { top:`${w} нед`, bot:ruMonthShort(d.getMonth()) }; };
-    const weekRangeLabel = (iso) => { const d=new Date(iso); const end=addDays(d,6); return `${fmtDM(d)}–${fmtDM(end)}`; };
-    const rndId = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
-    const fmtFTE1 = (n) => (Math.round(n*10)/10).toFixed(1);
-    const yearWeekMondays = (year) => { let m=startOfISOWeek(new Date(year,0,1)); const end=new Date(year,11,31); end.setHours(0,0,0,0); const list=[]; while(m<=end){ list.push(fmtISO(m)); m=addDays(m,7);} return list; };
-
-    // ---------- Seed data ----------
-    const base = startOfISOWeek(new Date());
-    const initialWeeks = Array.from({length:24}, (_,i)=> fmtISO(addWeeks(base, i-4)));
-    const seedPeople = [
-      { id:"p1", name:"Саша", role:"manager", capacityPerWeek:1, active:true, external:false },
-      { id:"p2", name:"Катя К.", role:"designer", capacityPerWeek:1, active:true, external:false },
-    ];
-    const seedProjects = [
-      { id:"pr1", name:"HR Подкасты", status:"active", color:"#3b82f6" },
-      { id:"pr2", name:"Арктика Медиа", status:"active", color:"#f43f5e" },
-      { id:"pr3", name:"Падел-теннис", status:"planned", color:"#06b6d4" },
-    ];
-    const seedAssignments = [
-      { id:"a1", personId:"p1", projectId:"pr1", weekStart: initialWeeks[4], fte:0.3 },
-      { id:"a2", personId:"p1", projectId:"pr2", weekStart: initialWeeks[4], fte:0.2 },
-      { id:"a3", personId:"p2", projectId:"pr2", weekStart: initialWeeks[5], fte:0.4 },
-    ];
-    const seedRoles = ["designer","dev","manager","pm","other"];
-
-    // ---------- Aggregations ----------
-    const personWeekTotal = (as, pid, w) => as.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
-    const fteFor = (as, pid, pr, w) => as.filter(a=>a.personId===pid && a.projectId===pr && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
-    const mergeOrder = (existing, nextIds) => {
-      const seen=new Set(); const res=[];
-      for(const id of (existing||[])) if(nextIds.includes(id) && !seen.has(id)){ res.push(id); seen.add(id); }
-      for(const id of nextIds) if(!seen.has(id)){ res.push(id); seen.add(id); }
-      return res;
+    // ---------- CONTEXT ----------
+    const AppContext = createContext(null);
+    
+    // ---------- CONSTANTS & HELPERS ----------
+    const LS_KEY = 'fte_planner_data_v2';
+    const GHOST_ELEMENT_ID = 'drag-ghost';
+    const WEEK_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
+    const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
+    const ROLES = { ADMIN: 'Admin', PM: 'PM', VIEWER: 'Viewer' };
+    const PERMISSIONS = {
+      [ROLES.ADMIN]: { canEditUsers: true, canEditProjects: true, canEditAllocations: true },
+      [ROLES.PM]: { canEditUsers: false, canEditProjects: true, canEditAllocations: true },
+      [ROLES.VIEWER]: { canEditUsers: false, canEditProjects: false, canEditAllocations: false },
     };
 
-    // ---------- Icons ----------
-    function StatusIcon({status}){
-      const common = { width:16, height:16, viewBox:"0 0 24 24", fill:"white" };
-      if(status==="active") return (<svg {...common}><polygon points="8,5 19,12 8,19"/></svg>);
-      if(status==="onhold") return (<svg {...common}><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>);
-      if(status==="done") return (<svg {...common}><rect x="6" y="6" width="12" height="12" rx="2"/></svg>);
-      return (<svg {...common}><circle cx="12" cy="12" r="6"/></svg>);
+    // Date helpers
+    const getStartOfWeek = (date) => {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+      return new Date(new Date(d.setDate(diff)).setHours(0, 0, 0, 0));
+    };
+    const addDays = (date, days) => new Date(date.getTime() + days * DAY_MILLISECONDS);
+    const formatDate = (date) => date.toISOString().split('T')[0];
+    const getWeekNumber = (d) => {
+        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+        var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+        var weekNo = Math.ceil((((d - yearStart) / DAY_MILLISECONDS) + 1)/7);
+        return weekNo;
     }
-    const MinusIcon = ({className=""}) => (
-      <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-    );
-    const PencilIcon = ({className=""}) => (
-      <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 20h9"/>
-        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
-      </svg>
-    );
-    const TrashIcon = ({className=""}) => (
-      <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="3 6 5 6 21 6"/>
-        <path d="M19 6l-1 14a2 2 0 0 1 2 2H8a2 2 0 0 1-2-2L5 6"/>
-        <path d="M10 11v6"/>
-        <path d="M14 11v6"/>
-        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-      </svg>
-    );
-    const EyedropperIcon = ({className=""}) => (
-      <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M19 2l3 3-7.5 7.5"/>
-        <path d="M16 5l3 3"/>
-        <path d="M9 11l-6 6v3h3l6-6"/>
-      </svg>
-    );
 
-    function WeekHeader({iso}){
-      const {top, bot} = weekLabelParts(iso);
+    // ---------- SEED DATA ----------
+    const seedData = {
+      users: [
+        { id: 'u1', name: 'Иван Петров', role: ROLES.ADMIN, skills: ['frontend', 'backend'], fte: 1.0, weeklyHours: 40, password: 'admin123', email: 'admin@fte' },
+        { id: 'u2', name: 'Мария Сидорова', role: ROLES.PM, skills: ['management'], fte: 1.0, weeklyHours: 40, password: 'pm123', email: 'pm@fte' },
+        { id: 'u3', name: 'Алексей Иванов', role: ROLES.VIEWER, skills: ['qa'], fte: 1.0, weeklyHours: 40, password: 'viewer123', email: 'viewer@fte' },
+        { id: 'u4', name: 'Елена Кузнецова', role: ROLES.PM, skills: ['backend', 'devops'], fte: 1.0, weeklyHours: 40, password: '1', email: 'elena@fte'},
+        { id: 'u5', name: 'Дмитрий Смирнов', role: ROLES.PM, skills: ['frontend'], fte: 0.5, weeklyHours: 40, password: '1', email: 'dmitry@fte'},
+      ],
+      projects: [
+        { id: 'p1', name: 'Корпоративный портал', status: 'В работе', priority: 'High', pmId: 'u2', startDate: '2025-10-01', endDate: '2025-12-31', color: '#3B82F6' },
+        { id: 'p2', name: 'Мобильное приложение', status: 'План', priority: 'Medium', pmId: 'u4', startDate: '2025-11-01', endDate: '2026-02-28', color: '#10B981' },
+        { id: 'p3', name: 'Рефакторинг легаси', status: 'Пауза', priority: 'Low', pmId: 'u2', startDate: '2025-09-01', endDate: '2025-11-30', color: '#F59E0B' },
+      ],
+      tasks: [
+        { id: 't1', projectId: 'p1', name: 'Авторизация OAuth2', type: 'Фича', requiredSkill: 'backend', effortHours: 80, deadline: '2025-10-30' },
+        { id: 't2', projectId: 'p1', name: 'Дизайн главной страницы', type: 'Дизайн', requiredSkill: 'frontend', effortHours: 40, deadline: '2025-10-20' },
+        { id: 't3', projectId: 'p2', name: 'Настройка CI/CD', type: 'Техдолг', requiredSkill: 'devops', effortHours: 60, deadline: '2025-11-15' },
+        { id: 't4', projectId: 'p2', name: 'Проектирование API', type: 'BA', requiredSkill: 'backend', effortHours: 120, deadline: '2025-11-30' },
+      ],
+      allocations: {
+        'base': [
+          { id: 'a1', taskId: 't1', userId: 'u4', startDate: '2025-10-06', endDate: '2025-10-17', hoursPerWeek: 20 },
+          { id: 'a2', taskId: 't2', userId: 'u5', startDate: '2025-10-06', endDate: '2025-10-17', hoursPerWeek: 20 },
+          { id: 'a3', taskId: 't1', userId: 'u1', startDate: '2025-10-20', endDate: '2025-10-31', hoursPerWeek: 20 },
+        ]
+      },
+      scenarios: [ { id: 'base', name: 'Основной план' } ],
+      activeScenarioId: 'base',
+      calendar: {
+          holidays: [],
+          vacations: [
+              { id: 'v1', userId: 'u5', startDate: '2025-10-20', endDate: '2025-10-24', type: 'Отпуск' }
+          ],
+      }
+    };
+
+    // ---------- CORE LOGIC (CALCULATOR) ----------
+    const FTECalculator = {
+      getUserAvailableHours(user, weekStartDate, calendar) {
+        if (!user) return 0;
+        let baseHours = user.weeklyHours * user.fte;
+        // Subtract vacation hours
+        const weekEndDate = addDays(weekStartDate, 6);
+        for (const vac of calendar.vacations) {
+            if (vac.userId === user.id) {
+                const vacStart = new Date(vac.startDate);
+                const vacEnd = new Date(vac.endDate);
+                if (weekStartDate <= vacEnd && weekEndDate >= vacStart) {
+                    // Simple logic: assume full day is 8 hours, 5 days a week.
+                    // A more complex implementation would check day by day.
+                    baseHours -= user.weeklyHours; // For simplicity, a week of vacation zeroes out availability
+                    if (baseHours < 0) baseHours = 0;
+                }
+            }
+        }
+        return baseHours;
+      },
+      getUserAllocatedHours(userId, weekStartDate, allocations, tasks) {
+        let totalHours = 0;
+        const weekEndDate = addDays(weekStartDate, 6);
+
+        for (const alloc of allocations) {
+          if (alloc.userId === userId) {
+            const allocStart = new Date(alloc.startDate);
+            const allocEnd = new Date(alloc.endDate);
+            if (weekStartDate <= allocEnd && weekEndDate >= allocStart) {
+              totalHours += alloc.hoursPerWeek || 0;
+            }
+          }
+        }
+        return totalHours;
+      },
+      getUtilization(allocated, available) {
+        if (available <= 0) return allocated > 0 ? 200 : 0; // Handle division by zero
+        return Math.round((allocated / available) * 100);
+      },
+      getConflictLevel(utilization) {
+        if (utilization > 100) return 'over';
+        if (utilization >= 80) return 'warn';
+        if (utilization > 0 && utilization < 50) return 'under';
+        return 'normal';
+      }
+    };
+    
+    // ---------- COMPONENTS ----------
+
+    function App() {
+      const [data, setData] = useState(() => {
+        try {
+          const stored = localStorage.getItem(LS_KEY);
+          return stored ? JSON.parse(stored) : seedData;
+        } catch (e) {
+          return seedData;
+        }
+      });
+      const [currentUser, setCurrentUser] = useState(null);
+
+      useEffect(() => {
+        try {
+          localStorage.setItem(LS_KEY, JSON.stringify(data));
+        } catch (e) {
+          console.error("Failed to save to localStorage", e);
+        }
+      }, [data]);
+
+      const permissions = useMemo(() => currentUser ? PERMISSIONS[currentUser.role] : {}, [currentUser]);
+
+      const login = (email, password) => {
+        const user = data.users.find(u => u.email === email && u.password === password);
+        if (user) {
+          setCurrentUser(user);
+          return true;
+        }
+        return false;
+      };
+
+      const logout = () => {
+        setCurrentUser(null);
+      };
+
+      const appContextValue = {
+        data,
+        setData,
+        currentUser,
+        permissions,
+        logout
+      };
+
+      if (!currentUser) {
+        return <LoginPage onLogin={login} />;
+      }
+      
       return (
-        <div className="h-[40px] flex items-center justify-center text-neutral-700">
-          <span className="block text-center leading-tight" style={{width:WEEK_COL_PX}}>
-            <div className="text-xs font-medium">{top}</div>
-            <div className="text-[10px]">{bot}</div>
-          </span>
+        <AppContext.Provider value={appContextValue}>
+          <PlannerPage />
+        </AppContext.Provider>
+      );
+    }
+    
+    function LoginPage({ onLogin }) {
+      const [email, setEmail] = useState('admin@fte');
+      const [password, setPassword] = useState('admin123');
+      const [error, setError] = useState('');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        setError('');
+        if (!onLogin(email, password)) {
+          setError('Неверный логин или пароль');
+        }
+      };
+      
+      return (
+        <div className="login-container">
+          <div className="login-box">
+            <h1>FTE Planner</h1>
+            <form onSubmit={handleSubmit} className="login-form">
+              <div className="form-group">
+                <label htmlFor="email">Логин (email)</label>
+                <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="password">Пароль</label>
+                <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+              </div>
+              {error && <p className="login-error">{error}</p>}
+              <button type="submit" className="btn btn-primary btn-block" style={{marginTop: '24px'}}>Войти</button>
+            </form>
+          </div>
         </div>
       );
     }
 
-    // ---------- Week navigator ----------
-    function useWeeksWindow(){
-      const [weeks, setWeeks] = useState(loadJSON("weeks", initialWeeks));
-      const savedFirstISO = loadJSON("firstWeekISO", weeks[0]);
-      const initIdx = Math.max(0, weeks.indexOf(savedFirstISO));
-      const [firstIdx, setFirstIdx] = useState(initIdx);
-
-      const ensureRange = (needIdx) => {
-        if(needIdx < 0){
-          const first = new Date(weeks[0]);
-          const prepend = Array.from({length: Math.ceil((-needIdx)/8)*8 }, (_,i)=> fmtISO(addWeeks(first, -(i+1)))).reverse();
-          const next = [...prepend, ...weeks];
-          setWeeks(next);
-          return { weeks: next, firstIdx: needIdx + prepend.length };
-        }
-        if(needIdx + VISIBLE_WEEKS >= weeks.length){
-          const last = new Date(weeks[weeks.length-1]);
-          const more = Array.from({length:16}, (_,i)=> fmtISO(addWeeks(last, i+1)));
-          const next = [...weeks, ...more];
-          setWeeks(next);
-          return { weeks: next, firstIdx: needIdx };
-        }
-        return { weeks, firstIdx: needIdx };
-      };
-
-      const goLeft = () => {
-        const {weeks: w2, firstIdx: f2} = ensureRange(firstIdx-1);
-        setFirstIdx(f2); saveJSON({firstWeekISO: w2[f2]}); saveJSON({weeks: w2});
-      };
-      const goRight = () => {
-        const {weeks: w2, firstIdx: f2} = ensureRange(firstIdx+1);
-        setFirstIdx(f2); saveJSON({firstWeekISO: w2[f2]}); saveJSON({weeks: w2});
-      };
-      const goToday = () => {
-        const todayISO = fmtISO(startOfISOWeek(new Date()));
-        let idx = weeks.indexOf(todayISO);
-        if(idx<0){
-          let m = startOfISOWeek(new Date(todayISO));
-          const end = addWeeks(m, 200);
-          const set = new Set(weeks);
-          const add = [];
-          while(m<=end){ const iso=fmtISO(m); if(!set.has(iso)) add.push(iso); m = addDays(m,7); }
-          const next = [...weeks, ...add].sort();
-          setWeeks(next);
-          idx = next.indexOf(todayISO);
-          saveJSON({weeks: next});
-        }
-        const {weeks: w2, firstIdx: f2} = ensureRange(idx);
-        setFirstIdx(f2); saveJSON({firstWeekISO: w2[f2]});
-      };
-
-      const visible = useMemo(()=> weeks.slice(firstIdx, firstIdx+VISIBLE_WEEKS), [weeks, firstIdx]);
-
-      return {weeks, setWeeks, firstIdx, setFirstIdx, visible, goLeft, goRight, goToday};
-    }
-
-    // =================================
-    // App
-    // =================================
-    function App(){
-      const [people, setPeople] = useState(loadJSON("people", seedPeople));
-      const [projects, setProjects] = useState(loadJSON("projects", seedProjects));
-      const [assignments, setAssignments] = useState(loadJSON("assignments", seedAssignments));
-      const [roles, setRoles] = useState(loadJSON("roles",[...seedRoles]));
-      const [projectTeams, setProjectTeams] = useState(()=>{
-        const saved = loadJSON("projectTeams", {});
-        const map = {};
-        Object.keys(saved).forEach(k => (map[k]=new Set(saved[k])));
-        if(Object.keys(map).length===0){
-          for(const p of seedProjects) map[p.id]=new Set();
-          for(const a of seedAssignments) (map[a.projectId] = map[a.projectId] || new Set()).add(a.personId);
-        }
-        return map;
+    function PlannerPage() {
+      const { data, setData, currentUser, permissions, logout } = useContext(AppContext);
+      const [view, setView] = useState('gantt'); // gantt | matrix
+      const [dateRange, setDateRange] = useState({
+          start: getStartOfWeek(new Date()),
+          end: addDays(getStartOfWeek(new Date()), 12 * 7 - 1)
       });
-      const [vacations, setVacations] = useState(()=>{
-        const saved = loadJSON("vacations", {});
-        const map = {}; Object.keys(saved).forEach(k => (map[k] = new Set(saved[k])));
-        return map;
-      });
-      const [personProjectOrder, setPersonProjectOrder] = useState(loadJSON("personProjectOrder", {}));
-      const [teamOrder, setTeamOrder] = useState(()=> loadJSON("teamOrder", seedPeople.map(p=>p.id)));
+      const [draggedTask, setDraggedTask] = useState(null);
 
-      const [authed, setAuthed] = useState(loadJSON("authed", false));
+      const weeks = useMemo(() => {
+        const list = [];
+        let current = new Date(dateRange.start);
+        while (current <= dateRange.end) {
+          list.push(current);
+          current = addDays(current, 7);
+        }
+        return list;
+      }, [dateRange]);
 
-      // теперь три вкладки: team(Нагрузка), project(Проекты), employees(Команда)
-      const [view, setView] = useState(loadJSON("view","team")); // 'team' | 'project' | 'employees'
-      useEffect(()=> saveJSON({view}), [view]);
+      const handleTaskDrop = (userId, weekStartDate) => {
+        if (!draggedTask || !permissions.canEditAllocations) return;
+        
+        const task = data.tasks.find(t => t.id === draggedTask.taskId);
+        if (!task) return;
 
-      const [selectedPersonId, setSelectedPersonId] = useState(null);
-
-      const {weeks, setWeeks, visible, goLeft, goRight, goToday} = useWeeksWindow();
-
-      // remote load (optional)
-      useEffect(()=>{
-        (async()=>{
-          const remote = await loadAllRemote();
-          if(remote && typeof remote==="object"){
-            localStorage.setItem(LS_KEY, JSON.stringify(remote));
-            if(remote.people) setPeople(remote.people);
-            if(remote.projects) setProjects(remote.projects);
-            if(remote.assignments) setAssignments(remote.assignments);
-            if(remote.roles) setRoles(remote.roles);
-            if(remote.projectTeams){
-              const map={}; Object.entries(remote.projectTeams).forEach(([k,v])=> map[k]=new Set(v));
-              setProjectTeams(map);
-            }
-            if(remote.vacations){
-              const map={}; Object.entries(remote.vacations).forEach(([k,v])=> map[k]=new Set(v));
-              setVacations(map);
-            }
-            if(remote.personProjectOrder) setPersonProjectOrder(remote.personProjectOrder);
-            if(remote.teamOrder) setTeamOrder(remote.teamOrder);
-            if(remote.weeks) setWeeks(remote.weeks);
-          }
-        })().catch(()=>{});
-      }, []);
-
-      // save effects
-      useEffect(()=> saveJSON({people}), [people]);
-      useEffect(()=> saveJSON({projects}), [projects]);
-      useEffect(()=> saveJSON({assignments}), [assignments]);
-      useEffect(()=> saveJSON({roles}), [roles]);
-      useEffect(()=>{ const obj={}; Object.entries(projectTeams).forEach(([k,v])=> obj[k]=Array.from(v)); saveJSON({projectTeams:obj}); }, [projectTeams]);
-      useEffect(()=>{ const obj={}; Object.entries(vacations).forEach(([k,v])=> obj[k]=Array.from(v)); saveJSON({vacations:obj}); }, [vacations]);
-      useEffect(()=> saveJSON({personProjectOrder}), [personProjectOrder]);
-      useEffect(()=> saveJSON({teamOrder}), [teamOrder]);
-
-      // helpers
-      const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
-      const dragRow = useRef(null);
-
-      // people collections
-      const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]); // внутр. только
-      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]); // для проектов/команды — все активные
-
-      useEffect(()=>{
-        setTeamOrder(prev => mergeOrder(prev, peopleForTeam.map(p=>p.id)));
-      }, [peopleForTeam]);
-
-      // фильтр ролей для Нагрузки
-      const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
-      useEffect(()=> saveJSON({roleFilter}), [roleFilter]);
-
-      const activeTeamIds = useMemo(()=> teamOrder.filter(id => peopleForTeam.some(p=>p.id===id)), [teamOrder, peopleForTeam]);
-      const filteredTeamIds = useMemo(()=> activeTeamIds.filter(id => roleFilter==="all" ? true : (people.find(p=>p.id===id)?.role===roleFilter)), [activeTeamIds, roleFilter, people]);
-
-      // CRUD
-      function deletePerson(pid){
-        if(!confirm("Удалить сотрудника?")) return;
-        setPeople(prev => prev.filter(p=>p.id!==pid));
-        setAssignments(prev => prev.filter(a=>a.personId!==pid));
-        setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=>{ if(k!==pid) c[k]=new Set(v); }); return c; });
-        setProjectTeams(prev => { const c={}; Object.entries(prev).forEach(([k,v])=>{ const s=new Set(v); s.delete(pid); c[k]=s; }); return c; });
-        setTeamOrder(prev => prev.filter(id=>id!==pid));
-        if(selectedPersonId===pid) setSelectedPersonId(null);
-      }
-      function deleteProject(prid){
-        if(!confirm("Удалить проект?")) return;
-        setProjects(prev => prev.filter(p=>p.id!==prid));
-        setAssignments(prev => prev.filter(a=>a.projectId!==prid));
-        setProjectTeams(prev => { const c={}; Object.entries(prev).forEach(([k,v])=>{ if(k!==prid) c[k]=new Set(v); }); return c; });
-        setPersonProjectOrder(prev => { const out={}; Object.entries(prev).forEach(([pid, arr]) => { out[pid]=(arr||[]).filter(x=>x!==prid); }); return out; });
-      }
-
-      const dragProjectIndex = useRef(null);
-      const onProjectDragStart = (i) => { dragProjectIndex.current = i; };
-      const onProjectDrop = (i) => {
-        const from = dragProjectIndex.current;
-        dragProjectIndex.current = null;
-        if(from==null || from===i) return;
-        setProjects(prev => {
-          const arr = [...prev];
-          const [moved] = arr.splice(from,1);
-          arr.splice(i,0,moved);
-          return arr;
+        // Default to a 2 week allocation
+        const endDate = formatDate(addDays(weekStartDate, 13));
+        const newAllocation = {
+            id: 'alloc_' + Date.now(),
+            taskId: task.id,
+            userId: userId,
+            startDate: formatDate(weekStartDate),
+            endDate: endDate,
+            hoursPerWeek: (task.effortHours / (task.effortHours/20)) || 20 // Simple distribution
+        };
+        
+        setData(prev => {
+            const newAllocs = [...(prev.allocations[prev.activeScenarioId] || []), newAllocation];
+            return {
+                ...prev,
+                allocations: { ...prev.allocations, [prev.activeScenarioId]: newAllocs }
+            };
         });
+        setDraggedTask(null);
       };
 
-      // create person
-      const [createPersonOpen, setCreatePersonOpen] = useState(false);
-      const [newPersonName, setNewPersonName] = useState("");
-      const [newPersonRole, setNewPersonRole] = useState("other");
-      const [newPersonExternal, setNewPersonExternal] = useState(false);
-      function submitNewPerson(){
-        const name = newPersonName.trim(); if(!name) return;
-        const id = rndId();
-        setPeople(p => [...p, { id, name, role:newPersonRole||"other", capacityPerWeek:1, active:true, external: !!newPersonExternal }]);
-        setCreatePersonOpen(false); setNewPersonName(""); setNewPersonRole("other"); setNewPersonExternal(false);
-      }
-
-      // create project
-      const [createProjectOpen, setCreateProjectOpen] = useState(false);
-      const [newProjectName, setNewProjectName] = useState("");
-      const [newProjectColor, setNewProjectColor] = useState("#3b82f6");
-      const [newProjectStatus, setNewProjectStatus] = useState("active");
-      const [projSearch, setProjSearch] = useState("");
-      const [projTeamSel, setProjTeamSel] = useState(()=> new Set());
-      const personSuggestions = useMemo(()=> peopleActiveAll.filter(p => p.name.toLowerCase().includes(projSearch.toLowerCase()) && !projTeamSel.has(p.id)).slice(0,6), [peopleActiveAll, projSearch, projTeamSel]);
-      function submitNewProject(){
-        const name = newProjectName.trim(); if(!name) return;
-        const id = rndId(); const color = newProjectColor || "#64748b"; const status = newProjectStatus;
-        setProjects(ps => [...ps, { id, name, color, status }]);
-        setProjectTeams(pt => { const copy={}; Object.entries(pt).forEach(([k,v])=>copy[k]=new Set(v)); copy[id]=new Set(projTeamSel); return copy; });
-        setCreateProjectOpen(false); setNewProjectName(""); setProjSearch(""); setProjTeamSel(new Set()); setNewProjectStatus("active"); setView("project");
-      }
-
-      if(!authed){
-        return (
-          <div className="min-h-screen grid place-items-center bg-[#F7F8FA]">
-            <div className="bg-white w-[360px] rounded-2xl shadow-lg border border-neutral-200 p-5">
-              <div className="text-center mb-4"><div className="text-2xl font-semibold">Вход</div></div>
-              <AuthForm onSuccess={(remember)=>{ if(remember){ saveJSON({authed:true, remember:true}); } else { saveJSON({remember:false, authed:false}); } setAuthed(true); }} />
-            </div>
-          </div>
-        );
-      }
+      const handleExportJSON = () => {
+        const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data))}`;
+        const link = document.createElement("a");
+        link.href = jsonString;
+        link.download = "fte-planner-backup.json";
+        link.click();
+      };
 
       return (
-        <div className="min-h-screen bg-[#F7F8FA] text-neutral-900 font-sans">
-          {/* Глобальная шапка */}
-          <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
-            <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
-              <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
-              <div className="ml-4 segmented">
-                <button className={view==="team" ? "active" : "idle"} onClick={()=>setView("team")}>Нагрузка</button>
-                <button className={view==="project" ? "active" : "idle"} onClick={()=>setView("project")}>Проекты</button>
-                <button className={view==="employees" ? "active" : "idle"} onClick={()=>setView("employees")}>Команда</button>
-              </div>
-              <div className="ml-auto flex items-center gap-2">
-                <button onClick={()=>setCreateProjectOpen(true)} className="btn">+ Проект</button>
-                <button onClick={()=>setCreatePersonOpen(true)} className="btn">+ Сотрудник</button>
-              </div>
+        <div className="app-layout">
+          <header className="app-header">
+            <div className="logo">FTE Planner</div>
+            <div className="header-controls">
+              <span className="text-sm">Пользователь: <b>{currentUser.name}</b> ({currentUser.role})</span>
+              <button className="btn btn-secondary" onClick={handleExportJSON}>Экспорт JSON</button>
+              <button className="btn btn-secondary" onClick={logout}>Выйти</button>
             </div>
           </header>
 
-          <main className="max-w-screen-2xl mx-auto p-4">
-            {/* Навигатор недель нужен только во «Нагрузке» */}
-            {view==="team" && (
-              <WeekNavigator
-                onLeft={goLeft}
-                onRight={goRight}
-                onToday={goToday}
-                showRoleFilter={true}
-                roleFilter={roleFilter}
-                setRoleFilter={setRoleFilter}
-                roles={roles}
-              />
-            )}
+          <aside className="left-sidebar no-scrollbar">
+            <LeftSidebar setDraggedTask={setDraggedTask} />
+          </aside>
 
-            {view==="team" ? (
-              // -------- Нагрузка (бывш. Команда) --------
-              <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-                <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
-                {visible.map(w => (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
-                {filteredTeamIds.map((pid, rowIdx) => {
-                  const person = people.find(p=>p.id===pid);
-                  return (
-                    <Fragment key={pid}>
-                      <div
-                        className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
-                        draggable
-                        onDragStart={()=>{ dragRow.current=rowIdx; }}
-                        onDragOver={e=>e.preventDefault()}
-                        onDrop={()=>{
-                          const from=dragRow.current; const to=rowIdx; if(from==null || from===to) return;
-                          const arr=[...filteredTeamIds]; const id=arr.splice(from,1)[0]; arr.splice(to,0,id);
-                          const inactive = teamOrder.filter(id => !filteredTeamIds.includes(id));
-                          setTeamOrder([...arr, ...inactive]); dragRow.current=null;
-                        }}
-                      >
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={()=>setSelectedPersonId(person.id)}
-                          onKeyDown={e=>{ if(e.key==='Enter'||e.key===' ') setSelectedPersonId(person.id) }}
-                          className="w-full text-left"
-                        >
-                          <div className="relative bg-white rounded-2xl shadow-sm h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-md hover:bg-blue-50/70 transition">
-                            <div className="font-medium truncate" title="Открыть карточку сотрудника">{person.name}</div>
-                            <div className="mt-1 text-[11px] text-neutral-600">{String(person.role||"").toUpperCase()}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {visible.map(week => {
-                        const total = personWeekTotal(assignments, person.id, week);
-                        const ratio = scaleRatio(total);
-                        const vac = isVacation(person.id, week);
-                        return (
-                          <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
-                            <div className={`bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative ${total>1.0001?"ring-1 ring-red-300":""}`}>
-                              <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
-                                {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:TEAM_BAR_COLOR}} />)}
-                              </div>
-                              {!vac && (
-                                <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-900" title={fmtFTE1(total)}>
-                                  {fmtFTE1(total)}
-                                </div>
-                              )}
-                              {vac && (<div className="absolute inset-0 flex items-center justify-center text-2xl" title="Отпуск">🏖</div>)}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </Fragment>
-                  );
-                })}
+          <main className="main-content no-scrollbar">
+            <div className="main-view-controls">
+              <div className="segmented-control">
+                  <button className={view === 'gantt' ? 'active' : ''} onClick={() => setView('gantt')}>Гантт</button>
+                  <button className={view === 'matrix' ? 'active' : ''} onClick={() => setView('matrix')}>Матрица</button>
               </div>
-            ) : view==="project" ? (
-              // -------- Проекты --------
-              <>
-                {/* Роли убрали из правого угла; отдельной кнопки «Смотреть всех…» больше нет */}
-                <RoleManager
-                  roles={roles}
-                  setRoles={setRoles}
-                  setRoleFilter={setRoleFilter}
-                  people={people}
-                  setPeople={setPeople}
-                  stickyTopClass="top-[var(--app-header-h)]"
-                />
-
-                <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
-                  {projects.map((project, idx) => (
-                    <Fragment key={project.id}>
-                      <div
-                        className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
-                        draggable
-                        onDragStart={()=>onProjectDragStart(idx)}
-                        onDragOver={e=>e.preventDefault()}
-                        onDrop={()=>onProjectDrop(idx)}
-                        title="Перетащите, чтобы изменить порядок"
-                      >
-                        <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px] cursor-grab active:cursor-grabbing select-none">
-                          <button
-                            className="w-8 h-8 rounded-lg flex items-center justify-center"
-                            style={{background:project.color}}
-                            title="Статус проекта"
-                            onClick={()=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, status:(p.status==="active"?"onhold": p.status==="onhold"?"done": p.status==="done"?"planned":"active")} : p))}
-                          >
-                            <StatusIcon status={project.status}/>
-                          </button>
-                          <div className="font-medium truncate" title={project.name}>{project.name}</div>
-
-                          {/* Пипетка цвета */}
-                          <button
-                            className="absolute top-2 right-10 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
-                            title="Изменить цвет"
-                            onClick={()=> document.getElementById(`color-${project.id}`)?.click()}
-                            type="button"
-                          >
-                            <EyedropperIcon/>
-                          </button>
-                          <input
-                            id={`color-${project.id}`}
-                            type="color"
-                            className="hidden"
-                            value={project.color}
-                            onChange={(e)=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, color:e.target.value} : p))}
-                          />
-
-                          {/* Удаление */}
-                          <button
-                            type="button"
-                            draggable={false}
-                            aria-label="Удалить проект"
-                            onMouseDown={(e)=>e.preventDefault()}
-                            onClick={()=> deleteProject(project.id)}
-                            title="Удалить проект"
-                            className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
-                          >
-                            <MinusIcon className="text-neutral-700"/>
-                          </button>
-                        </div>
-                      </div>
-                      <div className="border border-neutral-200 p-3">
-                        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
-                          <ProjectTeamSelector
-                            project={project}
-                            people={peopleActiveAll}
-                            projectTeams={projectTeams}
-                            setProjectTeams={setProjectTeams}
-                          />
-                        </div>
-                      </div>
-                    </Fragment>
-                  ))}
-                </div>
-              </>
-            ) : (
-              // -------- Команда (список всех сотрудников) --------
-              <EmployeesPage
-                people={people}
-                setPeople={setPeople}
-                projects={projects}
-                projectTeams={projectTeams}
-                setProjectTeams={setProjectTeams}
-                deletePerson={deletePerson}
-              />
-            )}
+            </div>
+            <div className="timeline-container">
+              {view === 'gantt' && <GanttView weeks={weeks} onTaskDrop={handleTaskDrop} />}
+              {view === 'matrix' && <MatrixView weeks={weeks} />}
+            </div>
           </main>
-
-          {selectedPersonId && (
-            <PersonPage
-              person={people.find(p=>p.id===selectedPersonId)}
-              projects={projects}
-              assignments={assignments}
-              teamByProject={projectTeams}
-              vacations={vacations}
-              setVacations={setVacations}
-              order={personProjectOrder[selectedPersonId]}
-              setOrder={o=> setPersonProjectOrder(prev => ({...prev, [selectedPersonId]: o}))}
-              onClose={()=> setSelectedPersonId(null)}
-              onSave={setAssignments}
-              setPeople={setPeople}
-              weeksAll={weeks}
-              visibleWeeks={visible}
-              goLeft={goLeft}
-              goRight={goRight}
-              goToday={goToday}
-              roles={roles}
-              view={view}
-              setView={(v)=>{ setView(v); setSelectedPersonId(null); }}
-            />
-          )}
-
-          <CreatePersonModal
-            open={createPersonOpen}
-            onClose={()=>setCreatePersonOpen(false)}
-            name={newPersonName} setName={setNewPersonName}
-            role={newPersonRole} setRole={setNewPersonRole}
-            external={newPersonExternal} setExternal={setNewPersonExternal}
-            onSubmit={submitNewPerson} roles={roles}
-          />
-          <CreateProjectModal
-            open={createProjectOpen}
-            onClose={()=>setCreateProjectOpen(false)}
-            name={newProjectName}
-            setName={setNewProjectName}
-            color={newProjectColor}
-            setColor={setNewProjectColor}
-            status={newProjectStatus}
-            setStatus={setNewProjectStatus}
-            search={projSearch}
-            setSearch={setProjSearch}
-            teamSel={projTeamSel}
-            setTeamSel={setProjTeamSel}
-            people={peopleActiveAll}
-            suggestions={personSuggestions}
-            onSubmit={submitNewProject}
-          />
         </div>
       );
     }
+    
+    function LeftSidebar({ setDraggedTask }) {
+      const [openAccordion, setOpenAccordion] = useState('tasks');
+      const { data } = useContext(AppContext);
 
-    // Навигатор недель
-    function WeekNavigator({
-      onLeft,
-      onRight,
-      onToday,
-      showRoleFilter=false,
-      roleFilter="all",
-      setRoleFilter=()=>{},
-      roles=[],
-      stickyTopClass='top-[var(--app-header-h)]',
-      leftNode=null
-    }){
-      return (
-        <div className={`sticky ${stickyTopClass} z-50 bg-[#F7F8FA] py-2 mb-2`}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-h-[32px]">
-              {leftNode}
-            </div>
-            <div className="flex items-center gap-2">
-              {showRoleFilter && (
-                <div className="flex items-center gap-2 mr-1">
-                  <label className="text-sm text-neutral-700">Фильтр роли</label>
-                  <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm"
-                          value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
-                    <option value="all">Все</option>
-                    {roles.map(r => (<option key={r} value={r}>{r}</option>))}
-                  </select>
-                </div>
-              )}
-              <button onClick={onLeft} className="btn">‹</button>
-              <button onClick={onToday} className="btn">Сегодня</button>
-              <button onClick={onRight} className="btn">›</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
+      const unallocatedTasks = useMemo(() => {
+          const allocatedTaskIds = new Set(data.allocations[data.activeScenarioId].map(a => a.taskId));
+          return data.tasks.filter(t => !allocatedTaskIds.has(t.id));
+      }, [data.tasks, data.allocations, data.activeScenarioId]);
 
-    // ---------- FULL-PAGE «Один сотрудник» ----------
-    function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles, view, setView }){
-      if(!person) return null;
-      const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
-
-      const unionIds = useMemo(()=>{
-        const ids=new Set();
-        assignments.forEach(a=>{ if(a.personId===person.id) ids.add(a.projectId); });
-        Object.entries(teamByProject).forEach(([pr,set])=>{ if(set.has(person.id)) ids.add(pr); });
-        return Array.from(ids);
-      }, [assignments, person.id, teamByProject]);
-      const orderedIds = useMemo(()=> mergeOrder(order, unionIds), [order, unionIds]);
-      useEffect(()=>{ setOrder(orderedIds); }, [orderedIds, setOrder]);
-
-      const [editKey, setEditKey] = useState(null);
-      const [editVal, setEditVal] = useState("");
-      function beginEdit(pid, w, cur){ if(isVacation(person.id,w)) return; setEditKey(`${pid}|${w}`); setEditVal(fmtFTE1(cur||0)); }
-      function commitEdit(pid, w){
-        const k = `${pid}|${w}`; if(editKey!==k) return;
-        const next = parseFloat((editVal||"").replace(",", "."));
-        setEditKey(null);
-        if(isNaN(next) || next<0 || next>MAX_FTE) return;
-        onSave(prev => { const rest = prev.filter(a => !(a.personId===person.id && a.projectId===pid && a.weekStart===w)); return [...rest, { id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte:next }]; });
-      }
-
-      const dragIndex = useRef(null);
-      const onDragStart = (i)=>{ dragIndex.current=i; };
-      const onDrop = (i)=>{ const from=dragIndex.current; dragIndex.current=null; if(from==null || from===i) return; const arr=[...orderedIds]; const [moved]=arr.splice(from,1); arr.splice(i,0,moved); setOrder(arr); };
-
-      const [vacOpen, setVacOpen] = useState(false);
-      const [personVac, setPersonVac] = useState(()=> new Set(vacations[person.id] || []));
-      const [vacTab, setVacTab] = useState("range");
-      const [vFrom, setVFrom] = useState("");
-      const [vTo, setVTo] = useState("");
-      useEffect(()=>{ setPersonVac(new Set(vacations[person.id] || [])); }, [person.id, vacations]);
-      const saveVac = () => {
-        let setToSave = new Set(personVac);
-        if(vFrom && vTo){
-          const d1=new Date(vFrom), d2=new Date(vTo);
-          if(!(isNaN(d1) || isNaN(d2) || d1>d2)){
-            let m1=startOfISOWeek(d1); const m2=startOfISOWeek(d2);
-            while(m1<=m2){ setToSave.add(fmtISO(m1)); m1=addDays(m1,7); }
-          }
-        }
-        setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=> (c[k]=new Set(v))); c[person.id]=setToSave; return c; });
-        onSave(prev => prev.filter(a => !(a.personId===person.id && setToSave.has(a.weekStart))));
-        setVacOpen(false);
-      };
-      const clearVacationWeek = (week) => setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=> (c[k]=new Set(v))); const s=new Set(c[person.id]||[]); s.delete(week); c[person.id]=s; return c; });
-
-      const visible = visibleWeeks;
-      const weekTotals = useMemo(()=> visible.map(w => (isVacation(person.id,w) ? 0 : assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0))), [assignments, person.id, vacations, visible]);
+      const toggleAccordion = (id) => setOpenAccordion(openAccordion === id ? null : id);
 
       return (
-        <div className="fixed inset-0 z-50 bg-[#F7F8FA] overflow-auto no-scrollbar">
-          {/* Шапка с тремя кнопками */}
-          <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
-            <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
-              <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
-              <div className="ml-4 segmented">
-                <button className={view==="team" ? "active" : "idle"} onClick={()=>{ setView("team"); onClose(); }}>Нагрузка</button>
-                <button className={view==="project" ? "active" : "idle"} onClick={()=>{ setView("project"); onClose(); }}>Проекты</button>
-                <button className={view==="employees" ? "active" : "idle"} onClick={()=>{ setView("employees"); onClose(); }}>Команда</button>
-              </div>
-              <div className="ml-auto" />
-            </div>
-          </div>
-
-          {/* Полоса недель: слева — имя/роль/отпуск; справа — кнопки недель */}
-          <div className="max-w-screen-2xl mx-auto px-4">
-            <WeekNavigator
-              onLeft={goLeft}
-              onRight={goRight}
-              onToday={goToday}
-              showRoleFilter={false}
-              stickyTopClass="top-[var(--app-header-h)]"
-              leftNode={
-                <>
-                  <EditableName person={person} setPeople={setPeople}/>
-                  <EditableRole person={person} setPeople={setPeople} roles={roles}/>
-                  <button
-                    onClick={()=>setVacOpen(true)}
-                    className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800"
-                  >🏖 Добавить отпуск</button>
-                </>
-              }
-            />
-          </div>
-
-          {/* Контент — сетка как в «Нагрузка» */}
-          <div className="max-w-screen-2xl mx-auto px-4">
-            <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-              <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
-              {visible.map(w => (<div key={w}><WeekHeader iso={w}/></div>))}
-            </div>
-
-            <div className="grid mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-              <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
-              {visible.map((w,i)=>(
-                <div key={w} className="h-6 flex items-center justify-center">
-                  <span className="px-2 py-0.5 rounded-lg border border-neutral-300 bg-white text-[12px] font-medium shadow-sm">{fmtFTE1(weekTotals[i])}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid pb-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-              {orderedIds.map((pid, idx) => {
-                const pr = projects.find(p=>p.id===pid); if(!pr) return null;
-                return (
-                  <Fragment key={pid}>
-                    <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
-                      <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none">
-                        <span className="text-neutral-400">⋮⋮</span>
-                        <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
-                        <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
-                      </div>
-                    </div>
-                    {visible.map(week => {
-                      const fte = fteFor(assignments, person.id, pid, week);
-                      const ratio = scaleRatio(fte);
-                      const k = `${pid}|${week}`;
-                      const editing = editKey===k;
-                      const vac = isVacation(person.id, week);
-                      return (
-                        <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
-                          <div className="bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative">
-                            <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
-                              {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:pr.color}} title={`${pr.name}`}/>)}
-                            </div>
-                            {!vac && (!editing ? (
-                              <div className="absolute inset-0 text-sm font-semibold text-neutral-800 flex items-center justify-center" title={fmtFTE1(fte)} onClick={()=>beginEdit(pid, week, fte)}>{fmtFTE1(fte)}</div>
-                            ) : (
-                              <input
-                                autoFocus
-                                inputMode="decimal"
-                                className="absolute inset-0 m-auto h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm"
-                                value={editVal}
-                                onChange={e=>setEditVal(e.target.value)}
-                                onBlur={()=>commitEdit(pid, week)}
-                                onKeyDown={(e)=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
-                              />
-                            ))}
-                            {vac && (<button className="absolute inset-0 flex items-center justify-center text-2xl" title="Снять отпуск" onClick={()=>clearVacationWeek(week)}>🏖</button>)}
-                          </div>
+        <div>
+            <Accordion title="Задачи" id="tasks" isOpen={openAccordion === 'tasks'} onToggle={toggleAccordion}>
+                {unallocatedTasks.map(task => 
+                    <TaskCard key={task.id} task={task} setDraggedTask={setDraggedTask} />
+                )}
+            </Accordion>
+            <Accordion title="Проекты" id="projects" isOpen={openAccordion === 'projects'} onToggle={toggleAccordion}>
+                {data.projects.map(project => (
+                    <div key={project.id} className="task-card">
+                        <div className="task-card-title" style={{ borderLeft: `4px solid ${project.color}`, paddingLeft: '8px' }}>{project.name}</div>
+                        <div className="task-card-meta">
+                            <span className="tag">{project.status}</span>
+                            <span className="tag">{project.priority}</span>
                         </div>
-                      );
-                    })}
-                  </Fragment>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Модал отпусков */}
-          {vacOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={()=>setVacOpen(false)}>
-              <div className="absolute inset-0 bg-black/40"/>
-              <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
-                <div className="text-base font-semibold mb-3">Отпуск — {person.name}</div>
-                <div className="mb-3 inline-flex items-center gap-1 rounded-xl border border-neutral-200 p-1">
-                  <button className={`px-3 py-1 rounded-lg text-sm ${vacTab==="range" ? "bg-neutral-100 shadow":""}`} onClick={()=>setVacTab("range")}>Диапазон дат</button>
-                  <button className={`px-3 py-1 rounded-lg text-sm ${vacTab==="weeks" ? "bg-neutral-100 shadow":""}`} onClick={()=>setVacTab("weeks")}>По неделям</button>
-                </div>
-                {vacTab==="range" && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm text-neutral-700">С</label>
-                      <input type="date" value={vFrom} onChange={e=>setVFrom(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/>
-                      <label className="text-sm text-neutral-700">по</label>
-                      <input type="date" value={vTo} onChange={e=>setVTo(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/>
                     </div>
-                    {(vFrom && vTo) && (<div className="text-xs text-neutral-600">Будут добавлены недели диапазона после сохранения.</div>)}
-                  </div>
-                )}
-                {vacTab==="weeks" && (
-                  <div className="space-y-3">
-                    <div className="text-sm text-neutral-600">Отметьте недели (диапазон дат):</div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {yearWeekMondays(new Date().getFullYear()).map(m => (
-                        <label key={m} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl hover:bg-amber-50">
-                          <input type="checkbox" checked={personVac.has(m)} onChange={()=> setPersonVac(prev=>{ const s=new Set(prev); if(s.has(m)) s.delete(m); else s.add(m); return s; }) } />
-                          <span className="text-sm">{weekRangeLabel(m)}</span>
-                          {personVac.has(m) && (<button className="ml-auto text-amber-700" title="Убрать" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(m); return s; })}>−</button>)}
-                        </label>
+                ))}
+            </Accordion>
+            <Accordion title="Команда" id="team" isOpen={openAccordion === 'team'} onToggle={toggleAccordion}>
+                {data.users.map(user => (
+                    <div key={user.id} className="task-card">
+                        <div className="task-card-title">{user.name}</div>
+                        <div className="task-card-meta">
+                            <span className="tag">{user.role}</span>
+                            <span className="tag">FTE: {user.fte}</span>
+                        </div>
+                    </div>
+                ))}
+            </Accordion>
+        </div>
+      );
+    }
+
+    function Accordion({ id, title, isOpen, onToggle, children }) {
+        return (
+            <div className="accordion-item">
+                <button className={`accordion-header ${isOpen ? 'open' : ''}`} onClick={() => onToggle(id)}>
+                    {title}
+                    <span className="icon">▶</span>
+                </button>
+                {isOpen && <div className="accordion-content">{children}</div>}
+            </div>
+        )
+    }
+
+    function TaskCard({ task, setDraggedTask }) {
+        const { data } = useContext(AppContext);
+        const project = data.projects.find(p => p.id === task.projectId);
+
+        const handleDragStart = (e) => {
+            setDraggedTask({ taskId: task.id });
+            e.dataTransfer.effectAllowed = 'move';
+        };
+
+        return (
+            <div 
+                className="task-card" 
+                draggable="true"
+                onDragStart={handleDragStart}
+                onDragEnd={() => setDraggedTask(null)}
+            >
+                <div className="task-card-title">{task.name}</div>
+                <div className="task-card-meta">
+                    <span className="tag" style={{ borderLeft: `3px solid ${project?.color}`}}>{project?.name}</span>
+                    <span className="tag">#{task.requiredSkill}</span>
+                    <span className="tag">{task.effortHours}ч</span>
+                </div>
+            </div>
+        );
+    }
+
+    function GanttView({ weeks, onTaskDrop }) {
+      const { data } = useContext(AppContext);
+      const timelineBodyRef = useRef(null);
+
+      const users = data.users;
+      const currentAllocations = data.allocations[data.activeScenarioId] || [];
+
+      const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      };
+
+      return (
+        <div className="timeline-grid">
+            <div className="timeline-header">
+                <div className="timeline-header-users">Команда</div>
+                <div className="timeline-header-weeks-wrapper">
+                  <div className="timeline-header-weeks">
+                      {weeks.map(week => (
+                          <div key={week.toISOString()} className="week-cell">
+                              <div className="week-num">Неделя {getWeekNumber(week)}</div>
+                              <div>{formatDate(week).slice(5)}</div>
+                          </div>
                       ))}
-                    </div>
-                  </div>
-                )}
-                {Array.from(personVac).length>0 && (
-                  <div className="mt-3">
-                    <div className="text-sm mb-1">Выбрано недель:</div>
-                    <div className="flex flex-wrap gap-2">
-                      {Array.from(personVac).map(w => (
-                        <span key={w} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                          {weekRangeLabel(w)}
-                          <button className="ml-1" title="Удалить" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(w); return s; }) }>×</button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="mt-4 flex justify-end gap-2">
-                  <button className="btn" onClick={()=>setVacOpen(false)}>Отмена</button>
-                  <button className="rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-1">Сохранить</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // ---------- Inline editable ----------
-    function EditableName({person, setPeople}){
-      const [editing, setEditing] = useState(false);
-      const [val, setVal] = useState(person.name);
-      useEffect(()=> setVal(person.name), [person.id, person.name]);
-      const commit = () => { const name=(val||"").trim(); setEditing(false); if(!name || name===person.name) return; setPeople(prev => prev.map(p => p.id===person.id ? {...p, name} : p)); };
-      return editing ? (
-        <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit}
-               onKeyDown={e=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
-               className="text-lg font-semibold leading-tight border border-neutral-300 rounded-md px-2 py-0.5"/>
-      ) : (
-        <button className="text-lg font-semibold leading-tight hover:underline" title="Редактировать имя" onClick={()=>setEditing(true)}>{person.name}</button>
-      );
-    }
-    function EditableRole({person, setPeople, roles}){
-      const [editing, setEditing] = useState(false);
-      const [val, setVal] = useState(person.role || "other");
-      useEffect(()=> setVal(person.role || "other"), [person.id, person.role]);
-      const commit = ()=>{ const role = val || "other"; setEditing(false); if(role===person.role) return; setPeople(prev => prev.map(p => p.id===person.id ? {...p, role} : p)); };
-      return editing ? (
-        <select autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
-          {roles.map(r => (<option key={r} value={r}>{r.toUpperCase()}</option>))}
-        </select>
-      ) : (
-        <button className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={()=>setEditing(true)}>
-          <PencilIcon className="opacity-70"/> {(person.role||"OTHER").toUpperCase()}
-        </button>
-      );
-    }
-
-    // ---------- ProjectTeamSelector (проекты → добавить сотрудников) ----------
-    function ProjectTeamSelector({project, people, projectTeams, setProjectTeams}){
-      const [search, setSearch] = useState("");
-      const list = useMemo(()=> people.filter(p => !projectTeams[project.id]?.has(p.id) && p.name.toLowerCase().includes(search.toLowerCase())).slice(0,8), [people, project.id, projectTeams, search]);
-
-      const addToTeam = (pid) => {
-        setProjectTeams(prev => {
-          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
-          (copy[project.id]=copy[project.id]||new Set()).add(pid);
-          return copy;
-        });
-      };
-      const removeFromTeam = (pid) => {
-        setProjectTeams(prev => {
-          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
-          copy[project.id]?.delete(pid);
-          return copy;
-        });
-      };
-
-      return (
-        <div>
-          <div className="flex items-center gap-2">
-            <input
-              value={search}
-              onChange={e=>setSearch(e.target.value)}
-              placeholder="Добавить сотрудника..."
-              className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
-            />
-          </div>
-          {search && (
-            <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
-              {list.length>0 ? (
-                list.map(sug => (
-                  <button key={sug.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ addToTeam(sug.id); setSearch(""); }}>
-                    {sug.name} <span className="text-[10px] text-neutral-500">{String(sug.role).toUpperCase()}</span> {sug.external && <span className="ml-1 text-[10px] text-amber-700">внешн.</span>}
-                  </button>
-                ))
-              ) : (
-                <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
-              )}
-            </div>
-          )}
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            {Array.from(projectTeams[project.id] || new Set()).map(pid => {
-              const p = people.find(x=>x.id===pid); if(!p) return null;
-              return (
-                <span key={pid} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                  {p.name}{p.external && <span className="ml-1 text-amber-700">(внешн.)</span>}
-                  <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>removeFromTeam(pid)}>×</button>
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      );
-    }
-
-    // ---------- EmployeesPage (вкладка «Команда») ----------
-    function EmployeesPage({people, setPeople, projects, projectTeams, setProjectTeams, deletePerson}){
-      const [search, setSearch] = useState("");
-      const list = useMemo(()=> people.filter(p => p.active && p.name.toLowerCase().includes(search.toLowerCase())), [people, search]);
-
-      return (
-        <div className="space-y-3">
-          {/* широкий поиск на всю ширину контента */}
-          <input
-            value={search}
-            onChange={e=>setSearch(e.target.value)}
-            placeholder="Найти сотрудника..."
-            className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
-          />
-
-          <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
-            {list.map(p => (
-              <Fragment key={p.id}>
-                {/* Левый столбец — карточка сотрудника */}
-                <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
-                  <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 min-w-0 h-[120px] flex flex-col justify-center">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">{p.name}</span>
-                      <button
-                        className="text-neutral-500 hover:text-red-600 ml-auto"
-                        title="Удалить сотрудника"
-                        onClick={()=>deletePerson(p.id)}
-                      ><TrashIcon/></button>
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <select
-                        value={p.role||"other"}
-                        onChange={e=> setPeople(prev => prev.map(x => x.id===p.id ? {...x, role:e.target.value} : x))}
-                        className="text-[12px] px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200"
-                      >
-                        {["designer","dev","manager","pm","other"].map(r => (<option key={r} value={r}>{r.toUpperCase()}</option>))}
-                      </select>
-                      <label className="text-xs flex items-center gap-1 ml-2">
-                        <input type="checkbox" checked={!!p.external} onChange={e=> setPeople(prev => prev.map(x => x.id===p.id ? {...x, external:e.target.checked} : x))}/>
-                        Внешний
-                      </label>
-                    </div>
-                    <div className="mt-1 text-[11px] text-neutral-500">ID: {p.id.slice(0,6)}…</div>
                   </div>
                 </div>
+            </div>
 
-                {/* Правая панель — проекты сотрудника */}
-                <div className="border border-neutral-200 p-3">
-                  <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
-                    <PersonProjectsEditor person={p} projects={projects} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/>
-                  </div>
+            <div className="timeline-body" ref={timelineBodyRef}>
+                <div className="timeline-body-users">
+                    {users.map(user => (
+                        <div key={user.id} className="user-row">
+                            <div className="user-name">{user.name}</div>
+                            <div className="user-fte">{user.role}, FTE: {user.fte}</div>
+                        </div>
+                    ))}
                 </div>
-              </Fragment>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    // Инвертированный селектор: редактируем проекты конкретного сотрудника
-    function PersonProjectsEditor({person, projects, projectTeams, setProjectTeams}){
-      const [search, setSearch] = useState("");
-      const memberOf = useMemo(()=>{
-        const ids = [];
-        for(const pr of projects){
-          if(projectTeams[pr.id]?.has(person.id)) ids.push(pr.id);
-        }
-        return new Set(ids);
-      }, [projects, projectTeams, person.id]);
-
-      const pool = useMemo(()=> projects.filter(pr => !memberOf.has(pr.id) && pr.name.toLowerCase().includes(search.toLowerCase())).slice(0,8), [projects, memberOf, search]);
-
-      const add = (prid) => {
-        setProjectTeams(prev => {
-          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
-          (copy[prid]=copy[prid]||new Set()).add(person.id);
-          return copy;
-        });
-      };
-      const remove = (prid) => {
-        setProjectTeams(prev => {
-          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
-          copy[prid]?.delete(person.id);
-          return copy;
-        });
-      };
-
-      return (
-        <div>
-          <div className="flex items-center gap-2">
-            <input
-              value={search}
-              onChange={e=>setSearch(e.target.value)}
-              placeholder="Добавить проект..."
-              className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
-            />
-          </div>
-          {search && (
-            <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
-              {pool.length>0 ? (
-                pool.map(pr => (
-                  <button key={pr.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ add(pr.id); setSearch(""); }}>
-                    <span className="inline-flex items-center gap-2">
-                      <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
-                      {pr.name}
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
-              )}
-            </div>
-          )}
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            {Array.from(memberOf).map(prid => {
-              const pr = projects.find(p=>p.id===prid); if(!pr) return null;
-              return (
-                <span key={prid} className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                  <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
-                  {pr.name}
-                  <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>remove(prid)}>×</button>
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      );
-    }
-
-    // ---------- Role manager ----------
-    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass='top-[calc(var(--app-header-h)+48px)]'}){
-      const [adding, setAdding] = useState("");
-      const [editing, setEditing] = useState(null);
-      const [val, setVal] = useState("");
-
-      const add = ()=>{ const x=adding.trim(); if(!x || roles.includes(x)) return; setRoles([...roles, x]); setAdding(""); };
-      const startEdit = (r)=>{ setEditing(r); setVal(r); };
-      const commit = ()=>{ if(!editing) return; const x=val.trim(); if(!x){ setEditing(null); return; } setRoles(roles.map(r => r===editing ? x : r)); setEditing(null); if(x) setRoleFilter(x); };
-      const remove = (r)=>{
-        if(!confirm(`Удалить роль «${r}»? Людям с этой ролью будет проставлено OTHER.`)) return;
-        setRoles(roles.filter(x=>x!==r));
-        setPeople(prev => prev.map(p => p.role===r ? {...p, role:"other"} : p));
-        setRoleFilter("all");
-      };
-
-      return (
-        <div className={`bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky ${stickyTopClass} z-50`}>
-          <div className="text-sm font-medium">Роли</div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {roles.map(r => (
-              <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
-                {editing===r ? (
-                  <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape') setEditing(null); }} className="px-1 py-0.5 border border-neutral-300 rounded"/>
-                ) : (
-                  <>
-                    <button className="hover:underline" onClick={()=>setRoleFilter(r)}>{r}</button>
-                    <button className="text-neutral-500 hover:text-neutral-800" title="Переименовать роль" onClick={()=>startEdit(r)}>
-                      <PencilIcon/>
-                    </button>
-                    <button className="text-neutral-500 hover:text-red-600" title="Удалить роль" onClick={()=>remove(r)}>
-                      <TrashIcon/>
-                    </button>
-                  </>
-                )}
-              </span>
-            ))}
-            <span className="inline-flex items-center gap-1">
-              <input value={adding} onChange={e=>setAdding(e.target.value)} placeholder="Добавить роль" className="px-2 py-1 text-sm border border-neutral-300 rounded-lg"/>
-              <button className="btn" onClick={add}>Сохранить</button>
-            </span>
-          </div>
-        </div>
-      );
-    }
-
-    // ---------- Create Person Modal ----------
-    function CreatePersonModal({open, onClose, name, setName, role, setRole, external, setExternal, onSubmit, roles}){
-      if(!open) return null;
-      return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
-          <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[460px] p-4" onClick={(e)=>e.stopPropagation()}>
-            <div className="text-base font-semibold mb-3">Новый сотрудник</div>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm mb-1">Имя</label>
-                <input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Роль</label>
-                <select value={role} onChange={e=>setRole(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
-                  {roles.map(r => (<option key={r} value={r}>{r}</option>))}
-                </select>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={!!external} onChange={e=>setExternal(e.target.checked)} />
-                Внешний сотрудник (не показывать во «Нагрузка»)
-              </label>
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button className="btn" onClick={onClose}>Отмена</button>
-              <button className="rounded-xl border border-green-300 bg-green-50 text-green-800 px-3 py-1" onClick={onSubmit}>Создать</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // ---------- Create Project Modal ----------
-    function CreateProjectModal({open, onClose, name, setName, color, setColor, status, setStatus, search, setSearch, teamSel, setTeamSel, people, suggestions, onSubmit}){
-      if(!open) return null;
-      return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
-          <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
-            <div className="text-base font-semibold mb-3">Новый проект</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm mb-1">Название</label>
-                <input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Статус</label>
-                <select value={status} onChange={e=>setStatus(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
-                  <option value="active">active</option>
-                  <option value="onhold">onhold</option>
-                  <option value="done">done</option>
-                  <option value="planned">planned</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Цвет</label>
-                <input type="color" value={color} onChange={e=>setColor(e.target.value)} className="w-16 h-10 p-0 border border-neutral-300 rounded-lg"/>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <div className="text-sm font-medium mb-2">Команда</div>
-              <div className="flex items-center gap-2 mb-2">
-                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Добавить сотрудника..." className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"/>
-              </div>
-              {search && (
-                <div className="mb-2 border border-neutral-200 rounded-xl overflow-hidden">
-                  {suggestions.length>0 ? suggestions.map(s => (
-                    <button key={s.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ const c=new Set(teamSel); c.add(s.id); setTeamSel(c); setSearch(""); }}>
-                      {s.name} <span className="text-[10px] text-neutral-500">{String(s.role).toUpperCase()}</span> {s.external && <span className="ml-1 text-[10px] text-amber-700">внешн.</span>}
-                    </button>
-                  )) : (
-                    <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
-                  )}
+                <div className="timeline-body-weeks">
+                    {users.map(user => (
+                        <div 
+                            key={user.id} 
+                            className="user-timeline"
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const x = e.clientX - rect.left;
+                                const weekIndex = Math.floor((x + timelineBodyRef.current.parentElement.parentElement.scrollLeft) / 100);
+                                const targetWeek = weeks[weekIndex];
+                                if (targetWeek) {
+                                    onTaskDrop(user.id, targetWeek);
+                                }
+                            }}
+                        >
+                            <GanttAllocations user={user} weeks={weeks} allocations={currentAllocations} />
+                            {weeks.map(week => <div key={week.toISOString()} className="week-cell"></div>)}
+                        </div>
+                    ))}
                 </div>
-              )}
-              <div className="flex flex-wrap gap-2">
-                {Array.from(teamSel).map(pid => { const p = people.find(x=>x.id===pid); if(!p) return null; return (
-                  <span key={pid} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                    {p.name}{p.external && <span className="ml-1 text-amber-700">(внешн.)</span>}
-                    <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>{ const c=new Set(teamSel); c.delete(pid); setTeamSel(c); }}>×</button>
-                  </span>
-                );})}
-              </div>
             </div>
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button className="btn" onClick={onClose}>Отмена</button>
-              <button className="rounded-xl border border-green-300 bg-green-50 text-green-800 px-3 py-1" onClick={onSubmit}>Создать</button>
-            </div>
-          </div>
         </div>
       );
     }
 
-    // ---------- Auth ----------
-    function AuthForm({onSuccess}){
-      const [login, setLogin] = useState("");
-      const [pass, setPass] = useState("");
-      const [remember, setRemember] = useState(false);
-      const submit = (e)=>{ e.preventDefault(); if(login.trim().toLowerCase()==="панквеб" && pass==="123455"){ onSuccess(remember); } else { alert("Неверные данные"); } };
+    function GanttAllocations({ user, weeks, allocations }) {
+      const { data } = useContext(AppContext);
+      const timelineStart = weeks[0].getTime();
+      const weekWidth = 100; // Corresponds to --timeline-cell-w
+
+      const userAllocations = useMemo(() => {
+          return allocations.filter(a => a.userId === user.id);
+      }, [user, allocations]);
+      
+      const userVacations = useMemo(() => {
+          return data.calendar.vacations.filter(v => v.userId === user.id);
+      }, [user.id, data.calendar.vacations]);
+      
+      const allItems = [...userAllocations, ...userVacations];
+
       return (
-        <form onSubmit={submit} className="space-y-3">
-          <div>
-            <label className="block text-sm mb-1">Логин</label>
-            <input value={login} onChange={e=>setLogin(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
-          </div>
-          <div>
-            <label className="block text-sm mb-1">Пароль</label>
-            <input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
-          </div>
-          <label className="flex items-center gap-2 text-sm select-none">
-            <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} />
-            Запомнить данные
-          </label>
-          <button className="w-full rounded-xl border border-green-300 bg-green-50 text-green-800 py-2">Войти</button>
-        </form>
+        <>
+        {allItems.map(item => {
+            const startDate = new Date(item.startDate);
+            const endDate = new Date(item.endDate);
+            const isVacation = !!item.type;
+
+            const startOffset = (getStartOfWeek(startDate).getTime() - timelineStart) / WEEK_MILLISECONDS * weekWidth;
+            const durationDays = (endDate - startDate) / DAY_MILLISECONDS + 1;
+            const width = (durationDays / 7) * weekWidth;
+            
+            if (startOffset < -width || startOffset > weeks.length * weekWidth) return null;
+            
+            const task = !isVacation ? data.tasks.find(t => t.id === item.taskId) : null;
+            const project = task ? data.projects.find(p => p.id === task.projectId) : null;
+            
+            return (
+                <div
+                    key={item.id}
+                    className={`allocation-bar ${isVacation ? 'allocation-vacation' : ''}`}
+                    style={{
+                        left: `${startOffset}px`,
+                        width: `${width}px`,
+                        backgroundColor: !isVacation ? project?.color : undefined,
+                    }}
+                    title={isVacation ? `${item.type}: ${item.startDate} - ${item.endDate}` : `${project?.name} - ${task?.name}\n${item.hoursPerWeek} ч/нед`}
+                >
+                    <div className="allocation-bar-title">{isVacation ? item.type : task?.name}</div>
+                    <div className="allocation-bar-subtitle">{!isVacation && `${item.hoursPerWeek} ч/нед`}</div>
+                </div>
+            );
+        })}
+        </>
+      )
+    }
+    
+    function MatrixView({ weeks }) {
+      const { data } = useContext(AppContext);
+      const currentAllocations = data.allocations[data.activeScenarioId] || [];
+
+      return (
+        <div className="timeline-container">
+            <table className="matrix-table">
+                <thead>
+                    <tr>
+                        <th>Сотрудник</th>
+                        {weeks.map(week => (
+                            <th key={week.toISOString()}>
+                                Н{getWeekNumber(week)}<br/>
+                                <span className="text-sm text-tertiary">{formatDate(week).slice(5)}</span>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {data.users.map(user => (
+                        <tr key={user.id}>
+                            <td>{user.name}</td>
+                            {weeks.map(week => {
+                                const available = FTECalculator.getUserAvailableHours(user, week, data.calendar);
+                                const allocated = FTECalculator.getUserAllocatedHours(user.id, week, currentAllocations, data.tasks);
+                                const utilization = FTECalculator.getUtilization(allocated, available);
+                                const conflictLevel = FTECalculator.getConflictLevel(utilization);
+                                
+                                return (
+                                    <td 
+                                        key={week.toISOString()} 
+                                        className="matrix-cell"
+                                        data-util-level={conflictLevel}
+                                        title={`Загрузка: ${allocated} / ${available} ч.`}
+                                    >
+                                        <span>{utilization}%</span>
+                                        <div className="util-bar" style={{width: `${Math.min(utilization, 100)}%`}}></div>
+                                    </td>
+                                );
+                            })}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
       );
     }
+    
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 
-    // dev sanity checks
-    if(typeof window!=="undefined"){
-      try{
-        console.assert(fmtFTE1(1.16)==="1.2","fmtFTE1 rounds to 1 decimal");
-        console.assert(scaleRatio(1.2)===1,"scaleRatio clamps to 1");
-        const parts = weekLabelParts(initialWeeks[0]);
-        console.assert(!!parts.top && !!parts.bot, "weekLabelParts returns two lines");
-      }catch{}
-    }
-
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
 </html>
+```
