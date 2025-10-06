@@ -64,25 +64,27 @@
       outline: none; border-color: var(--accent-blue);
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
     }
-    .login-form .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .login-form .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 14px; user-select: none; }
     .login-error { color: var(--accent-red); text-align: center; margin-top: 16px; font-size: 13px; }
 
     /* Buttons & Controls */
     .btn {
       display: inline-flex; align-items: center; justify-content: center; padding: 8px 16px;
       border-radius: 8px; font-weight: 500; border: 1px solid transparent; cursor: pointer;
-      transition: background-color 0.2s, box-shadow 0.2s; font-size: 14px; white-space: nowrap;
+      transition: all 0.2s; font-size: 14px; white-space: nowrap;
     }
+    .btn:disabled { cursor: not-allowed; opacity: 0.6; }
     .btn-primary { background-color: var(--accent-blue); color: white; border-color: var(--accent-blue); }
-    .btn-primary:hover { background-color: #2563EB; }
+    .btn-primary:hover:not(:disabled) { background-color: #2563EB; }
     .btn-secondary {
         background-color: var(--bg-panel); color: var(--text-primary);
         border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);
     }
-    .btn-secondary:hover { background-color: var(--bg-panel-secondary); }
+    .btn-secondary:hover:not(:disabled) { background-color: var(--bg-panel-secondary); }
     .btn-block { width: 100%; padding-top: 12px; padding-bottom: 12px; }
     .btn-danger { background-color: var(--accent-red-light); color: var(--accent-red); border-color: var(--accent-red-light)}
-    .btn-danger:hover { background-color: #FEE2E2; }
+    .btn-danger:hover:not(:disabled) { background-color: #FEE2E2; }
+    .icon-btn { padding: 8px; }
     
     .segmented-control {
       display: flex; background-color: var(--bg-panel-secondary);
@@ -115,125 +117,45 @@
       box-shadow: var(--shadow-sm);
       transition: box-shadow .2s, border-color .2s;
     }
+    .card.draggable { cursor: grab; }
+    .card.draggable:active { cursor: grabbing; box-shadow: var(--shadow-lg); }
     .card:hover { box-shadow: var(--shadow-md); }
     
     /* Team View (Planner) */
-    .planner-grid {
-      display: grid;
-      grid-template-columns: var(--left-col-w) 1fr;
-      position: relative;
-    }
-    .planner-grid .left-col, .planner-grid .timeline-col {
-      display: grid;
-      grid-template-columns: 1fr;
-    }
-    .planner-grid .header {
-      position: sticky; top: var(--header-h); z-index: 50;
-      background: var(--bg-main);
-      padding-bottom: 8px;
-    }
-    .planner-grid .header-content {
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        padding: 8px 0;
-        height: 56px;
-    }
-    .planner-grid .week-header {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 56px;
-      text-align: center;
-      font-size: 12px;
-    }
+    .planner-grid { display: grid; grid-template-columns: var(--left-col-w) 1fr; position: relative; }
+    .planner-grid .left-col, .planner-grid .timeline-col { display: grid; grid-template-columns: 1fr; }
+    .planner-grid .header { position: sticky; top: var(--header-h); z-index: 50; background: var(--bg-main); padding-bottom: 8px; }
+    .planner-grid .header-content { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; height: 56px; }
+    .planner-grid .week-header { display: flex; justify-content: center; align-items: center; height: 56px; text-align: center; font-size: 12px; }
     .week-header .week-num { font-weight: 600; font-size: 14px; color: var(--text-primary); }
-    .planner-grid .person-card {
-      height: 100px;
-      margin-bottom: 8px;
-      padding: 16px;
-      cursor: pointer;
-    }
+    .planner-grid .person-card { height: 100px; margin-bottom: 8px; padding: 16px; cursor: pointer; }
     .planner-grid .person-card .person-name { font-weight: 600; }
     .planner-grid .person-card .person-role { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; text-transform: uppercase; }
-    
-    .planner-grid .timeline-row {
-      display: flex;
-      height: 100px;
-      margin-bottom: 8px;
-    }
-    .planner-grid .week-cell {
-      width: var(--week-col-px);
-      min-width: var(--week-col-px);
-      padding: 4px;
-    }
-    .planner-grid .util-cell {
-      height: 100%;
-      border-radius: 8px;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      align-items: center;
-      position: relative;
-    }
-    .planner-grid .util-bar-wrapper {
-      width: 50px;
-      height: calc(100% - 24px);
-      background-color: var(--bg-panel-secondary);
-      border-radius: 6px;
-      overflow: hidden;
-      position: relative;
-    }
-    .planner-grid .util-bar {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      background-color: var(--accent-green);
-      transition: height .2s;
-    }
-    .planner-grid .util-value {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 13px;
-      font-weight: 600;
-    }
+    .planner-grid .timeline-row { display: flex; height: 100px; margin-bottom: 8px; }
+    .planner-grid .week-cell { width: var(--week-col-px); min-width: var(--week-col-px); padding: 4px; }
+    .planner-grid .util-cell { height: 100%; border-radius: 8px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; position: relative; }
+    .planner-grid .util-bar-wrapper { width: 50px; height: calc(100% - 24px); background-color: var(--bg-panel-secondary); border-radius: 6px; overflow: hidden; position: relative; }
+    .planner-grid .util-bar { position: absolute; bottom: 0; left: 0; right: 0; background-color: var(--accent-green); transition: height .2s; }
+    .planner-grid .util-value { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 13px; font-weight: 600; }
     .planner-grid .util-cell.overload .util-bar { background-color: var(--accent-red); }
-    .planner-grid .util-cell.vacation .util-bar-wrapper { background-color: #e5e7eb; }
-
+    .planner-grid .util-cell.vacation .util-bar-wrapper { background-color: #e5e7eb; background-image: repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(0,0,0,0.05) 5px, rgba(0,0,0,0.05) 10px); }
 
     /* Project & Employee Views */
-    .management-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 16px;
-    }
-    .management-card {
-        padding: 16px;
-        display: grid;
-        grid-template-columns: 320px 1fr;
-        gap: 16px;
-        align-items: center;
-    }
-    .management-card .info-block { display: flex; align-items: center; gap: 16px; }
-    .management-card .color-swatch {
-        width: 32px; height: 32px; border-radius: 8px; display: flex;
-        justify-content: center; align-items: center; color: white;
-    }
+    .management-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    .management-card { padding: 16px; display: flex; gap: 16px; align-items: center; }
+    .management-card .info-block { flex-grow: 1; display: flex; align-items: center; gap: 16px; }
+    .management-card .color-swatch { width: 32px; height: 32px; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: white; }
     .management-card .name { font-weight: 600; font-size: 16px; }
     .management-card .meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-    .management-card .actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
-    
-    .team-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .management-card .actions { display: flex; align-items: center; gap: 8px; }
+    .role-manager-card { padding: 16px; margin-bottom: 24px; }
+    .role-pills { display: flex; flex-wrap: wrap; gap: 8px; }
     .pill {
-      display: inline-flex; align-items: center; gap: 6px; background-color: var(--accent-blue-light);
-      color: var(--accent-blue); font-size: 13px; font-weight: 500;
+      display: inline-flex; align-items: center; gap: 6px; background-color: var(--bg-panel-secondary);
+      color: var(--text-secondary); font-size: 13px; font-weight: 500;
       padding: 4px 10px; border-radius: 99px;
     }
-    .pill button {
-      background: none; border: none; cursor: pointer; color: inherit;
-      opacity: 0.6; font-size: 16px; line-height: 1; padding: 0;
-    }
+    .pill button { background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; padding: 0; }
     .pill button:hover { opacity: 1; }
 
     /* Modal */
@@ -243,11 +165,11 @@
     }
     .modal-content {
       background: var(--bg-panel); padding: 24px; border-radius: 12px;
-      min-width: 480px; max-width: 90vw; box-shadow: var(--shadow-lg);
-      animation: slideIn .2s;
+      min-width: 480px; max-width: 90vw; max-height: 90vh; overflow-y: auto;
+      box-shadow: var(--shadow-lg); animation: slideIn .2s;
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); } }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .modal-title { font-size: 20px; font-weight: 600; }
     .modal-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-tertiary); }
@@ -263,12 +185,12 @@
     .modal-footer { margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px; }
 
     /* Person Page */
-    .person-page-overlay {
-        position: fixed; inset: 0;
-        z-index: 200;
-        background-color: var(--bg-main);
-        overflow-y: auto;
-    }
+    .person-page-overlay { position: fixed; inset: 0; z-index: 200; background-color: var(--bg-main); overflow-y: auto; }
+    .person-page-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+    .person-page-planner .project-row { height: 60px; padding: 8px; }
+    .person-page-planner .fte-cell { height: 100%; cursor: pointer; font-weight: 500; }
+    .person-page-planner .fte-cell input { width: 100%; height: 100%; text-align: center; border-radius: 8px; border: 2px solid var(--accent-blue); background: var(--accent-blue-light); outline: none; }
+
   </style>
 </head>
 <body>
@@ -277,29 +199,21 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo, useRef, useCallback, createContext, useContext, Fragment } = React;
 
-    // ---------- CONTEXT ----------
+    // ---------- CONTEXT & STATE MANAGEMENT ----------
     const AppContext = createContext(null);
-    
-    // ---------- CONSTANTS & HELPERS ----------
-    const LS_KEY = 'fteplanner.v2_merged';
-    const MAX_FTE = 1.2;
-    const WEEK_COL_PX = 80;
-    const VISIBLE_WEEKS = 16;
-    const TEAM_BAR_COLOR = "#22c55e";
+    const LS_KEY = 'fteplanner.v3_final';
 
-    // Date/format helpers
-    const fmtISO = (date) => date.toISOString().slice(0,10);
+    // ---------- HELPERS ----------
+    const fmtISO = (d) => d.toISOString().slice(0,10);
     const addDays = (d, n) => { const x=new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; };
-    const pad2 = (n) => (n<10 ? `0${n}` : String(n));
     const startOfISOWeek = (d) => { const day=d.getDay(); const diff=(day===0?-6:1)-day; const m=new Date(d); m.setDate(d.getDate()+diff); m.setHours(0,0,0,0); return m; };
-    const addWeeks = (m, n) => { const d=new Date(m); d.setDate(d.getDate()+n*7); d.setHours(0,0,0,0); return d; };
-    const rndId = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+    const addWeeks = (m, n) => addDays(m, n*7);
+    const rndId = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
     const fmtFTE1 = (n) => (Math.round(n*10)/10).toFixed(1);
     const RU_MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
-    const ruMonthShort = (m) => RU_MONTHS[m] ?? "";
-    const weekLabelParts = (iso) => { const d=new Date(iso); const w=1+Math.floor((d.getDate()-1)/7); return { top:`${w} нед`, bot:ruMonthShort(d.getMonth()) }; };
+    const weekLabelParts = (iso) => { const d=new Date(iso); const w=1+Math.floor((d.getDate()-1)/7); return { top:`${w} нед`, bot:RU_MONTHS[d.getMonth()] }; };
     const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-    const scaleRatio = (v, max=MAX_FTE) => clamp(v/max, 0, 1);
+    const scaleRatio = (v, max=1.2) => clamp(v/max, 0, 1);
     
     // Aggregations
     const personWeekTotal = (allocs, pid, w) => allocs.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
@@ -307,20 +221,19 @@
 
     // Order merge helper
     const mergeOrder = (existing, nextIds) => {
-      const seen=new Set(); const res=[];
-      for(const id of (existing||[])) if(nextIds.includes(id) && !seen.has(id)){ res.push(id); seen.add(id); }
+      const seen=new Set(existing); const res=[...(existing || [])];
       for(const id of nextIds) if(!seen.has(id)){ res.push(id); seen.add(id); }
-      return res;
+      return res.filter(id => nextIds.includes(id));
     };
     
     // ---------- SEED DATA ----------
     const base = startOfISOWeek(new Date());
-    const initialWeeks = Array.from({length:24}, (_,i)=> fmtISO(addWeeks(base, i-4)));
+    const initialWeeks = Array.from({length:52}, (_,i)=> fmtISO(addWeeks(base, i-12)));
     const seedData = {
         people: [
-            { id:"p1", name:"Саша", role:"manager", capacityPerWeek:1, active:true, external:false },
-            { id:"p2", name:"Катя К.", role:"designer", capacityPerWeek:1, active:true, external:false },
-            { id:"p3", name:"Иван П.", role:"dev", capacityPerWeek:1, active:true, external:true },
+            { id:"p1", name:"Саша Менеджер", role:"manager", capacityPerWeek:1, active:true, external:false },
+            { id:"p2", name:"Катя Дизайнер", role:"designer", capacityPerWeek:1, active:true, external:false },
+            { id:"p3", name:"Иван Разработчик", role:"dev", capacityPerWeek:1, active:true, external:true },
         ],
         projects: [
             { id:"pr1", name:"HR Подкасты", status:"active", color:"#3b82f6" },
@@ -328,89 +241,61 @@
             { id:"pr3", name:"Падел-теннис", status:"planned", color:"#06b6d4" },
         ],
         allocations: [
-            { id:"a1", personId:"p1", projectId:"pr1", weekStart: initialWeeks[4], fte:0.3 },
-            { id:"a2", personId:"p1", projectId:"pr2", weekStart: initialWeeks[4], fte:0.2 },
-            { id:"a3", personId:"p2", projectId:"pr2", weekStart: initialWeeks[5], fte:0.4 },
+            { id:"a1", personId:"p1", projectId:"pr1", weekStart: initialWeeks[12], fte:0.3 },
+            { id:"a2", personId:"p1", projectId:"pr2", weekStart: initialWeeks[12], fte:0.2 },
+            { id:"a3", personId:"p2", projectId:"pr2", weekStart: initialWeeks[13], fte:0.4 },
         ],
         roles: ["designer","dev","manager","pm","other"],
-        projectTeams: {
-            "pr1": ["p1"], "pr2": ["p1", "p2"], "pr3": []
-        },
-        vacations: {},
-        weeks: initialWeeks,
-        teamOrder: ["p1", "p2", "p3"]
+        projectTeams: { "pr1": new Set(["p1"]), "pr2": new Set(["p1", "p2"]), "pr3": new Set() },
+        vacations: { "p3": new Set([initialWeeks[14]]) },
+        teamOrder: ["p1", "p2", "p3"],
+        personProjectOrder: {}
     };
 
-    // ---------- DATA PERSISTENCE HOOK ----------
-    function usePersistentState(key, defaultValue) {
-        const [state, setState] = useState(() => {
+    // ---------- CUSTOM HOOK for State Management ----------
+    function useAppData() {
+        const [data, setData] = useState(() => {
             try {
-                const storedValue = localStorage.getItem(key);
-                if (storedValue) {
-                    const parsed = JSON.parse(storedValue);
-                    // Handle Set objects serialization
-                    if (parsed.vacations) {
-                        Object.keys(parsed.vacations).forEach(k => {
-                            parsed.vacations[k] = new Set(parsed.vacations[k]);
-                        });
-                    }
-                    if (parsed.projectTeams) {
-                        Object.keys(parsed.projectTeams).forEach(k => {
-                            parsed.projectTeams[k] = new Set(parsed.projectTeams[k]);
-                        });
-                    }
+                const stored = localStorage.getItem(LS_KEY);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    Object.keys(parsed.vacations).forEach(k => { parsed.vacations[k] = new Set(parsed.vacations[k]); });
+                    Object.keys(parsed.projectTeams).forEach(k => { parsed.projectTeams[k] = new Set(parsed.projectTeams[k]); });
                     return parsed;
                 }
-            } catch (error) {
-                console.error("Error reading from localStorage", error);
-            }
-            return defaultValue;
+            } catch (e) { console.error("LS read error", e); }
+            return seedData;
         });
 
         useEffect(() => {
             try {
-                // Handle Set objects for JSON.stringify
-                const toStore = { ...state };
-                if (toStore.vacations) {
-                    const serializableVacations = {};
-                    Object.entries(toStore.vacations).forEach(([key, value]) => {
-                        serializableVacations[key] = Array.from(value);
-                    });
-                    toStore.vacations = serializableVacations;
-                }
-                if (toStore.projectTeams) {
-                    const serializableTeams = {};
-                    Object.entries(toStore.projectTeams).forEach(([key, value]) => {
-                        serializableTeams[key] = Array.from(value);
-                    });
-                    toStore.projectTeams = serializableTeams;
-                }
-                localStorage.setItem(key, JSON.stringify(toStore));
-            } catch (error) {
-                console.error("Error writing to localStorage", error);
-            }
-        }, [key, state]);
-
-        return [state, setState];
+                const toStore = { ...data };
+                const serializable = (key) => {
+                    const obj = {};
+                    Object.entries(toStore[key]).forEach(([k, v]) => { obj[k] = Array.from(v); });
+                    toStore[key] = obj;
+                };
+                serializable('vacations');
+                serializable('projectTeams');
+                localStorage.setItem(LS_KEY, JSON.stringify(toStore));
+            } catch (e) { console.error("LS write error", e); }
+        }, [data]);
+        
+        return { data, setData };
     }
     
     // ---------- MAIN APP COMPONENT ----------
     function App() {
-      const [appData, setAppData] = usePersistentState(LS_KEY, seedData);
+      const { data, setData } = useAppData();
       const [authed, setAuthed] = useState(() => !!localStorage.getItem(LS_KEY + '_authed'));
-      const [view, setView] = useState('team'); // team | projects | employees
+      const [view, setView] = useState('team'); 
       const [selectedPersonId, setSelectedPersonId] = useState(null);
-
-      const updateData = (key, value) => {
-        setAppData(prev => ({ ...prev, [key]: value }));
-      };
+      const [modal, setModal] = useState(null); // { type: 'createPerson' | 'editPerson', props: {} }
       
       const appContextValue = {
-        ...appData,
-        updateData,
-        setAppData,
-        view, setView,
-        selectedPersonId, setSelectedPersonId
+        data, setData, view, setView,
+        selectedPersonId, setSelectedPersonId,
+        modal, setModal,
       };
 
       if (!authed) {
@@ -432,6 +317,7 @@
                 {view === 'employees' && <EmployeesView />}
             </main>
             {selectedPersonId && <PersonPage />}
+            {modal && <ModalRenderer />}
         </AppContext.Provider>
       );
     }
@@ -444,11 +330,8 @@
 
       const submit = (e) => { 
         e.preventDefault(); 
-        if(login.trim().toLowerCase()==="панквеб" && pass==="123455"){ 
-          onAuthSuccess(remember); 
-        } else { 
-          setError("Неверные данные");
-        } 
+        if(login.trim().toLowerCase()==="панквеб" && pass==="123455"){ onAuthSuccess(remember); } 
+        else { setError("Неверные данные"); } 
       };
 
       return (
@@ -456,14 +339,8 @@
           <div className="login-box">
             <h1>FTE Planner</h1>
             <form onSubmit={submit} className="login-form">
-              <div className="form-group">
-                <label>Логин</label>
-                <input value={login} onChange={e=>setLogin(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>Пароль</label>
-                <input type="password" value={pass} onChange={e=>setPass(e.target.value)} />
-              </div>
+              <div className="form-group"><label>Логин</label><input value={login} onChange={e=>setLogin(e.target.value)} /></div>
+              <div className="form-group"><label>Пароль</label><input type="password" value={pass} onChange={e=>setPass(e.target.value)} /></div>
               <div className="checkbox-group">
                 <input type="checkbox" id="remember" checked={remember} onChange={e=>setRemember(e.target.checked)} />
                 <label htmlFor="remember">Запомнить данные</label>
@@ -477,12 +354,8 @@
     }
 
     function AppHeader({ onLogout }) {
-        const { view, setView } = useContext(AppContext);
-        const [isCreatePersonOpen, setCreatePersonOpen] = useState(false);
-        const [isCreateProjectOpen, setCreateProjectOpen] = useState(false);
-
+        const { view, setView, setModal } = useContext(AppContext);
         return (
-            <>
             <header className="app-header">
                 <div className="logo">FTE Planner</div>
                 <div style={{ margin: '0 auto' }}>
@@ -493,52 +366,63 @@
                     </div>
                 </div>
                 <div className="header-controls">
-                    <button className="btn btn-secondary" onClick={() => setCreateProjectOpen(true)}>+ Проект</button>
-                    <button className="btn btn-secondary" onClick={() => setCreatePersonOpen(true)}>+ Сотрудник</button>
+                    <button className="btn btn-secondary" onClick={() => setModal({type: 'createProject'})}>+ Проект</button>
+                    <button className="btn btn-secondary" onClick={() => setModal({type: 'createPerson'})}>+ Сотрудник</button>
                     <button className="btn btn-secondary" onClick={onLogout}>Выйти</button>
                 </div>
             </header>
-            {isCreatePersonOpen && <CreatePersonModal onClose={() => setCreatePersonOpen(false)} />}
-            {isCreateProjectOpen && <CreateProjectModal onClose={() => setCreateProjectOpen(false)} />}
-            </>
         )
     }
 
-    function WeekNavigator({ onLeft, onRight, onToday }) {
+    function WeekNavigator({ onLeft, onRight, onToday, roleFilter, setRoleFilter, roles }) {
         return (
             <div className="header-content">
+                {roles && (
+                    <div style={{display:'flex', alignItems:'center', gap: '8px'}}>
+                        <label className="text-secondary" style={{fontSize: '13px'}}>Роль:</label>
+                        <select className="btn btn-secondary" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
+                            <option value="all">Все</option>
+                            {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
+                )}
                 <div className="segmented-control">
-                    <button onClick={onLeft}>‹</button>
+                    <button onClick={onLeft} className="icon-btn">‹</button>
                     <button onClick={onToday}>Сегодня</button>
-                    <button onClick={onRight}>›</button>
+                    <button onClick={onRight} className="icon-btn">›</button>
                 </div>
             </div>
         )
     }
-
+    
+    // VIEWS
     function TeamView() {
-        const { people, allocations, vacations, teamOrder, setSelectedPersonId } = useContext(AppContext);
-        // Weeks window logic
+        const { data, setData, setSelectedPersonId } = useContext(AppContext);
         const [weeks, setWeeks] = useState(initialWeeks);
-        const [firstIdx, setFirstIdx] = useState(4); // Start with a bit of history
-        const visibleWeeks = useMemo(() => weeks.slice(firstIdx, firstIdx + VISIBLE_WEEKS), [weeks, firstIdx]);
+        const [firstIdx, setFirstIdx] = useState(8);
+        const [roleFilter, setRoleFilter] = useState('all');
+        const visibleWeeks = useMemo(() => weeks.slice(firstIdx, firstIdx + 16), [weeks, firstIdx]);
 
-        const goLeft = () => setFirstIdx(p => Math.max(0, p - 1));
-        const goRight = () => setFirstIdx(p => Math.min(weeks.length - VISIBLE_WEEKS, p + 1));
+        const goLeft = () => setFirstIdx(p => Math.max(0, p - 4));
+        const goRight = () => setFirstIdx(p => Math.min(weeks.length - 16, p + 4));
         const goToday = () => {
             const todayISO = fmtISO(startOfISOWeek(new Date()));
             const idx = weeks.indexOf(todayISO);
-            if (idx > -1) setFirstIdx(Math.max(0, idx));
+            if (idx > -1) setFirstIdx(Math.max(0, idx - 4));
         }
 
-        const activePeople = useMemo(() => teamOrder.map(id => people.find(p => p.id === id)).filter(Boolean), [teamOrder, people]);
+        const filteredPeople = useMemo(() => {
+            return data.teamOrder
+                .map(id => data.people.find(p => p.id === id))
+                .filter(p => p && p.active && !p.external && (roleFilter === 'all' || p.role === roleFilter));
+        }, [data.teamOrder, data.people, roleFilter]);
         
         return (
             <div className="planner-grid">
                 <div className="left-col">
                     <div className="header"></div>
                     <div>
-                        {activePeople.map(person => (
+                        {filteredPeople.map(person => (
                             <div key={person.id} className="card person-card" onClick={() => setSelectedPersonId(person.id)}>
                                 <div className="person-name">{person.name}</div>
                                 <div className="person-role">{person.role}</div>
@@ -548,27 +432,24 @@
                 </div>
                 <div className="timeline-col" style={{overflowX: 'auto'}}>
                     <div className="header">
-                        <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} />
+                        <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} roleFilter={roleFilter} setRoleFilter={setRoleFilter} roles={data.roles} />
                     </div>
                     <div className="header" style={{top: `calc(var(--header-h) + 56px)`}}>
                         <div style={{display: 'flex'}}>
                             {visibleWeeks.map(w => (
                                 <div key={w} className="week-header" style={{width: WEEK_COL_PX}}>
-                                    <div>
-                                        <div className="week-num">{weekLabelParts(w).top}</div>
-                                        <div>{weekLabelParts(w).bot}</div>
-                                    </div>
+                                    <div><div className="week-num">{weekLabelParts(w).top}</div><div>{weekLabelParts(w).bot}</div></div>
                                 </div>
                             ))}
                         </div>
                     </div>
                     <div>
-                        {activePeople.map(person => (
+                        {filteredPeople.map(person => (
                             <div key={person.id} className="timeline-row">
                                 {visibleWeeks.map(week => {
-                                    const total = personWeekTotal(allocations, person.id, week);
+                                    const total = personWeekTotal(data.allocations, person.id, week);
                                     const ratio = scaleRatio(total);
-                                    const isVac = vacations[person.id]?.has(week);
+                                    const isVac = data.vacations[person.id]?.has(week);
                                     return (
                                         <div key={week} className="week-cell">
                                             <div className={`util-cell card ${total > 1 ? 'overload' : ''} ${isVac ? 'vacation' : ''}`}>
@@ -589,12 +470,11 @@
     }
     
     function ProjectsView() {
-        const { projects, people, projectTeams, setAppData } = useContext(AppContext);
+        const { data, setData, setModal } = useContext(AppContext);
         
         const deleteProject = (id) => {
             if (!confirm("Удалить проект?")) return;
-            setAppData(prev => ({
-                ...prev,
+            setData(prev => ({ ...prev,
                 projects: prev.projects.filter(p => p.id !== id),
                 allocations: prev.allocations.filter(a => a.projectId !== id),
             }))
@@ -602,23 +482,18 @@
 
         return (
             <div className="management-grid">
-                {projects.map(project => (
-                    <div key={project.id} className="card management-card">
+                <RoleManager/>
+                {data.projects.map(project => (
+                    <div key={project.id} className="card management-card draggable">
                         <div className="info-block">
-                            <div className="color-swatch" style={{backgroundColor: project.color}}></div>
+                            <div className="color-swatch" style={{backgroundColor: project.color}} />
                             <div>
                                 <div className="name">{project.name}</div>
                                 <div className="meta">{project.status}</div>
                             </div>
                         </div>
-                        <div className="team-pills">
-                            {(Array.from(projectTeams[project.id] || [])).map(pid => {
-                                const person = people.find(p => p.id === pid);
-                                return person ? <span key={pid} className="pill">{person.name}</span> : null;
-                            })}
-                        </div>
                         <div className="actions">
-                            <button className="btn btn-secondary">Редактировать</button>
+                            <button className="btn btn-secondary" onClick={() => setModal({type: 'editProject', props: {project}})}>Редактировать</button>
                             <button className="btn btn-danger" onClick={() => deleteProject(project.id)}>Удалить</button>
                         </div>
                     </div>
@@ -628,12 +503,11 @@
     }
     
     function EmployeesView() {
-        const { people, setAppData } = useContext(AppContext);
+        const { data, setData, setModal } = useContext(AppContext);
         
         const deletePerson = (id) => {
             if (!confirm("Удалить сотрудника?")) return;
-            setAppData(prev => ({
-                ...prev,
+            setData(prev => ({ ...prev,
                 people: prev.people.filter(p => p.id !== id),
                 allocations: prev.allocations.filter(a => a.personId !== id),
             }))
@@ -641,17 +515,16 @@
         
         return (
             <div className="management-grid">
-                {people.map(person => (
-                    <div key={person.id} className="card management-card">
+                {data.people.map(person => (
+                    <div key={person.id} className="card management-card draggable">
                         <div className="info-block">
                              <div>
                                 <div className="name">{person.name}</div>
                                 <div className="meta">{person.role} {person.external && '(Внешний)'}</div>
                             </div>
                         </div>
-                        <div> {/* Placeholder for projects */} </div>
                         <div className="actions">
-                            <button className="btn btn-secondary">Редактировать</button>
+                            <button className="btn btn-secondary" onClick={() => setModal({type: 'editPerson', props: {person}})}>Редактировать</button>
                             <button className="btn btn-danger" onClick={() => deletePerson(person.id)}>Удалить</button>
                         </div>
                     </div>
@@ -661,137 +534,217 @@
     }
 
     function PersonPage() {
-        // This is a simplified version for brevity. A full implementation would be much larger.
-        const { selectedPersonId, setSelectedPersonId, people, projects, allocations } = useContext(AppContext);
-        const person = people.find(p => p.id === selectedPersonId);
+        const { data, setData, selectedPersonId, setSelectedPersonId } = useContext(AppContext);
+        const person = data.people.find(p => p.id === selectedPersonId);
         
-        if (!person) return null;
+        const [weeks, setWeeks] = useState(initialWeeks);
+        const [firstIdx, setFirstIdx] = useState(8);
+        const visibleWeeks = useMemo(() => weeks.slice(firstIdx, firstIdx + 12), [weeks, firstIdx]);
+
+        const goLeft = () => setFirstIdx(p => Math.max(0, p - 4));
+        const goRight = () => setFirstIdx(p => Math.min(weeks.length - 12, p + 4));
+        const goToday = () => {
+            const todayISO = fmtISO(startOfISOWeek(new Date()));
+            const idx = weeks.indexOf(todayISO);
+            if (idx > -1) setFirstIdx(Math.max(0, idx - 4));
+        }
 
         const personProjects = useMemo(() => {
-            const projectIds = new Set(allocations.filter(a => a.personId === person.id).map(a => a.projectId));
-            return projects.filter(p => projectIds.has(p.id));
-        }, [person.id, allocations, projects]);
+            const projectIds = new Set(data.allocations.filter(a => a.personId === person.id).map(a => a.projectId));
+            Object.entries(data.projectTeams).forEach(([pid, team]) => { if(team.has(person.id)) projectIds.add(pid); });
+            return data.projects.filter(p => projectIds.has(p.id));
+        }, [person.id, data.allocations, data.projects, data.projectTeams]);
+
+        const [editKey, setEditKey] = useState(null);
+        const [editVal, setEditVal] = useState("");
+        const beginEdit = (prId, week, cur) => { setEditKey(`${prId}|${week}`); setEditVal(fmtFTE1(cur||0)); }
+        const commitEdit = (prId, week) => {
+            const val = parseFloat((editVal||"").replace(",","."));
+            setEditKey(null);
+            if (isNaN(val) || val < 0) return;
+            setData(prev => {
+                const rest = prev.allocations.filter(a => !(a.personId === person.id && a.projectId === prId && a.weekStart === week));
+                if (val > 0) {
+                    return { ...prev, allocations: [...rest, { id: rndId(), personId: person.id, projectId: prId, weekStart: week, fte: val }] };
+                }
+                return { ...prev, allocations: rest };
+            });
+        }
+        
+        if (!person) return null;
         
         return (
             <div className="person-page-overlay no-scrollbar">
                 <AppHeader onLogout={() => {}} />
                 <div className="app-container">
-                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px'}}>
-                        <h1>{person.name} <span className="meta" style={{fontSize: '16px'}}>{person.role}</span></h1>
-                        <button className="btn btn-secondary" onClick={() => setSelectedPersonId(null)}>Закрыть</button>
+                    <div className="person-page-header">
+                        <h2>{person.name} <span className="meta" style={{fontSize: '16px'}}>{person.role}</span></h2>
+                        <button className="btn btn-secondary" onClick={() => {}}>🏖 Управление отпусками</button>
+                        <button className="btn btn-secondary" style={{marginLeft:'auto'}} onClick={() => setSelectedPersonId(null)}>Закрыть</button>
                     </div>
                     
-                    <div className="card" style={{padding: '24px'}}>
-                        <h3>Проекты сотрудника</h3>
-                        <p>Здесь будет детальная сетка загрузки по проектам, как в исходном файле index3.html</p>
-                        <ul>
-                            {personProjects.map(p => <li key={p.id}>{p.name}</li>)}
-                        </ul>
+                    <div className="planner-grid person-page-planner">
+                        <div className="left-col">
+                            <div className="header"></div>
+                            <div>
+                                {personProjects.map(pr => (
+                                    <div key={pr.id} className="card project-row">
+                                        <div className="info-block"><div className="color-swatch" style={{backgroundColor: pr.color}}/><div>{pr.name}</div></div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                         <div className="timeline-col" style={{overflowX: 'auto'}}>
+                            <div className="header">
+                                <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} />
+                            </div>
+                            <div className="header" style={{top: `calc(var(--header-h) + 56px)`}}>
+                                <div style={{display: 'flex'}}>
+                                    {visibleWeeks.map(w => <div key={w} className="week-header" style={{width: WEEK_COL_PX}}><div><div className="week-num">{weekLabelParts(w).top}</div><div>{weekLabelParts(w).bot}</div></div></div>)}
+                                </div>
+                            </div>
+                            <div>
+                                {personProjects.map(pr => (
+                                    <div key={pr.id} className="timeline-row">
+                                        {visibleWeeks.map(week => {
+                                            const fte = fteFor(data.allocations, person.id, pr.id, week);
+                                            const k = `${pr.id}|${week}`;
+                                            const editing = editKey === k;
+                                            return (
+                                                <div key={week} className="week-cell">
+                                                    <div className="card fte-cell" onClick={() => beginEdit(pr.id, week, fte)}>
+                                                        {editing ? (
+                                                            <input autoFocus value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={() => commitEdit(pr.id, week)} onKeyDown={e => {if(e.key==='Enter') e.target.blur(); if(e.key==='Escape') setEditKey(null);}}/>
+                                                        ) : (
+                                                            <div style={{display:'grid', placeItems:'center', height:'100%'}}>{fmtFTE1(fte)}</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         )
     }
 
-    function CreatePersonModal({ onClose }) {
-        const { setAppData, roles } = useContext(AppContext);
-        const [name, setName] = useState('');
-        const [role, setRole] = useState(roles[0] || 'other');
-        const [external, setExternal] = useState(false);
+    // MODALS
+    function ModalRenderer() {
+        const { modal, setModal } = useContext(AppContext);
+        if (!modal) return null;
+        
+        const closeModal = () => setModal(null);
+
+        switch(modal.type) {
+            case 'createPerson': return <PersonModal onClose={closeModal} />;
+            case 'editPerson': return <PersonModal onClose={closeModal} person={modal.props.person} />;
+            case 'createProject': return <ProjectModal onClose={closeModal} />;
+            case 'editProject': return <ProjectModal onClose={closeModal} project={modal.props.project} />;
+            default: return null;
+        }
+    }
+
+    function PersonModal({ onClose, person }) {
+        const { setData, data } = useContext(AppContext);
+        const [name, setName] = useState(person?.name || '');
+        const [role, setRole] = useState(person?.role || data.roles[0]);
+        const [external, setExternal] = useState(person?.external || false);
+        const isEditing = !!person;
 
         const handleSubmit = () => {
             if (!name.trim()) return;
-            const newPerson = {
-                id: rndId(), name: name.trim(), role,
-                capacityPerWeek: 1, active: true, external,
-            };
-            setAppData(prev => ({ ...prev, people: [...prev.people, newPerson] }));
+            if (isEditing) {
+                setData(p => ({...p, people: p.people.map(x => x.id === person.id ? {...x, name, role, external} : x)}));
+            } else {
+                const newPerson = { id: rndId(), name: name.trim(), role, external, active: true, capacityPerWeek: 1 };
+                setData(p => ({...p, people: [...p.people, newPerson], teamOrder: [...p.teamOrder, newPerson.id]}));
+            }
             onClose();
         };
 
         return (
             <div className="modal-overlay" onClick={onClose}>
                 <div className="modal-content" onClick={e => e.stopPropagation()}>
-                    <div className="modal-header">
-                        <h2 className="modal-title">Новый сотрудник</h2>
-                        <button onClick={onClose} className="modal-close-btn">&times;</button>
-                    </div>
+                    <div className="modal-header"><h2 className="modal-title">{isEditing ? "Редактировать" : "Новый"} сотрудник</h2><button onClick={onClose} className="modal-close-btn">&times;</button></div>
                     <div className="modal-body">
-                        <div className="form-group">
-                            <label>Имя</label>
-                            <input value={name} onChange={e => setName(e.target.value)} autoFocus/>
-                        </div>
-                        <div className="form-group">
-                            <label>Роль</label>
-                            <select value={role} onChange={e => setRole(e.target.value)}>
-                                {roles.map(r => <option key={r} value={r}>{r}</option>)}
-                            </select>
-                        </div>
-                        <label style={{display:'flex', alignItems:'center', gap: '8px', marginTop: '8px'}}>
-                            <input type="checkbox" checked={external} onChange={e => setExternal(e.target.checked)} />
-                            Внешний сотрудник
-                        </label>
+                        <div className="form-group"><label>Имя</label><input value={name} onChange={e => setName(e.target.value)} autoFocus/></div>
+                        <div className="form-group"><label>Роль</label><select value={role} onChange={e => setRole(e.target.value)}>{data.roles.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                        <label className="checkbox-group" style={{marginTop:'8px'}}><input type="checkbox" checked={external} onChange={e => setExternal(e.target.checked)} />Внешний сотрудник</label>
                     </div>
-                    <div className="modal-footer">
-                        <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
-                        <button className="btn btn-primary" onClick={handleSubmit}>Создать</button>
-                    </div>
+                    <div className="modal-footer"><button className="btn btn-secondary" onClick={onClose}>Отмена</button><button className="btn btn-primary" onClick={handleSubmit} disabled={!name.trim()}>Сохранить</button></div>
                 </div>
             </div>
         )
     }
     
-    function CreateProjectModal({ onClose }) {
-        const { setAppData } = useContext(AppContext);
-        const [name, setName] = useState('');
-        const [status, setStatus] = useState('active');
-        const [color, setColor] = useState('#3B82F6');
+    function ProjectModal({ onClose, project }) {
+        const { setData } = useContext(AppContext);
+        const [name, setName] = useState(project?.name || '');
+        const [status, setStatus] = useState(project?.status || 'active');
+        const [color, setColor] = useState(project?.color || '#3B82F6');
+        const isEditing = !!project;
 
         const handleSubmit = () => {
             if (!name.trim()) return;
-            const newProject = {
-                id: rndId(), name: name.trim(), status, color
-            };
-            setAppData(prev => ({
-                ...prev,
-                projects: [...prev.projects, newProject],
-                projectTeams: { ...prev.projectTeams, [newProject.id]: new Set() }
-            }));
+            if (isEditing) {
+                setData(p => ({...p, projects: p.projects.map(x => x.id === project.id ? {...x, name, status, color} : x)}));
+            } else {
+                const newProject = { id: rndId(), name: name.trim(), status, color };
+                setData(p => ({...p, projects: [...p.projects, newProject], projectTeams: {...p.projectTeams, [newProject.id]: new Set()}}));
+            }
             onClose();
         }
 
         return (
             <div className="modal-overlay" onClick={onClose}>
                 <div className="modal-content" onClick={e => e.stopPropagation()}>
-                    <div className="modal-header">
-                        <h2 className="modal-title">Новый проект</h2>
-                        <button onClick={onClose} className="modal-close-btn">&times;</button>
-                    </div>
+                    <div className="modal-header"><h2 className="modal-title">{isEditing ? "Редактировать" : "Новый"} проект</h2><button onClick={onClose} className="modal-close-btn">&times;</button></div>
                     <div className="modal-body">
                          <div className="form-grid">
-                            <div className="form-group form-group-full">
-                                <label>Название</label>
-                                <input value={name} onChange={e => setName(e.target.value)} autoFocus/>
-                            </div>
-                            <div className="form-group">
-                                <label>Статус</label>
-                                <select value={status} onChange={e => setStatus(e.target.value)}>
-                                    <option value="active">Active</option>
-                                    <option value="planned">Planned</option>
-                                    <option value="onhold">On Hold</option>
-                                    <option value="done">Done</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label>Цвет</label>
-                                <input type="color" value={color} onChange={e => setColor(e.target.value)} />
-                            </div>
+                            <div className="form-group form-group-full"><label>Название</label><input value={name} onChange={e => setName(e.target.value)} autoFocus/></div>
+                            <div className="form-group"><label>Статус</label><select value={status} onChange={e => setStatus(e.target.value)}><option value="active">Active</option><option value="planned">Planned</option><option value="onhold">On Hold</option><option value="done">Done</option></select></div>
+                            <div className="form-group"><label>Цвет</label><input type="color" value={color} onChange={e => setColor(e.target.value)} /></div>
                         </div>
                     </div>
-                    <div className="modal-footer">
-                        <button className="btn btn-secondary" onClick={onClose}>Отмена</button>
-                        <button className="btn btn-primary" onClick={handleSubmit}>Создать</button>
-                    </div>
+                    <div className="modal-footer"><button className="btn btn-secondary" onClick={onClose}>Отмена</button><button className="btn btn-primary" onClick={handleSubmit} disabled={!name.trim()}>Сохранить</button></div>
+                </div>
+            </div>
+        )
+    }
+
+    function RoleManager() {
+        const { data, setData } = useContext(AppContext);
+        const [newRole, setNewRole] = useState("");
+        const addRole = () => {
+            const trimmed = newRole.trim();
+            if (trimmed && !data.roles.includes(trimmed)) {
+                setData(p => ({...p, roles: [...p.roles, trimmed]}));
+                setNewRole("");
+            }
+        };
+        const removeRole = (roleToRemove) => {
+            if (!confirm(`Удалить роль «${roleToRemove}»?`)) return;
+            setData(p => ({...p, 
+                roles: p.roles.filter(r => r !== roleToRemove),
+                people: p.people.map(person => person.role === roleToRemove ? {...person, role: 'other'} : person)
+            }));
+        }
+
+        return (
+            <div className="card role-manager-card">
+                <h3 style={{margin: '0 0 16px'}}>Управление ролями</h3>
+                <div className="role-pills">
+                    {data.roles.map(role => (
+                        <span key={role} className="pill">{role} <button onClick={() => removeRole(role)}>&times;</button></span>
+                    ))}
+                </div>
+                <div style={{display:'flex', gap:'8px', marginTop:'16px'}}>
+                    <input value={newRole} onChange={e => setNewRole(e.target.value)} placeholder="Новая роль" style={{borderRadius:'8px', border:'1px solid var(--border-color)', padding:'8px 12px', flexGrow:1}}/>
+                    <button className="btn btn-primary" onClick={addRole}>Добавить</button>
                 </div>
             </div>
         )
