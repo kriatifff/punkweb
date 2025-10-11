@@ -1,31 +1,29 @@
 // api/save.js
 import { kv } from "@vercel/kv";
 
-export default async function handler(req, res) {
+export const config = { runtime: "edge" };
+
+export default async function handler(req) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
+    return new Response("Method Not Allowed", { status: 405 });
   }
   try {
-    const body = await getBody(req);
-    // простая валидация: ждём объект
+    const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") {
-      return res.status(400).json({ error: "Invalid body" });
+      return new Response(JSON.stringify({ error: "Invalid body" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
     await kv.set("fteplanner:state", body);
-    res.status(200).json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: "Failed to save" });
-  }
-}
-
-function getBody(req) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    req.on("data", (chunk) => (data += chunk));
-    req.on("end", () => {
-      try { resolve(JSON.parse(data || "{}")); }
-      catch (e) { reject(e); }
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
     });
-    req.on("error", reject);
-  });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: "Failed to save" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
