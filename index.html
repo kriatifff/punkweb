@@ -4,53 +4,30 @@
   <meta charset="UTF-8" />
   <title>Панквеб FTE Planner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- React & Babel (UMD) -->
+  <!-- React & Babel -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Tailwind CDN -->
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-
   <style>
     :root{
       --app-header-h: 56px;
       --left-col-w: 220px;
     }
-    /* util */
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
     .no-scrollbar::-webkit-scrollbar{ display:none; }
-
-    /* простые версии классов, без @apply */
+    .hide-scrollbar::-webkit-scrollbar{ width:8px; height:8px; }
+    .hide-scrollbar::-webkit-scrollbar-thumb{ background:rgba(0,0,0,0.15); border-radius:8px; }
+    .hide-scrollbar{ scrollbar-width:thin; }
     .btn{
-      border-radius: 0.75rem;
-      border: 1px solid rgb(212 212 216); /* neutral-300 */
-      background: #fff;
-      padding: 0.25rem 0.75rem;
-      box-shadow: 0 1px 1px rgba(0,0,0,.05);
-      transition: box-shadow .15s ease;
+      @apply rounded-xl border border-neutral-300 bg-white px-3 py-1 shadow-sm hover:shadow transition;
     }
-    .btn:hover{ box-shadow: 0 2px 6px rgba(0,0,0,.08); }
-
-    /* сегмент в шапке с видимыми отступами между кнопками */
+    /* увеличенные отступы между кнопками сегмента */
     .segmented{
-      display:flex; align-items:center; gap:0.75rem;
-      background:#f5f5f5; /* neutral-100 */
-      border:1px solid #e5e7eb; /* neutral-200 */
-      border-radius: 1rem; padding: 0.25rem 0.5rem;
-      box-shadow: 0 1px 1px rgba(0,0,0,.04);
+      @apply flex items-center gap-3 bg-neutral-100 border border-neutral-200 rounded-2xl p-1 shadow-sm;
     }
-    .segmented > button{
-      padding: 0.25rem 0.75rem;
-      border-radius: 0.75rem;
-      margin: 0 2px;
-      transition: background .15s ease, box-shadow .15s ease;
-    }
-    .segmented > button.active{
-      background:#fff; box-shadow: 0 1px 1px rgba(0,0,0,.05);
-    }
-    .segmented > button.idle:hover{
-      background: rgba(255,255,255,.7);
-    }
+    .segmented button{ @apply mx-0.5; }
   </style>
 </head>
 <body class="bg-[#F7F8FA] no-scrollbar">
@@ -59,26 +36,19 @@
   <script type="text/babel">
     const {useState, useEffect, useMemo, useRef, Fragment} = React;
 
-    // ---------- Конфигурация ----------
+    // ---------- Config ----------
     const MAX_FTE = 1.2;
     const WEEK_COL_PX = 72;
+    // ==== ЧАСЫ ====
+    const HOURS_PER_WEEK = 40;            // лимит часов в неделю
+    const BAR_MAX_HOURS = 45;             // высота шкалы с запасом
+    const fteToHours = (fte) => Math.round((Number(fte)||0) * HOURS_PER_WEEK);
+    const hoursToFte = (h) => Math.max(0, Math.min(HOURS_PER_WEEK, Math.round(Number(h)||0))) / HOURS_PER_WEEK;
+    const hoursRatio = (h) => { const v = Math.max(0, Math.min(BAR_MAX_HOURS, Math.round(Number(h)||0))); return v / BAR_MAX_HOURS; };
+    const fmtHours = (h) => String(Math.round(Number(h)||0));
+
     const TEAM_BAR_COLOR = "#22c55e";
     const VISIBLE_WEEKS = 16;
-
-    // ==== часы вместо FTE ====
-    const HOURS_PER_WEEK = 40; // лимит
-    const BAR_MAX_HOURS = 45;  // высота шкалы (запас)
-
-    const fteToHours = (fte) => Math.round(fte * HOURS_PER_WEEK);
-    const hoursToFte = (hours) => {
-      const h = Math.max(0, Math.min(HOURS_PER_WEEK, Math.round(Number(hours)||0)));
-      return h / HOURS_PER_WEEK;
-    };
-    const fmtHours = (h) => String(Math.round(Number(h)||0));
-    const hoursRatio = (h) => {
-      const v = Number(h)||0;
-      return Math.max(0, Math.min(1, v / BAR_MAX_HOURS));
-    };
 
     // ---------- Persistence ----------
     const LS_KEY = "fteplanner.v1";
@@ -103,27 +73,24 @@
       saveTimer = setTimeout(()=>{ saveAllRemote(state).catch(()=>{}); }, 400);
     }
 
-    // ---------- Даты/форматы ----------
+    // ---------- Date/format helpers ----------
     const fmtISO = (date) => date.toISOString().slice(0,10);
     const addDays = (d, n) => { const x=new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; };
     const pad2 = (n) => (n<10 ? `0${n}` : String(n));
     const fmtDM = (d) => `${pad2(d.getDate())}.${pad2(d.getMonth()+1)}`;
     const RU_MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
     const ruMonthShort = (m) => RU_MONTHS[m] ?? "";
-    const startOfISOWeek = (d) => {
-      const day=d.getDay(); const diff=(day===0?-6:1)-day;
-      const m=new Date(d); m.setDate(d.getDate()+diff); m.setHours(0,0,0,0); return m;
-    };
+    const startOfISOWeek = (d) => { const day=d.getDay(); const diff=(day===0?-6:1)-day; const m=new Date(d); m.setDate(d.getDate()+diff); m.setHours(0,0,0,0); return m; };
     const addWeeks = (m, n) => { const d=new Date(m); d.setDate(d.getDate()+n*7); d.setHours(0,0,0,0); return d; };
     const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-    const scaleRatio = (v, max=MAX_FTE) => clamp(v/max, 0, 1); // совместимость
+    const scaleRatio = (v, max=MAX_FTE) => clamp(v/max, 0, 1); // (оставлено для совместимости)
     const weekLabelParts = (iso) => { const d=new Date(iso); const w=1+Math.floor((d.getDate()-1)/7); return { top:`${w} нед`, bot:ruMonthShort(d.getMonth()) }; };
     const weekRangeLabel = (iso) => { const d=new Date(iso); const end=addDays(d,6); return `${fmtDM(d)}–${fmtDM(end)}`; };
-    const rndId = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+    const rndId = () => (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
     const fmtFTE1 = (n) => (Math.round(n*10)/10).toFixed(1);
     const yearWeekMondays = (year) => { let m=startOfISOWeek(new Date(year,0,1)); const end=new Date(year,11,31); end.setHours(0,0,0,0); const list=[]; while(m<=end){ list.push(fmtISO(m)); m=addDays(m,7);} return list; };
 
-    // ---------- Данные по умолчанию ----------
+    // ---------- Seed data ----------
     const base = startOfISOWeek(new Date());
     const initialWeeks = Array.from({length:24}, (_,i)=> fmtISO(addWeeks(base, i-4)));
     const seedPeople = [
@@ -142,7 +109,7 @@
     ];
     const seedRoles = ["designer","dev","manager","pm","other"];
 
-    // ---------- Агрегации ----------
+    // ---------- Aggregations ----------
     const personWeekTotal = (as, pid, w) => as.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
     const fteFor = (as, pid, pr, w) => as.filter(a=>a.personId===pid && a.projectId===pr && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
     const mergeOrder = (existing, nextIds) => {
@@ -204,7 +171,7 @@
       );
     }
 
-    // ---------- Окно недель ----------
+    // ---------- Week navigator ----------
     function useWeeksWindow(){
       const [weeks, setWeeks] = useState(loadJSON("weeks", initialWeeks));
       const savedFirstISO = loadJSON("firstWeekISO", weeks[0]);
@@ -261,7 +228,7 @@
     }
 
     // =================================
-    // Приложение
+    // App
     // =================================
     function App(){
       const [people, setPeople] = useState(loadJSON("people", seedPeople));
@@ -288,7 +255,7 @@
 
       const [authed, setAuthed] = useState(loadJSON("authed", false));
 
-      // вкладки
+      // теперь три вкладки: team(Нагрузка), project(Проекты), employees(Команда)
       const [view, setView] = useState(loadJSON("view","team")); // 'team' | 'project' | 'employees'
       useEffect(()=> saveJSON({view}), [view]);
 
@@ -336,14 +303,14 @@
       const dragRow = useRef(null);
 
       // people collections
-      const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]);
-      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]);
+      const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]); // внутр. только
+      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]); // для проектов/команды — все активные
 
       useEffect(()=>{
         setTeamOrder(prev => mergeOrder(prev, peopleForTeam.map(p=>p.id)));
       }, [peopleForTeam]);
 
-      // фильтр ролей
+      // фильтр ролей для Нагрузки
       const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
       useEffect(()=> saveJSON({roleFilter}), [roleFilter]);
 
@@ -423,7 +390,7 @@
 
       return (
         <div className="min-h-screen bg-[#F7F8FA] text-neutral-900 font-sans">
-          {/* Шапка */}
+          {/* Глобальная шапка */}
           <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
@@ -440,7 +407,7 @@
           </header>
 
           <main className="max-w-screen-2xl mx-auto p-4">
-            {/* Навигатор недель только во вкладке «Нагрузка» */}
+            {/* Навигатор недель нужен только во «Нагрузке» */}
             {view==="team" && (
               <WeekNavigator
                 onLeft={goLeft}
@@ -489,18 +456,18 @@
                       </div>
 
                       {visible.map(week => {
-                        const totalFte = personWeekTotal(assignments, person.id, week);
-                        let hours = clamp(fteToHours(totalFte), 0, HOURS_PER_WEEK); // максимум 40 ч/нед
+                        const total = personWeekTotal(assignments, person.id, week);
+                        let hours = Math.max(0, Math.min(HOURS_PER_WEEK, fteToHours(total)));
                         const ratio = hoursRatio(hours);
                         const vac = isVacation(person.id, week);
                         return (
                           <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
-                            <div className={`bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative`}>
+                            <div className={`bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative ${hours>HOURS_PER_WEEK?"ring-1 ring-red-300":""}`}>
                               <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
                                 {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:TEAM_BAR_COLOR}} />)}
                               </div>
                               {!vac && (
-                                <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-900" title={`${hours} ч`}>
+                                <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-900" title={`${fmtHours(hours)} ч`}>
                                   {fmtHours(hours)}
                                 </div>
                               )}
@@ -547,7 +514,6 @@
                           </button>
                           <div className="font-medium truncate" title={project.name}>{project.name}</div>
 
-                          {/* Пипетка */}
                           <button
                             className="absolute top-2 right-10 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
                             title="Изменить цвет"
@@ -564,7 +530,6 @@
                             onChange={(e)=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, color:e.target.value} : p))}
                           />
 
-                          {/* Удаление */}
                           <button
                             type="button"
                             draggable={false}
@@ -696,7 +661,7 @@
       );
     }
 
-    // ---------- Страница одного сотрудника ----------
+    // ---------- FULL-PAGE «Один сотрудник» ----------
     function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles, view, setView }){
       if(!person) return null;
       const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
@@ -713,23 +678,8 @@
       const [editKey, setEditKey] = useState(null);
       const [editVal, setEditVal] = useState("");
 
-      function beginEdit(pid, w, curFte){
-        if(isVacation(person.id,w)) return;
-        const curHours = clamp(fteToHours(curFte||0), 0, HOURS_PER_WEEK);
-        setEditKey(`${pid}|${w}`);
-        setEditVal(String(curHours));
-      }
-      function commitEdit(pid, w){
-        const k = `${pid}|${w}`; if(editKey!==k) return;
-        const nextHours = parseInt((editVal||"").replace(",", "."), 10);
-        setEditKey(null);
-        if(isNaN(nextHours) || nextHours<0 || nextHours>HOURS_PER_WEEK) return;
-        const nextFte = hoursToFte(nextHours);
-        onSave(prev => {
-          const rest = prev.filter(a => !(a.personId===person.id && a.projectId===pid && a.weekStart===w));
-          return [...rest, { id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte:nextFte }];
-        });
-      }
+      function beginEdit(pid, w, cur){ if(isVacation(person.id,w)) return; const curHours = Math.max(0, Math.min(HOURS_PER_WEEK, fteToHours(cur||0))); setEditKey(`${pid}|${w}`); setEditVal(String(curHours)); }
+      function commitEdit(pid, w){ const k = `${pid}|${w}`; if(editKey!==k) return; const nextHours = parseInt((editVal||"").replace(",", "."), 10); setEditKey(null); if(isNaN(nextHours) || nextHours<0 || nextHours>HOURS_PER_WEEK) return; const nextFte = hoursToFte(nextHours); onSave(prev => { const rest = prev.filter(a => !(a.personId===person.id && a.projectId===pid && a.weekStart===w)); return [...rest, { id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte:nextFte }]; }); }
 
       const dragIndex = useRef(null);
       const onDragStart = (i)=>{ dragIndex.current=i; };
@@ -758,18 +708,12 @@
 
       const visible = visibleWeeks;
 
-      // Итоги по неделям в часах
-      const weekTotals = useMemo(()=>{
-        return visible.map(w => {
-          if(isVacation(person.id,w)) return 0;
-          const sumFte = assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
-          return clamp(fteToHours(sumFte), 0, HOURS_PER_WEEK);
-        });
-      }, [assignments, person.id, vacations, visible]);
+      // Итоги по неделям (в ЧАСАХ, с ограничением 40)
+      const weekTotals = useMemo(()=>{ return visible.map(w => { if(isVacation(person.id,w)) return 0; const sumFte = assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0); return Math.max(0, Math.min(HOURS_PER_WEEK, fteToHours(sumFte))); }); }, [assignments, person.id, vacations, visible]);
 
       return (
         <div className="fixed inset-0 z-50 bg-[#F7F8FA] overflow-auto no-scrollbar">
-          {/* Шапка */}
+          {/* Шапка с тремя кнопками */}
           <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
@@ -813,9 +757,7 @@
               <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
               {visible.map((w,i)=>(
                 <div key={w} className="h-6 flex items-center justify-center">
-                  <span className="px-2 py-0.5 rounded-lg border border-neutral-300 bg-white text-[12px] font-medium shadow-sm" title={`${weekTotals[i]} ч`}>
-                    {fmtHours(weekTotals[i])}
-                  </span>
+                  <span className="px-2 py-0.5 rounded-lg border border-neutral-300 bg-white text-[12px] font-medium shadow-sm" title={`${weekTotals[i]} ч`}>{fmtHours(weekTotals[i])}</span>
                 </div>
               ))}
             </div>
@@ -834,7 +776,7 @@
                     </div>
                     {visible.map(week => {
                       const fte = fteFor(assignments, person.id, pid, week);
-                      let hours = clamp(fteToHours(fte), 0, HOURS_PER_WEEK);
+                      let hours = Math.max(0, Math.min(HOURS_PER_WEEK, fteToHours(fte)));
                       const ratio = hoursRatio(hours);
                       const k = `${pid}|${week}`;
                       const editing = editKey===k;
@@ -900,7 +842,7 @@
                         <label key={m} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl hover:bg-amber-50">
                           <input type="checkbox" checked={personVac.has(m)} onChange={()=> setPersonVac(prev=>{ const s=new Set(prev); if(s.has(m)) s.delete(m); else s.add(m); return s; }) } />
                           <span className="text-sm">{weekRangeLabel(m)}</span>
-                          {personVac.has(m) && (<button type="button" className="ml-auto text-amber-700" title="Убрать" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(m); return s; })}>−</button>)}
+                          {personVac.has(m) && (<button className="ml-auto text-amber-700" title="Убрать" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(m); return s; })}>−</button>)}
                         </label>
                       ))}
                     </div>
@@ -913,15 +855,15 @@
                       {Array.from(personVac).map(w => (
                         <span key={w} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
                           {weekRangeLabel(w)}
-                          <button type="button" className="ml-1" title="Удалить" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(w); return s; }) }>×</button>
+                          <button className="ml-1" title="Удалить" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(w); return s; }) }>×</button>
                         </span>
                       ))}
                     </div>
                   </div>
                 )}
                 <div className="mt-4 flex justify-end gap-2">
-                  <button type="button" className="btn" onClick={()=>setVacOpen(false)}>Отмена</button>
-                  <button type="button" className="rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-1" onClick={saveVac}>Сохранить</button>
+                  <button className="btn" onClick={()=>setVacOpen(false)}>Отмена</button>
+                  <button className="rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-1" onClick={saveVac}>Сохранить</button>
                 </div>
               </div>
             </div>
@@ -930,16 +872,12 @@
       );
     }
 
-    // ---------- Инлайновое редактирование ----------
+    // ---------- Inline editable ----------
     function EditableName({person, setPeople}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(person.name);
       useEffect(()=> setVal(person.name), [person.id, person.name]);
-      const commit = () => {
-        const name=(val||"").trim(); setEditing(false);
-        if(!name || name===person.name) return;
-        setPeople(prev => prev.map(p => p.id===person.id ? {...p, name} : p));
-      };
+      const commit = () => { const name=(val||"").trim(); setEditing(false); if(!name || name===person.name) return; setPeople(prev => prev.map(p => p.id===person.id ? {...p, name} : p)); };
       return editing ? (
         <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit}
                onKeyDown={e=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
@@ -959,12 +897,13 @@
         </select>
       ) : (
         <button className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={()=>setEditing(true)}>
-          <PencilIcon className="opacity-70"/> {(person.role||"OTHER").toUpperCase()}
+          <svg className="opacity-70" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          {(person.role||"OTHER").toUpperCase()}
         </button>
       );
     }
 
-    // ---------- Проекты → команда ----------
+    // ---------- ProjectTeamSelector ----------
     function ProjectTeamSelector({project, people, projectTeams, setProjectTeams}){
       const [search, setSearch] = useState("");
       const list = useMemo(()=> people.filter(p => !projectTeams[project.id]?.has(p.id) && p.name.toLowerCase().includes(search.toLowerCase())).slice(0,8), [people, project.id, projectTeams, search]);
@@ -1023,7 +962,7 @@
       );
     }
 
-    // ---------- Команда (список) ----------
+    // ---------- EmployeesPage ----------
     function EmployeesPage({people, setPeople, projects, projectTeams, setProjectTeams, deletePerson}){
       const [search, setSearch] = useState("");
       const list = useMemo(()=> people.filter(p => p.active && p.name.toLowerCase().includes(search.toLowerCase())), [people, search]);
@@ -1048,7 +987,8 @@
                         className="text-neutral-500 hover:text-red-600 ml-auto"
                         title="Удалить сотрудника"
                         onClick={()=>deletePerson(p.id)}
-                      ><TrashIcon/></button>
+                      ><svg className="" width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1 2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
                     </div>
                     <div className="mt-1 flex items-center gap-2">
                       <select
@@ -1079,7 +1019,6 @@
       );
     }
 
-    // Инвертированный селектор: проекты конкретного сотрудника
     function PersonProjectsEditor({person, projects, projectTeams, setProjectTeams}){
       const [search, setSearch] = useState("");
       const memberOf = useMemo(()=>{
@@ -1150,7 +1089,7 @@
       );
     }
 
-    // ---------- Менеджер ролей ----------
+    // ---------- Role manager ----------
     function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass='top-[calc(var(--app-header-h)+48px)]'}){
       const [adding, setAdding] = useState("");
       const [editing, setEditing] = useState(null);
@@ -1178,10 +1117,11 @@
                   <>
                     <button className="hover:underline" onClick={()=>setRoleFilter(r)}>{r}</button>
                     <button className="text-neutral-500 hover:text-neutral-800" title="Переименовать роль" onClick={()=>startEdit(r)}>
-                      <PencilIcon/>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
                     </button>
                     <button className="text-neutral-500 hover:text-red-600" title="Удалить роль" onClick={()=>remove(r)}>
-                      <TrashIcon/>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1 2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                     </button>
                   </>
                 )}
@@ -1196,7 +1136,7 @@
       );
     }
 
-    // ---------- Модалки ----------
+    // ---------- Create Person Modal ----------
     function CreatePersonModal({open, onClose, name, setName, role, setRole, external, setExternal, onSubmit, roles}){
       if(!open) return null;
       return (
@@ -1229,12 +1169,13 @@
       );
     }
 
+    // ---------- Create Project Modal ----------
     function CreateProjectModal({open, onClose, name, setName, color, setColor, status, setStatus, search, setSearch, teamSel, setTeamSel, people, suggestions, onSubmit}){
       if(!open) return null;
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-height-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
             <div className="text-base font-semibold mb-3">Новый проект</div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1316,7 +1257,7 @@
       );
     }
 
-    // sanity
+    // dev sanity checks
     if(typeof window!=="undefined"){
       try{
         console.assert(fmtFTE1(1.16)==="1.2","fmtFTE1 rounds to 1 decimal");
