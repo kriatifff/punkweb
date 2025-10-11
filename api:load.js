@@ -1,15 +1,26 @@
 // api/load.js
 import { kv } from "@vercel/kv";
 
-export default async function handler(req, res) {
+export const config = { runtime: "edge" };
+
+export default async function handler(req) {
   if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method Not Allowed" });
+    return new Response("Method Not Allowed", { status: 405 });
   }
   try {
-    // один общий ключ для всей команды; хочешь — сделай ключи по «командам/аккаунтам»
     const state = await kv.get("fteplanner:state");
-    res.status(200).json(state || {}); // если в KV пусто, возвращаем {}
+    if (!state) {
+      // ничего не сохранено — не затираем фронт пустым объектом
+      return new Response(null, { status: 204 });
+    }
+    return new Response(JSON.stringify(state), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (e) {
-    res.status(500).json({ error: "Failed to load" });
+    return new Response(JSON.stringify({ error: "Failed to load" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
