@@ -61,7 +61,6 @@
       .shadow-sm, .shadow-lg, .shadow-xl { box-shadow:none !important; }
       .border-neutral-200, .border { border-color:#bbb !important; }
     }
-    /* мини-шильдик-цвет для option-текста, реализован символом ⬤ без цвета (совместимость) */
     .option-dot{ font-size: 10px; opacity:.75; }
   </style>
 </head>
@@ -83,6 +82,7 @@
     const COLOR_50  = "#FFF7ED";
     const COLOR_70  = "#FFE4E6";
     const COLOR_100 = "#FECDD3";
+    const VAT_RATE = 0.2; // 20% НДС
 
     const fmtMoney = (n) => "₽ " + (Math.round(Number(n)||0)).toLocaleString("ru-RU");
     const fmtHours = (h) => String(Math.max(0, Math.round(Number(h)||0)));
@@ -101,6 +101,7 @@
     const RU_MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
     const ruMonthShort = (m) => RU_MONTHS[m] || "";
     const startOfISOWeek = (d) => { const day=d.getDay(); const diff=(day===0?-6:1)-day; const x=new Date(d); x.setDate(x.getDate()+diff); x.setHours(0,0,0,0); return x; };
+    const endOfISOWeek = (d) => addDays(startOfISOWeek(d), 6);
     const weekRangeLabel = (iso) => { const d=new Date(iso); const e=addDays(d,6); return fmtDM(d)+"–"+fmtDM(e); };
     const yearWeekMondays = (year) => {
       let m=startOfISOWeek(new Date(year,0,1)); const end=new Date(year,11,31); end.setHours(0,0,0,0);
@@ -132,6 +133,8 @@
       }
       return res;
     }
+    const parseDate = (s)=>{ if(!s) return null; const d = new Date(s); if(isNaN(d)) return null; d.setHours(0,0,0,0); return d; };
+    const overlap = (a1,a2,b1,b2)=> (a1<=b2 && b1<=a2);
 
     /* -------------------- Persistence -------------------- */
     const LS_KEY = "fteplanner.v1";
@@ -165,10 +168,10 @@
       { id:"p3", name:"Игорь",  role:"dev",      capacityPerWeek:1, active:true, external:false, rateInternal:1800, rateExternal:3200 },
     ];
     const seedProjects = [
-      { id:"pr1", name:"HR Подкасты",   status:"active",  color:"#3b82f6", budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false },
-      { id:"pr2", name:"Арктика Медиа", status:"onhold",  color:"#f43f5e", budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false },
-      { id:"pr3", name:"Падел-теннис",  status:"planned", color:"#06b6d4", budgetWithVAT:0, projectType:"internal", costEditable:0, costEditableTouched:false },
-      { id:"pr4", name:"Сайт.Бета",     status:"active",  color:"#10b981", budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false },
+      { id:"pr1", name:"HR Подкасты",   status:"active",  color:"#3b82f6", budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false, startDate:"", endDate:"" },
+      { id:"pr2", name:"Арктика Медиа", status:"onhold",  color:"#f43f5e", budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false, startDate:"", endDate:"" },
+      { id:"pr3", name:"Падел-теннис",  status:"planned", color:"#06b6d4", budgetWithVAT:0, projectType:"internal", costEditable:0, costEditableTouched:false, startDate:"", endDate:"" },
+      { id:"pr4", name:"Сайт.Бета",     status:"active",  color:"#10b981", budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false, startDate:"", endDate:"" },
     ];
     const seedAssignments = [
       { id:"a1", personId:"p1", projectId:"pr1", weekStart: initialWeeks[6],  fte:0.3 },
@@ -307,6 +310,33 @@
           <text x={xFact+barW/2} y={yFor(fact)-6} fontSize="10" fill="#7f1d1d" textAnchor="middle">{fmtMoney(fact)}</text>
           <text x={xPlan+barW/2} y={padY+innerH+14} fontSize="10" fill="#0f172a" textAnchor="middle">{planLabel}</text>
           <text x={xFact+barW/2} y={padY+innerH+14} fontSize="10" fill="#0f172a" textAnchor="middle">{factLabel}</text>
+        </svg>
+      );
+    }
+
+    /* Новый график: три столбца для «Воронка Панквеб» */
+    function ChartBarsTriple({ a=0, b=0, c=0, width=980, height=260, labels=["Бюджет с НДС","Бюджет без НДС","Себестоимость (факт)"] }){
+      const w = Math.max(width, 720), h = Math.max(height, 220);
+      const padX=28, padY=30;
+      const innerW = w - padX*2, innerH = h - padY*2;
+      const maxVal = Math.max(10, a, b, c);
+      const yFor = (v)=> padY + (innerH * (1 - (Math.max(0, Number(v)||0)/maxVal)));
+      const colW = innerW/5;
+      const xs = [padX + innerW*0.17 - colW/2, padX + innerW*0.5 - colW/2, padX + innerW*0.83 - colW/2];
+      const colors = ["#16a34a","#2563eb","#ef4444"];
+      const vals = [a,b,c];
+      const grid = [0,0.25,0.5,0.75,1].map((r,i)=>(<line key={i} x1={padX} y1={padY+innerH*r} x2={w-padX} y2={padY+innerH*r} stroke="#eef2f7" />));
+      return (
+        <svg width={w} height={h} role="img" aria-label="Воронка Панквеб — суммарные показатели">
+          <rect x="0" y="0" width={w} height={h} rx="16" ry="16" fill="#ffffff" stroke="#e5e7eb"/>
+          {grid}
+          {vals.map((v,i)=>(
+            <g key={i}>
+              <rect x={xs[i]} y={yFor(v)} width={colW} height={padY+innerH - yFor(v)} fill={colors[i]} opacity="0.88"/>
+              <text x={xs[i]+colW/2} y={yFor(v)-8} fontSize="12" fill="#111827" textAnchor="middle" fontWeight="600">{fmtMoney(v)}</text>
+              <text x={xs[i]+colW/2} y={padY+innerH+18} fontSize="12" fill="#0f172a" textAnchor="middle">{labels[i]}</text>
+            </g>
+          ))}
         </svg>
       );
     }
@@ -557,6 +587,19 @@
         return Math.round(sum);
       };
 
+      /* Факт по проекту в пределах заданного набора недель */
+      const sumFactCostForProjectWeeks = (projectId, weekList)=>{
+        const pr = projects.find(p=>p.id===projectId); if(!pr) return 0;
+        const teamSet = projectTeams[projectId] || new Set();
+        let sum = 0;
+        teamSet.forEach(pid=>{
+          const person = people.find(p=>p.id===pid); if(!person) return;
+          const factH = sumFactForPersonProject(assignments, pid, projectId, weekList);
+          sum += factH * rateFor(person, pr.projectType||"external");
+        });
+        return Math.round(sum);
+      };
+
       useEffect(()=>{
         setProjects(prev=>{
           let changed = false;
@@ -643,14 +686,12 @@
       const [newProjectColor, setNewProjectColor] = useState("#3b82f6");
       const [newProjectStatus, setNewProjectStatus] = useState("active");
 
-      const personSuggestions = useMemo(()=>{
-        return []; // (заменено на select)
-      }, []);
+      const personSuggestions = useMemo(()=>[], []);
 
       function submitNewProject(){
         const name = (newProjectName||"").trim(); if(!name) return;
         const id = rndId(); const color = newProjectColor || "#64748b"; const status = newProjectStatus;
-        setProjects(ps=> ps.concat([{ id, name, color, status, budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false }]));
+        setProjects(ps=> ps.concat([{ id, name, color, status, budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false, startDate:"", endDate:"" }]));
         setProjectTeams(pt=>{
           const copy={};
           for(const k in pt){ if(Object.prototype.hasOwnProperty.call(pt,k)){ copy[k]=new Set(pt[k]); } }
@@ -690,7 +731,6 @@
               <div className="ml-auto flex items-center gap-2">
                 <button onClick={()=>setCreateProjectOpen(true)} className="btn btn-sm">+ Проект</button>
                 <button onClick={()=>setCreatePersonOpen(true)} className="btn btn-sm">+ Сотрудник</button>
-                {/* Убрана кнопка "Выйти" */}
               </div>
             </div>
           </header>
@@ -865,6 +905,22 @@
                                 <label className="text-xs text-neutral-600">Себестоимость (факт)</label>
                                 <div className="px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50 text-sm">{fmtMoney(factCost)}</div>
                               </div>
+
+                              {/* Новые поля сроков */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-xs text-neutral-600 mb-1">Начало проекта</label>
+                                  <input type="date" value={project.startDate||""}
+                                         onChange={e=> setProjects(prev=> prev.map(p=> p.id===project.id ? Object.assign({}, p, {startDate:e.target.value}) : p))}
+                                         className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm"/>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-neutral-600 mb-1">Конец проекта</label>
+                                  <input type="date" value={project.endDate||""}
+                                         onChange={e=> setProjects(prev=> prev.map(p=> p.id===project.id ? Object.assign({}, p, {endDate:e.target.value}) : p))}
+                                         className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm"/>
+                                </div>
+                              </div>
                             </div>
 
                             <div className="pt-1 text-right">
@@ -950,7 +1006,6 @@
                           <div className="relative bg-white rounded-2xl shadow-sm h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-md hover:bg-blue-50/70 transition">
                             <div className="font-medium truncate" title="Открыть графики по проектам">{person.name}</div>
                             <div className="mt-1 text-[11px] text-neutral-600">{String(person.role||"").toUpperCase()}</div>
-                            {/* Убрали «Графики» */}
                           </div>
                         </div>
                       </div>
@@ -972,34 +1027,15 @@
               </div>
             )}
 
-            {/* Аналитика (проекты) — шапка-плашка + график ниже */}
+            {/* Аналитика (проекты) */}
             {view==="analyticsProjects" && (
-              <div className="grid grid-cols-2 gap-3">
-                {projects.map(pr=>{
-                  const budget = pr.budgetWithVAT||0;
-                  const factMoney = sumFactCostForProject(pr.id);
-                  return (
-                    <div key={pr.id} className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-2">
-                      {/* Вынесенное название проекта */}
-                      <div className="flex items-center gap-2 p-2 rounded-xl border border-neutral-200 bg-white mb-2">
-                        <span className="w-7 h-7 rounded-lg grid place-items-center text-white" style={{background:pr.color}}>
-                          <StatusIcon status={pr.status}/>
-                        </span>
-                        <div className="font-semibold truncate">{pr.name}</div>
-                      </div>
-                      <ChartBarsMoney
-                        plan={budget}
-                        fact={factMoney}
-                        width={520}
-                        height={160}
-                        title={pr.name}
-                        planLabel="Бюджет с НДС"
-                        factLabel="Себестоимость (факт)"
-                      />
-                    </div>
-                  );
-                })}
-              </div>
+              <AnalyticsProjectsView
+                projects={projects}
+                assignments={assignments}
+                weeksAll={weeks}
+                sumFactCostForProjectWeeks={sumFactCostForProjectWeeks}
+                rateFor={rateFor}
+              />
             )}
           </main>
 
@@ -1687,6 +1723,7 @@
       );
     }
 
+    /* -------------------- Роли -------------------- */
     function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass='top-[calc(var(--app-header-h)+48px)]'}){
       const [adding, setAdding] = useState("");
       const [editing, setEditing] = useState(null);
@@ -1726,6 +1763,174 @@
       );
     }
 
+    /* -------------------- Аналитика проектов с «Воронка Панквеб» -------------------- */
+    function AnalyticsProjectsView({ projects, assignments, weeksAll, sumFactCostForProjectWeeks, rateFor }){
+      const [mode, setMode] = useState("year"); // "year" | "month"
+      const now = new Date();
+      const [year, setYear] = useState(now.getFullYear());
+      const [month, setMonth] = useState(now.getMonth()+1); // 1..12
+
+      const yearsRange = useMemo(()=>{
+        // Собираем уникальные годы из недель/проектов
+        const years = new Set([now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1]);
+        projects.forEach(p=>{
+          const s = parseDate(p.startDate); const e = parseDate(p.endDate);
+          if(s) years.add(s.getFullYear());
+          if(e) years.add(e.getFullYear());
+        });
+        return Array.from(years).sort((a,b)=>a-b);
+      }, [projects]);
+
+      const period = useMemo(()=>{
+        if(mode==="year"){
+          const start = new Date(year,0,1); start.setHours(0,0,0,0);
+          const end = new Date(year,11,31); end.setHours(23,59,59,999);
+          return {start,end};
+        }else{
+          const start = new Date(year, (month-1), 1); start.setHours(0,0,0,0);
+          const end = new Date(year, (month), 0); end.setHours(23,59,59,999);
+          return {start,end};
+        }
+      }, [mode, year, month]);
+
+      const periodMondays = useMemo(()=>{
+        const ms = startOfISOWeek(period.start);
+        const me = startOfISOWeek(period.end);
+        // фильтруем известные weeksAll по интервалу (включительно)
+        return weeksAll.filter(w => {
+          const d = new Date(w);
+          return d>=ms && d<=me;
+        });
+      }, [weeksAll, period]);
+
+      const projectOverlapsPeriod = (p)=>{
+        const s = parseDate(p.startDate) || new Date(1970,0,1);
+        const e = parseDate(p.endDate) || new Date(2999,11,31);
+        return overlap(s,e, period.start, period.end);
+      };
+
+      const totals = useMemo(()=>{
+        let sumBudgetVat = 0;
+        let sumBudgetNet = 0;
+        let sumFact = 0;
+        projects.forEach(p=>{
+          if(!projectOverlapsPeriod(p)) return;
+          const bud = Math.max(0, Number(p.budgetWithVAT)||0);
+          sumBudgetVat += bud;
+          sumBudgetNet += Math.round(bud / (1+VAT_RATE));
+          sumFact += sumFactCostForProjectWeeks(p.id, periodMondays);
+        });
+        return { sumBudgetVat: Math.round(sumBudgetVat), sumBudgetNet: Math.round(sumBudgetNet), sumFact: Math.round(sumFact) };
+      }, [projects, periodMondays, sumFactCostForProjectWeeks, period]);
+
+      const income = totals.sumBudgetNet; // Доход — без НДС
+      const expenses = totals.sumFact;    // Расходы — себестоимость (факт)
+      const profit = Math.max(0, income - expenses);
+
+      return (
+        <div className="space-y-3">
+          {/* Воронка Панквеб */}
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4">
+            <div className="flex items-start gap-4">
+              <div className="flex-1">
+                <div className="text-xl font-bold mb-2">Воронка Панквеб</div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="segmented" role="tablist" aria-label="Период">
+                    <button className={mode==="year"?"active":"idle"} onClick={()=>setMode("year")}>Год</button>
+                    <button className={mode==="month"?"active":"idle"} onClick={()=>setMode("month")}>Месяц</button>
+                  </div>
+                  {mode==="year" && (
+                    <select value={year} onChange={e=>setYear(parseInt(e.target.value,10))}
+                            className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">
+                      {yearsRange.map(y=>(<option key={y} value={y}>{y}</option>))}
+                    </select>
+                  )}
+                  {mode==="month" && (
+                    <Fragment>
+                      <select value={month} onChange={e=>setMonth(parseInt(e.target.value,10))}
+                              className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">
+                        {RU_MONTHS.map((m,idx)=>(<option key={idx} value={idx+1}>{m} {year}</option>))}
+                      </select>
+                      <select value={year} onChange={e=>setYear(parseInt(e.target.value,10))}
+                              className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">
+                        {yearsRange.map(y=>(<option key={y} value={y}>{y}</option>))}
+                      </select>
+                    </Fragment>
+                  )}
+                  <div className="ml-auto hidden sm:block text-xs text-neutral-500">
+                    Период: {period.start.toLocaleDateString("ru-RU")} — {period.end.toLocaleDateString("ru-RU")}
+                  </div>
+                </div>
+
+                <ChartBarsTriple
+                  a={totals.sumBudgetVat}
+                  b={totals.sumBudgetNet}
+                  c={totals.sumFact}
+                  width={980}
+                  height={280}
+                />
+              </div>
+
+              {/* Текстовые показатели справа */}
+              <div className="w-[280px] shrink-0">
+                <div className="rounded-2xl border border-neutral-200 p-3 bg-neutral-50">
+                  <div className="text-sm text-neutral-700 mb-2">Показатели за период</div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-neutral-700">Доход</span>
+                      <span className="font-semibold">{fmtMoney(income)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-neutral-700">Расходы</span>
+                      <span className="font-semibold">{fmtMoney(expenses)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-neutral-700">Прибыль</span>
+                      <span className={"font-semibold "+(profit>=0?"text-green-700":"text-red-700")}>{fmtMoney(profit)}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-[11px] text-neutral-500">
+                    * Доход считается как «Бюджет без НДС» суммарно по проектам, пересекающим выбранный период; Расходы — «Себестоимость (факт)».
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Детализация по проектам ниже */}
+          <div className="grid grid-cols-2 gap-3">
+            {projects.filter(projectOverlapsPeriod).map(pr=>{
+              // факт только в выбранном периоде
+              const factMoney = sumFactCostForProjectWeeks(pr.id, periodMondays);
+              const budget = pr.budgetWithVAT||0;
+              return (
+                <div key={pr.id} className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-2">
+                      <div className="flex items-center gap-2 p-2 rounded-xl border border-neutral-200 bg-white mb-2">
+                        <span className="w-7 h-7 rounded-lg grid place-items-center text-white" style={{background:pr.color}}>
+                          <StatusIcon status={pr.status}/>
+                        </span>
+                        <div className="font-semibold truncate">{pr.name}</div>
+                      </div>
+                      <ChartBarsMoney
+                        plan={budget}
+                        fact={factMoney}
+                        width={520}
+                        height={160}
+                        title={pr.name}
+                        planLabel="Бюджет с НДС"
+                        factLabel="Себестоимость (факт)"
+                      />
+                      <div className="mt-2 text-[11px] text-neutral-500 px-2">
+                        Сроки: {pr.startDate ? new Date(pr.startDate).toLocaleDateString("ru-RU") : "—"} — {pr.endDate ? new Date(pr.endDate).toLocaleDateString("ru-RU") : "—"}
+                      </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
     function CreatePersonModal({open, onClose, name, setName, role, setRole, external, setExternal, onSubmit, roles}){
       if(!open) return null;
       return (
@@ -1755,7 +1960,7 @@
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-h-[80vh] overflow-auto p-4" onClick={e=>e.stopPropagation()}>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-height-[80vh] overflow-auto p-4" onClick={e=>e.stopPropagation()}>
             <div className="text-base font-semibold mb-3">Новый проект</div>
             <div className="grid grid-cols-2 gap-3">
               <div><label className="block text-sm mb-1">Название</label><input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/></div>
