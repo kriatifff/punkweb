@@ -56,7 +56,7 @@
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; }
     @media print {
       header, .segmented, .no-print { display:none !important; }
-      body { background: #fff !important; }
+      body { background: #fff !重要; }
       .print-p-0 { padding:0 !important; margin:0 !important; }
       .shadow-sm, .shadow-lg, .shadow-xl { box-shadow:none !important; }
       .border-neutral-200, .border { border-color:#bbb !important; }
@@ -222,13 +222,12 @@
         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
       </svg>
     );
-    /* НОВАЯ иконка — крестик */
+    /* Обновлённая иконка — аккуратный крестик без кружка, как у карандашика */
     const CrossIcon = ({className=""}) => (
-      <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
+      <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="9"></circle>
-        <line x1="9" y1="9" x2="15" y2="15"></line>
-        <line x1="15" y1="9" x2="9" y2="15"></line>
+        <line x1="5" y1="5" x2="19" y2="19"></line>
+        <line x1="19" y1="5" x2="5" y2="19"></line>
       </svg>
     );
     const EyedropperIcon = ({className=""}) => (
@@ -266,7 +265,7 @@
         const pts = []; for(let i=0;i<n;i++){ const v = (arr[i]==null?0:arr[i]); pts.push([xFor(i), yFor(v)]); }
         if(!pts.length) return ""; let d = "M"+pts[0][0]+","+pts[0][1]; for(let j=1;j<pts.length;j++){ d += " L"+pts[j][0]+","+pts[j][1]; } return d;
       };
-      const grid = yTicks.map(t=> (<line key={"g"+t} x1={padX} y1={yFor(t)} x2={w-padX} y2={yFor(t)} stroke="#e5e7eb" strokeWidth="1" />));
+      const grid = yTicks.map(t=> (<line key={"g"+t} x1={padX} y1={yFor(t)} x2={w-padX} x2={w-padX} y2={yFor(t)} stroke="#e5e7eb" strokeWidth="1" />));
       const legend = (
         <g>
           <rect x={w-150} y={6} width="142" height="20" rx="6" ry="6" fill="white" stroke="#e5e7eb"/>
@@ -313,7 +312,7 @@
       );
     }
 
-    /* Обновлённый график: три столбца для «Воронка Панквеб» c жирной базовой линией и подписями под началом */
+    /* Три столбца для «Воронка Панквеб» — базовая линия теперь серая */
     function ChartBarsTriple({ a=0, b=0, c=0, width=820, height=260, labels=["Бюджет с НДС","Бюджет без НДС","Себестоимость, факт"] }){
       const w = Math.max(width, 640), h = Math.max(height, 220);
       const padX=28, padY=30;
@@ -330,8 +329,8 @@
         <svg width={w} height={h} role="img" aria-label="Воронка Панквеб — суммарные показатели">
           <rect x="0" y="0" width={w} height={h} rx="16" ry="16" fill="#ffffff" stroke="#e5e7eb"/>
           {grid}
-          {/* Жирная базовая линия над подписями */}
-          <line x1={padX} y1={baselineY} x2={w-padX} y2={baselineY} stroke="#111827" strokeWidth="3"/>
+          {/* Серая базовая линия над подписями */}
+          <line x1={padX} y1={baselineY} x2={w-padX} y2={baselineY} stroke="#cbd5e1" strokeWidth="3"/>
           {/* Столбцы */}
           {vals.map((v,i)=>(
             <g key={i}>
@@ -860,7 +859,7 @@
 
                               <InlineProjectNameEditor project={project} setProjects={setProjects} />
 
-                              {/* Карандашик (пипетка) левее, крестик справа */}
+                              {/* Карандашик (пипетка) левее, крестик справа — без рамки, такой же ховер */}
                               <button
                                 className="ml-auto w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
                                 title="Изменить цвет"
@@ -880,7 +879,7 @@
                                 }}
                               />
                               <button
-                                className="w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-700 hover:bg-red-50 border border-neutral-200"
+                                className="w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
                                 title="Удалить проект"
                                 onClick={()=>deleteProject(project.id)}
                                 type="button"
@@ -1046,6 +1045,8 @@
                 weeksAll={weeks}
                 sumFactCostForProjectWeeks={sumFactCostForProjectWeeks}
                 rateFor={rateFor}
+                projectTeams={projectTeams}
+                people={people}
               />
             )}
           </main>
@@ -1659,8 +1660,8 @@
                   <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 min-w-0 h-[190px] flex flex-col justify-center">
                     <div className="flex items-center gap-2">
                       <InlineNameEditor person={p} setPeople={setPeople}/>
-                      {/* Крестик удаления сотрудника */}
-                      <button className="text-neutral-700 hover:text-red-700 ml-auto border border-neutral-200 rounded-lg w-7 h-7 grid place-items-center hover:bg-red-50"
+                      {/* Крестик удаления сотрудника — без рамки, как у карандашика */}
+                      <button className="ml-auto w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
                               title="Удалить сотрудника" onClick={()=>deletePerson(p.id)}>
                         <CrossIcon/>
                       </button>
@@ -1808,17 +1809,16 @@
     }
 
     /* -------------------- Аналитика проектов с «Воронка Панквеб» -------------------- */
-    function AnalyticsProjectsView({ projects, assignments, weeksAll, sumFactCostForProjectWeeks, rateFor }){
+    function AnalyticsProjectsView({ projects, assignments, weeksAll, sumFactCostForProjectWeeks, rateFor, projectTeams, people }){
       const [mode, setMode] = useState("year"); // "year" | "month"
       const now = new Date();
       const [year, setYear] = useState(now.getFullYear());
       const [month, setMonth] = useState(now.getMonth()+1); // 1..12
+      const [personFilter, setPersonFilter] = useState("all"); // 'all' | personId
 
       const yearsRange = useMemo(()=>{
         const years = new Set();
-        // расширенный диапазон: от текущего -5 до текущего +10
         for(let y=now.getFullYear()-5; y<=now.getFullYear()+10; y++){ years.add(y); }
-        // даты из проектов
         projects.forEach(p=>{
           const s = parseDate(p.startDate); const e = parseDate(p.endDate);
           if(s) years.add(s.getFullYear());
@@ -1854,37 +1854,78 @@
         return overlap(s,e, period.start, period.end);
       };
 
+      const activeAnyWeekInPeriod = (p)=>{
+        const s = parseDate(p.startDate) || new Date(1970,0,1);
+        const e = parseDate(p.endDate) || new Date(2999,11,31);
+        return periodMondays.some(m=>{
+          const d = new Date(m);
+          const wEnd = addDays(d, 6);
+          return overlap(s,e,d,wEnd);
+        });
+      };
+
+      const personMatches = (p)=>{
+        if(personFilter==="all") return true;
+        const set = projectTeams[p.id];
+        return !!(set && set.has && set.has(personFilter));
+      };
+
+      const projectIncluded = (p)=>{
+        if(!projectOverlapsPeriod(p)) return false;
+        if(!personMatches(p)) return false;
+        if(mode==="month"){
+          return p.status==="active" && activeAnyWeekInPeriod(p);
+        }
+        return true; // год — любые статусы
+      };
+
+      const consideredProjects = useMemo(()=> projects.filter(projectIncluded), [projects, projectIncluded]);
+
       const totals = useMemo(()=>{
         let sumBudgetVat = 0;
         let sumBudgetNet = 0;
         let sumFact = 0;
-        projects.forEach(p=>{
-          if(!projectOverlapsPeriod(p)) return;
+        consideredProjects.forEach(p=>{
           const bud = Math.max(0, Number(p.budgetWithVAT)||0);
           sumBudgetVat += bud;
           sumBudgetNet += Math.round(bud / (1+VAT_RATE));
           sumFact += sumFactCostForProjectWeeks(p.id, periodMondays);
         });
         return { sumBudgetVat: Math.round(sumBudgetVat), sumBudgetNet: Math.round(sumBudgetNet), sumFact: Math.round(sumFact) };
-      }, [projects, periodMondays, sumFactCostForProjectWeeks, period]);
+      }, [consideredProjects, sumFactCostForProjectWeeks, periodMondays]);
 
       const income = totals.sumBudgetNet; // Доход — без НДС
       const expenses = totals.sumFact;    // Расходы — себестоимость (факт)
-      const profit = Math.max(0, income - expenses);
+      const profit = income - expenses;
+
+      const peopleOptions = useMemo(()=>{
+        const arr = [{value:"all", label:"Все специалисты"}];
+        people.filter(p=>p.active).forEach(p=> arr.push({value:p.id, label:p.name}));
+        return arr;
+      }, [people]);
 
       return (
         <div className="space-y-3">
           {/* Воронка Панквеб */}
           <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4">
-            {/* Заголовок + переключатели + подпись периода справа на уровне заголовка */}
+            {/* Заголовок + селектор специалиста + переключатели справа */}
             <div className="flex items-start gap-3 mb-3">
               <div className="flex-1">
                 <div className="text-xl font-bold">Воронка Панквеб</div>
                 <div className="mt-2 flex items-center gap-2">
-                  <div className="segmented" role="tablist" aria-label="Период">
-                    <button className={mode==="year"?"active":"idle"} onClick={()=>setMode("year")}>Год</button>
-                    <button className={mode==="month"?"active":"idle"} onClick={()=>setMode("month")}>Месяц</button>
-                  </div>
+                  <label className="text-sm text-neutral-700">Специалист</label>
+                  <select value={personFilter} onChange={e=>setPersonFilter(e.target.value)}
+                          className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">
+                    {peopleOptions.map(o=> (<option key={o.value} value={o.value}>{o.label}</option>))}
+                  </select>
+                </div>
+              </div>
+              <div className="shrink-0 mt-1">
+                <div className="segmented" role="tablist" aria-label="Период">
+                  <button className={mode==="year"?"active":"idle"} onClick={()=>setMode("year")}>Год</button>
+                  <button className={mode==="month"?"active":"idle"} onClick={()=>setMode("month")}>Месяц</button>
+                </div>
+                <div className="mt-2 flex items-center gap-2 justify-end">
                   {mode==="year" && (
                     <select value={year} onChange={e=>setYear(parseInt(e.target.value,10))}
                             className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">
@@ -1905,14 +1946,10 @@
                   )}
                 </div>
               </div>
-              {/* Подпись периода справа, но внутри общей ширины блока */}
-              <div className="shrink-0 text-xs text-neutral-500 mt-1 pr-6">
-                Период: {period.start.toLocaleDateString("ru-RU")} — {period.end.toLocaleDateString("ru-RU")}
-              </div>
             </div>
 
             {/* Две колонки — график и показатели, всё внутри одной рамки */}
-            <div className="grid grid-cols-[minmax(600px,1fr)_280px] gap-4 items-start">
+            <div className="grid grid-cols-[minmax(600px,1fr)_260px] gap-2 items-start">
               <div className="overflow-hidden">
                 <ChartBarsTriple
                   a={totals.sumBudgetVat}
@@ -1923,10 +1960,13 @@
                 />
               </div>
 
-              {/* Показатели за период (внутри той же карточки) */}
-              <div className="w-[280px] shrink-0">
-                <div className="rounded-2xl border border-neutral-200 p-3 bg-neutral-50">
-                  <div className="text-sm text-neutral-700 mb-2">Показатели за период</div>
+              {/* Показатели за период — без рамки и серого фона, период под заголовком */}
+              <div className="w-[260px] shrink-0">
+                <div className="rounded-2xl p-3">
+                  <div className="text-sm text-neutral-700">Показатели за период</div>
+                  <div className="text-xs text-neutral-500 mb-2">
+                    {period.start.toLocaleDateString("ru-RU")} — {period.end.toLocaleDateString("ru-RU")}
+                  </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-neutral-700">Доход</span>
@@ -1946,9 +1986,12 @@
             </div>
           </div>
 
-          {/* Детализация по проектам ниже */}
+          {/* Заголовок списка проектов */}
+          <div className="text-xl font-bold text-neutral-500">Проекты</div>
+
+          {/* Детализация по проектам ниже (фильтрация по периоду и специалисту) */}
           <div className="grid grid-cols-2 gap-3">
-            {projects.filter(projectOverlapsPeriod).map(pr=>{
+            {consideredProjects.map(pr=>{
               const factMoney = sumFactCostForProjectWeeks(pr.id, periodMondays);
               const budget = pr.budgetWithVAT||0;
               return (
@@ -1974,6 +2017,9 @@
                 </div>
               );
             })}
+            {consideredProjects.length===0 && (
+              <div className="col-span-2 text-sm text-neutral-500 p-3">За выбранный период проектов не найдено.</div>
+            )}
           </div>
         </div>
       );
