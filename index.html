@@ -53,20 +53,22 @@
 <body class="bg-[#F7F8FA] no-scrollbar">
   <div id="root"></div>
 
-  <!-- ВАЖНО: preset env для стабильных трансформаций -->
   <script type="text/babel" data-presets="env,react">
     const {useState, useEffect, useMemo, useRef, Fragment} = React;
 
     // ---------- Конфигурация ----------
     const MAX_FTE = 1.2;
     const WEEK_COL_PX = 72;
-    const TEAM_BAR_COLOR = "#22c55e"; // зелёный план
-    const FACT_LINE_COLOR = "#ef4444"; // красный факт
+    const TEAM_BAR_COLOR = "#22c55e"; // зелёный план (часы)
+    const FACT_LINE_COLOR = "#ef4444"; // красный факт (часы)
     const VISIBLE_WEEKS = 16;
 
-    // ==== часы ====
     const HOURS_PER_WEEK = 40;
     const BAR_MAX_HOURS = 40;
+
+    const COLOR_50 = "#FFF7ED"; // light orange 50%
+    const COLOR_70 = "#FFE4E6"; // light rose 70%
+    const COLOR_100 = "#FECDD3"; // brighter red >100%
 
     const fteToHours = (fte) => Math.round((Number(fte)||0) * HOURS_PER_WEEK);
     const hoursToFte = (hours) => {
@@ -78,6 +80,7 @@
       const v = Math.min(Math.max(0, Math.round(Number(h)||0)), BAR_MAX_HOURS);
       return v / BAR_MAX_HOURS;
     };
+    const fmtMoney = (n) => "₽ "+(Math.round(Number(n)||0)).toLocaleString("ru-RU");
 
     // ---------- Persistence ----------
     const LS_KEY = "fteplanner.v1";
@@ -96,7 +99,7 @@
         debouncedSaveAllRemote(merged);
       }catch(e){}
     }
-    // серверные заглушки (если у вас подключены API — можно заменить на реальный вызов)
+    // серверные заглушки (можно заменить на реальные вызовы /api)
     async function loadAllRemote(){ return null; }
     async function saveAllRemote(_state){}
     let saveTimer=null;
@@ -122,11 +125,7 @@
     const weekLabelParts = (iso) => { const d=new Date(iso); const w=1+Math.floor((d.getDate()-1)/7); return { top:(w+" нед"), bot:ruMonthShort(d.getMonth()) }; };
     const weekRangeLabel = (iso) => { const d=new Date(iso); const end=addDays(d,6); return fmtDM(d)+"–"+fmtDM(end); };
     const rndId = () => {
-      try{
-        if(window && window.crypto && typeof window.crypto.randomUUID==="function"){
-          return window.crypto.randomUUID();
-        }
-      }catch(e){}
+      try{ if(window && window.crypto && typeof window.crypto.randomUUID==="function"){ return window.crypto.randomUUID(); } }catch(e){}
       return Math.random().toString(36).slice(2)+"_"+Date.now();
     };
     const fmtFTE1 = (n) => (Math.round(n*10)/10).toFixed(1);
@@ -136,7 +135,6 @@
       const list=[]; while(m<=end){ list.push(fmtISO(m)); m=addDays(m,7); }
       return list;
     };
-
     const isWeekEnded = (weekISO) => {
       const end = addDays(new Date(weekISO), 6);
       const today = new Date(); today.setHours(0,0,0,0);
@@ -145,15 +143,15 @@
 
     // ---------- Данные по умолчанию ----------
     const base = startOfISOWeek(new Date());
-    const initialWeeks = Array.from({length:24}, function(_,i){ return fmtISO(addWeeks(base, i-4)); });
+    const initialWeeks = Array.from({length:24}, (_,i)=> fmtISO(addWeeks(base, i-4)));
     const seedPeople = [
-      { id:"p1", name:"Саша", role:"manager", capacityPerWeek:1, active:true, external:false },
-      { id:"p2", name:"Катя К.", role:"designer", capacityPerWeek:1, active:true, external:false },
+      { id:"p1", name:"Саша", role:"manager", capacityPerWeek:1, active:true, external:false, rateInternal:1500, rateExternal:2500 },
+      { id:"p2", name:"Катя К.", role:"designer", capacityPerWeek:1, active:true, external:false, rateInternal:1400, rateExternal:2600 },
     ];
     const seedProjects = [
-      { id:"pr1", name:"HR Подкасты", status:"active", color:"#3b82f6" },
-      { id:"pr2", name:"Арктика Медиа", status:"active", color:"#f43f5e" },
-      { id:"pr3", name:"Падел-теннис", status:"planned", color:"#06b6d4" },
+      { id:"pr1", name:"HR Подкасты", status:"active", color:"#3b82f6", budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false },
+      { id:"pr2", name:"Арктика Медиа", status:"active", color:"#f43f5e", budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false },
+      { id:"pr3", name:"Падел-теннис", status:"planned", color:"#06b6d4", budgetWithVAT:0, projectType:"internal", costEditable:0, costEditableTouched:false },
     ];
     const seedAssignments = [
       { id:"a1", personId:"p1", projectId:"pr1", weekStart: initialWeeks[4], fte:0.3 },
@@ -163,8 +161,7 @@
     const seedRoles = ["designer","dev","manager","pm","other"];
 
     // ---------- Агрегации ----------
-    const personWeekTotal = (as, pid, w) => as.filter(function(a){return a.personId===pid && a.weekStart===w;}).reduce(function(s,a){return s+a.fte;},0);
-
+    const personWeekTotal = (as, pid, w) => as.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
     const effectiveFactHours = (a, w) => {
       var has = (a && a.factHours!=null && !isNaN(a.factHours));
       if(has) return Math.max(0, Math.round(Number(a.factHours)||0));
@@ -172,18 +169,16 @@
       return 0;
     };
     const personWeekFactTotal = (as, pid, w) =>
-      as.filter(function(a){ return a.personId===pid && a.weekStart===w; })
-        .reduce(function(s,a){ return s + effectiveFactHours(a,w); }, 0);
+      as.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=> s + effectiveFactHours(a,w), 0);
+    const fteFor = (as, pid, pr, w) => as.filter(a=>a.personId===pid && a.projectId===pr && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
+    const personProjectWeekFact = (as, pid, pr, w) => as.filter(a=>a.personId===pid && a.projectId===pr && a.weekStart===w).reduce((sum,a)=> sum + effectiveFactHours(a,w), 0);
 
-    const fteFor = (as, pid, pr, w) => as.filter(function(a){return a.personId===pid && a.projectId===pr && a.weekStart===w;}).reduce(function(s,a){return s+a.fte;},0);
+    // по проекту и сотруднику (за весь период известных недель)
+    function sumFactForPersonProject(as, pid, pr, weeks){
+      return weeks.reduce((acc, w)=> acc + personProjectWeekFact(as, pid, pr, w), 0);
+    }
 
-    // факт по конкретному проекту/неделе для сотрудника (сумма, если есть несколько назначений)
-    const personProjectWeekFact = (as, pid, pr, w) => {
-      return as.filter(function(a){ return a.personId===pid && a.projectId===pr && a.weekStart===w; })
-               .reduce(function(sum, a){ return sum + effectiveFactHours(a, w); }, 0);
-    };
-
-    const mergeOrder = (existing, nextIds) => {
+    function mergeOrder(existing, nextIds) {
       const seen={}; const res=[];
       var i;
       for(i=0;i<(existing||[]).length;i++){
@@ -195,7 +190,7 @@
         if(!seen[id2]){ res.push(id2); seen[id2]=true; }
       }
       return res;
-    };
+    }
 
     // ---------- Icons ----------
     function StatusIcon(props){
@@ -239,53 +234,32 @@
     );
 
     function WeekHeader({iso}){
-      const parts = weekLabelParts(iso);
+      const d = weekLabelParts(iso);
       return (
         <div className="h-[40px] flex items-center justify-center text-neutral-700">
           <span className="block text-center leading-tight" style={{width:WEEK_COL_PX}}>
-            <div className="text-xs font-medium">{parts.top}</div>
-            <div className="text-[10px]">{parts.bot}</div>
+            <div className="text-xs font-medium">{d.top}</div>
+            <div className="text-[10px]">{d.bot}</div>
           </span>
         </div>
       );
     }
 
-    // ---------- Простая SVG-линейка (две линии: план/факт) ----------
-    function ChartLineDual({
-      plan=[], fact=[], width=400, height=120,
-      padX=12, padY=10,
-      yTicks=[0,20,40,60,80],
-      green=TEAM_BAR_COLOR,
-      red=FACT_LINE_COLOR,
-      title=""
-    }){
+    // ---------- SVG Line (две линии) ----------
+    function ChartLineDual({ plan=[], fact=[], width=400, height=120, padX=12, padY=10, yTicks=[0,20,40,60,80], green=TEAM_BAR_COLOR, red=FACT_LINE_COLOR, title="" }){
       const n = Math.max(plan.length, fact.length);
       const w = Math.max(width, 40);
       const h = Math.max(height, 60);
       const innerW = Math.max(10, w - padX*2);
       const innerH = Math.max(10, h - padY*2);
-
-      const maxVal = Math.max(HOURS_PER_WEEK, 10, Math.max.apply(null, plan.concat(fact).map(function(x){return Number(x)||0;})));
-      function yFor(val){ const v=Math.max(0, Number(val)||0); const r=v/maxVal; return padY + (innerH*(1-r)); }
-      function xFor(i){ if(n<=1) return padX + innerW/2; const step=innerW/(n-1); return padX + i*step; }
-
-      function pathFor(arr){
-        const pts = [];
-        for(var i=0;i<n;i++){
-          const v = (arr[i]==null?0:arr[i]);
-          pts.push([xFor(i), yFor(v)]);
-        }
-        if(pts.length===0) return "";
-        let d = "M"+pts[0][0]+","+pts[0][1];
-        for(var j=1;j<pts.length;j++){ d += " L"+pts[j][0]+","+pts[j][1]; }
-        return d;
-      }
-
-      const grid = yTicks.map(function(t){
-        const y=yFor(t);
-        return (<line key={"g"+t} x1={padX} y1={y} x2={w-padX} y2={y} stroke="#e5e7eb" strokeWidth="1" />);
-      });
-
+      const maxVal = Math.max(HOURS_PER_WEEK, 10, Math.max.apply(null, plan.concat(fact).map(x=>Number(x)||0)));
+      const yFor = (val)=> { const v=Math.max(0, Number(val)||0); const r=v/maxVal; return padY + (innerH*(1-r)); };
+      const xFor = (i)=> { if(n<=1) return padX + innerW/2; const step=innerW/(n-1); return padX + i*step; };
+      const pathFor = (arr)=> {
+        const pts = []; for(let i=0;i<n;i++){ const v = (arr[i]==null?0:arr[i]); pts.push([xFor(i), yFor(v)]); }
+        if(!pts.length) return ""; let d = "M"+pts[0][0]+","+pts[0][1]; for(let j=1;j<pts.length;j++){ d += " L"+pts[j][0]+","+pts[j][1]; } return d;
+      };
+      const grid = yTicks.map(t=> (<line key={"g"+t} x1={padX} y1={yFor(t)} x2={w-padX} y2={yFor(t)} stroke="#e5e7eb" strokeWidth="1" />));
       const legend = (
         <g>
           <rect x={w-150} y={6} width="142" height="20" rx="6" ry="6" fill="white" stroke="#e5e7eb"/>
@@ -295,26 +269,44 @@
           <text x={w-50} y={19} fontSize="10" fill="#111827">Факт</text>
         </g>
       );
-
-      const circlesPlan = plan.map(function(v,i){
-        return (<circle key={"pc"+i} cx={xFor(i)} cy={yFor(v)} r="2.5" fill={green} />);
-      });
-      const circlesFact = fact.map(function(v,i){
-        return (<circle key={"fc"+i} cx={xFor(i)} cy={yFor(v)} r="2.5" fill={red} />);
-      });
-
       return (
         <svg width={w} height={h} role="img" aria-label={title}>
           <rect x="0" y="0" width={w} height={h} rx="14" ry="14" fill="#ffffff" stroke="#e5e7eb"/>
-          {/* сетка */}
           {grid}
-          {/* линии */}
           <path d={pathFor(plan)} fill="none" stroke={green} strokeWidth="2.5"/>
-          <path d={pathFor(fact)} fill="none" stroke={red} strokeWidth="2.5" />
-          {/* точки */}
-          {circlesPlan}
-          {circlesFact}
+          <path d={pathFor(fact)} fill="none" stroke={red} strokeWidth="2.5"/>
+          {plan.map((v,i)=>(<circle key={"pc"+i} cx={xFor(i)} cy={yFor(v)} r="2.5" fill={green}/>))}
+          {fact.map((v,i)=>(<circle key={"fc"+i} cx={xFor(i)} cy={yFor(v)} r="2.5" fill={red}/>))}
           {legend}
+        </svg>
+      );
+    }
+
+    // ---------- Мини-барчарт для денег ----------
+    function ChartBarsMoney({ plan=0, fact=0, width=300, height=130, title="", badge="" }){
+      const w = Math.max(width, 220), h = Math.max(height, 120);
+      const padX=18, padY=22;
+      const innerW = w - padX*2, innerH = h - padY*2;
+      const maxVal = Math.max(10, plan, fact);
+      const yFor = (v)=> padY + (innerH * (1 - (Math.max(0, Number(v)||0)/maxVal)));
+      const barW = innerW/3.2;
+      const xPlan = padX + innerW*0.5 - barW*1.2;
+      const xFact = padX + innerW*0.5 + barW*0.2;
+      const grid = [0,0.25,0.5,0.75,1].map((r,i)=>(
+        <line key={i} x1={padX} y1={padY+innerH*r} x2={w-padX} y2={padY+innerH*r} stroke="#f1f5f9" />
+      ));
+      return (
+        <svg width={w} height={h} role="img" aria-label={title}>
+          <rect x="0" y="0" width={w} height={h} rx="14" ry="14" fill="#ffffff" stroke="#e5e7eb"/>
+          {grid}
+          <rect x={xPlan} y={yFor(plan)} width={barW} height={padY+innerH - yFor(plan)} fill="#16a34a" opacity="0.85"/>
+          <rect x={xFact} y={yFor(fact)} width={barW} height={padY+innerH - yFor(fact)} fill="#ef4444" opacity="0.85"/>
+          <text x={padX+6} y={18} fontSize="12" fill="#0f172a">{title}</text>
+          <text x={xPlan+barW/2} y={yFor(plan)-6} fontSize="10" fill="#14532d" textAnchor="middle">{fmtMoney(plan)}</text>
+          <text x={xFact+barW/2} y={yFor(fact)-6} fontSize="10" fill="#7f1d1d" textAnchor="middle">{fmtMoney(fact)}</text>
+          {badge ? (<g><rect x={w-128} y={6} width="122" height="18" rx="9" fill="#f8fafc" stroke="#e2e8f0"/><text x={w-67} y={19} fontSize="10" fill="#334155" textAnchor="middle">{badge}</text></g>) : null}
+          <text x={xPlan+barW/2} y={padY+innerH+14} fontSize="10" fill="#0f172a" textAnchor="middle">Сумма (ред.)</text>
+          <text x={xFact+barW/2} y={padY+innerH+14} fontSize="10" fill="#0f172a" textAnchor="middle">По часам (факт)</text>
         </svg>
       );
     }
@@ -331,7 +323,7 @@
           const first = new Date(weeks[0]);
           const addCount = Math.ceil((-needIdx)/8)*8;
           const prepend = [];
-          for(var i=0;i<addCount;i++){ prepend.push(fmtISO(addWeeks(first, -(i+1)))); }
+          for(let i=0;i<addCount;i++){ prepend.push(fmtISO(addWeeks(first, -(i+1)))); }
           prepend.reverse();
           const next = prepend.concat(weeks);
           setWeeks(next);
@@ -340,7 +332,7 @@
         if(needIdx + VISIBLE_WEEKS >= weeks.length){
           const last = new Date(weeks[weeks.length-1]);
           const more = [];
-          for(var j=0;j<16;j++){ more.push(fmtISO(addWeeks(last, j+1))); }
+          for(let j=0;j<16;j++){ more.push(fmtISO(addWeeks(last, j+1))); }
           const next = weeks.concat(more);
           setWeeks(next);
           return { weeks: next, firstIdx: needIdx };
@@ -360,18 +352,17 @@
         saveJSON({firstWeekISO: r.weeks[r.firstIdx]});
         saveJSON({weeks: r.weeks});
       };
-
       const goToday = () => {
         const todayISO = fmtISO(startOfISOWeek(new Date()));
-        var idx = weeks.indexOf(todayISO);
-        var next = weeks.slice();
+        let idx = weeks.indexOf(todayISO);
+        let next = weeks.slice();
         if(idx<0){
           const needLen = Math.max(VISIBLE_WEEKS, 24);
           const need = [];
-          for(var k=0;k<needLen;k++){ need.push(fmtISO(addWeeks(new Date(todayISO), k))); }
+          for(let k=0;k<needLen;k++){ need.push(fmtISO(addWeeks(new Date(todayISO), k))); }
           const set = {};
-          for(var z=0; z<next.length; z++){ set[next[z]] = true; }
-          for(var q=0; q<need.length; q++){ if(!set[need[q]]){ next.push(need[q]); set[need[q]]=true; } }
+          for(let z=0; z<next.length; z++){ set[next[z]] = true; }
+          for(let q=0; q<need.length; q++){ if(!set[need[q]]){ next.push(need[q]); set[need[q]]=true; } }
           next.sort();
           setWeeks(next);
           saveJSON({weeks: next});
@@ -380,9 +371,7 @@
         setFirstIdx(idx);
         saveJSON({firstWeekISO: next[idx]});
       };
-
-      const visible = useMemo(function(){ return weeks.slice(firstIdx, firstIdx+VISIBLE_WEEKS); }, [weeks, firstIdx]);
-
+      const visible = useMemo(()=> weeks.slice(firstIdx, firstIdx+VISIBLE_WEEKS), [weeks, firstIdx]);
       return {weeks, setWeeks, firstIdx, setFirstIdx, visible, goLeft, goRight, goToday};
     }
 
@@ -393,38 +382,34 @@
       const [people, setPeople] = useState(loadJSON("people", seedPeople));
       const [projects, setProjects] = useState(loadJSON("projects", seedProjects));
       const [assignments, setAssignments] = useState(loadJSON("assignments", seedAssignments));
-      const [roles, setRoles] = useState(loadJSON("roles",[].concat(seedRoles)));
-      const [projectTeams, setProjectTeams] = useState(function(){
+      const [roles, setRoles] = useState(loadJSON("roles",[...seedRoles]));
+      const [projectTeams, setProjectTeams] = useState(()=>{
         const saved = loadJSON("projectTeams", {});
         const map = {};
         for(const k in saved){ if(Object.prototype.hasOwnProperty.call(saved,k)){ map[k]=new Set(saved[k]); } }
         if(Object.keys(map).length===0){
-          for(var i=0;i<seedProjects.length;i++){ map[seedProjects[i].id]=new Set(); }
-          for(var j=0;j<seedAssignments.length;j++){
-            var a=seedAssignments[j]; if(!map[a.projectId]) map[a.projectId]=new Set();
-            map[a.projectId].add(a.personId);
-          }
+          for(let i=0;i<seedProjects.length;i++){ map[seedProjects[i].id]=new Set(); }
+          for(let j=0;j<seedAssignments.length;j++){ const a=seedAssignments[j]; if(!map[a.projectId]) map[a.projectId]=new Set(); map[a.projectId].add(a.personId); }
         }
         return map;
       });
-      const [vacations, setVacations] = useState(function(){
-        const saved = loadJSON("vacations", {});
-        const map = {}; for(const k in saved){ if(Object.prototype.hasOwnProperty.call(saved,k)){ map[k]=new Set(saved[k]); } }
-        return map;
+      // часы по проекту для каждого участника: { [projectId]: { [personId]: hours } }
+      const [projectMemberHours, setProjectMemberHours] = useState(loadJSON("projectMemberHours", {}));
+      const [vacations, setVacations] = useState(()=>{
+        const saved = loadJSON("vacations", {}); const map = {}; for(const k in saved){ if(Object.prototype.hasOwnProperty.call(saved,k)){ map[k]=new Set(saved[k]); } } return map;
       });
       const [personProjectOrder, setPersonProjectOrder] = useState(loadJSON("personProjectOrder", {}));
-      const [teamOrder, setTeamOrder] = useState(function(){ return loadJSON("teamOrder", seedPeople.map(function(p){return p.id;})); });
-
+      const [teamOrder, setTeamOrder] = useState(loadJSON("teamOrder", seedPeople.map(p=>p.id)));
       const [authed, setAuthed] = useState(loadJSON("authed", false));
 
-      // вкладки: team | project | employees | analytics
+      // вкладки: team | project | employees | analyticsTeam | analyticsProjects
       const [view, setView] = useState(loadJSON("view","team"));
-      useEffect(function(){ saveJSON({view:view}); }, [view]);
+      useEffect(()=>{ saveJSON({view}); }, [view]);
 
       const [selectedPersonId, setSelectedPersonId] = useState(null);
-
       const {weeks, setWeeks, visible, goLeft, goRight, goToday} = useWeeksWindow();
 
+      // Подтяжка с сервера (если есть)
       useEffect(function(){
         (async function(){
           try{
@@ -439,6 +424,7 @@
                 const map={}; for(const k in remote.projectTeams){ if(Object.prototype.hasOwnProperty.call(remote.projectTeams,k)){ map[k]=new Set(remote.projectTeams[k]); } }
                 setProjectTeams(map);
               }
+              if(remote.projectMemberHours) setProjectMemberHours(remote.projectMemberHours);
               if(remote.vacations){
                 const map2={}; for(const k2 in remote.vacations){ if(Object.prototype.hasOwnProperty.call(remote.vacations,k2)){ map2[k2]=new Set(remote.vacations[k2]); } }
                 setVacations(map2);
@@ -451,15 +437,15 @@
         })();
       }, []);
 
-      // Автоперенос плана -> факт после завершения недели (если факт ещё не задан)
-      useEffect(function(){
-        setAssignments(function(prev){
-          var changed=false;
-          const next = prev.map(function(a){
-            var has = (a && a.factHours!=null && !isNaN(a.factHours));
+      // Автоперенос плана -> факт по завершённым неделям
+      useEffect(()=>{
+        setAssignments(prev=>{
+          let changed=false;
+          const next = prev.map(a=>{
+            const has = (a && a.factHours!=null && !isNaN(a.factHours));
             if(!has && isWeekEnded(a.weekStart)){
               const v = Math.max(0, Math.round(fteToHours(a.fte)));
-              if(a.factHours!==v){ changed=true; var b=Object.assign({}, a); b.factHours=v; return b; }
+              if(a.factHours!==v){ changed=true; const b=Object.assign({}, a); b.factHours=v; return b; }
             }
             return a;
           });
@@ -467,77 +453,118 @@
         });
       }, [weeks]);
 
-      useEffect(function(){ saveJSON({people:people}); }, [people]);
-      useEffect(function(){ saveJSON({projects:projects}); }, [projects]);
-      useEffect(function(){ saveJSON({assignments:assignments}); }, [assignments]);
-      useEffect(function(){ saveJSON({roles:roles}); }, [roles]);
-      useEffect(function(){
+      // Синхронизация в storage
+      useEffect(()=>{ saveJSON({people}); }, [people]);
+      useEffect(()=>{ saveJSON({projects}); }, [projects]);
+      useEffect(()=>{ saveJSON({assignments}); }, [assignments]);
+      useEffect(()=>{ saveJSON({roles}); }, [roles]);
+      useEffect(()=>{
         const obj={}; for(const k in projectTeams){ if(Object.prototype.hasOwnProperty.call(projectTeams,k)){ obj[k]=Array.from(projectTeams[k]); } }
         saveJSON({projectTeams:obj});
       }, [projectTeams]);
-      useEffect(function(){
+      useEffect(()=>{ saveJSON({projectMemberHours}); }, [projectMemberHours]);
+      useEffect(()=>{
         const obj={}; for(const k in vacations){ if(Object.prototype.hasOwnProperty.call(vacations,k)){ obj[k]=Array.from(vacations[k]); } }
         saveJSON({vacations:obj});
       }, [vacations]);
-      useEffect(function(){ saveJSON({personProjectOrder:personProjectOrder}); }, [personProjectOrder]);
-      useEffect(function(){ saveJSON({teamOrder:teamOrder}); }, [teamOrder]);
+      useEffect(()=>{ saveJSON({personProjectOrder}); }, [personProjectOrder]);
+      useEffect(()=>{ saveJSON({teamOrder}); }, [teamOrder]);
 
-      const isVacation = function(pid,w){
-        const set = vacations[pid];
-        return !!(set && set.has && set.has(w));
-      };
+      const isVacation = (pid,w)=> !!(vacations[pid] && vacations[pid].has && vacations[pid].has(w));
       const dragRow = useRef(null);
 
-      const peopleForTeam = useMemo(function(){ return people.filter(function(p){ return p.active && !p.external; }); }, [people]);
-      const peopleActiveAll = useMemo(function(){ return people.filter(function(p){ return p.active; }); }, [people]);
+      const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]);
+      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]);
 
-      useEffect(function(){
-        setTeamOrder(function(prev){ return mergeOrder(prev, peopleForTeam.map(function(p){return p.id;})); });
+      useEffect(()=>{
+        setTeamOrder(prev=> mergeOrder(prev, peopleForTeam.map(p=>p.id)));
       }, [peopleForTeam]);
 
       const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
-      useEffect(function(){ saveJSON({roleFilter:roleFilter}); }, [roleFilter]);
+      useEffect(()=>{ saveJSON({roleFilter}); }, [roleFilter]);
+      const activeTeamIds = useMemo(()=> teamOrder.filter(id=> peopleForTeam.some(p=>p.id===id)), [teamOrder, peopleForTeam]);
+      const filteredTeamIds = useMemo(()=> activeTeamIds.filter(id=> roleFilter==="all" ? true : (people.find(x=>x.id===id)?.role===roleFilter)), [activeTeamIds, roleFilter, people]);
 
-      const activeTeamIds = useMemo(function(){ return teamOrder.filter(function(id){ return peopleForTeam.some(function(p){return p.id===id;}); }); }, [teamOrder, peopleForTeam]);
-      const filteredTeamIds = useMemo(function(){
-        return activeTeamIds.filter(function(id){
-          if(roleFilter==="all") return true;
-          const p = people.find(function(x){return x.id===id;});
-          return p ? (p.role===roleFilter) : false;
+      // --- расчёт ставок/стоимостей ---
+      const rateFor = (person, projectType)=> (projectType==="internal" ? (person.rateInternal||0) : (person.rateExternal||0));
+      const sumPlanCostForProject = (projectId)=>{
+        const pr = projects.find(p=>p.id===projectId); if(!pr) return 0;
+        const teamSet = projectTeams[projectId] || new Set();
+        let sum = 0;
+        teamSet.forEach(pid=>{
+          const person = people.find(p=>p.id===pid); if(!person) return;
+          const h = Number(projectMemberHours?.[projectId]?.[pid]||0);
+          sum += h * rateFor(person, pr.projectType||"external");
         });
-      }, [activeTeamIds, roleFilter, people]);
+        return Math.round(sum);
+      };
+      const sumFactCostForProject = (projectId)=>{
+        const pr = projects.find(p=>p.id===projectId); if(!pr) return 0;
+        const teamSet = projectTeams[projectId] || new Set();
+        let sum = 0;
+        teamSet.forEach(pid=>{
+          const person = people.find(p=>p.id===pid); if(!person) return;
+          const factH = sumFactForPersonProject(assignments, pid, projectId, weeks);
+          sum += factH * rateFor(person, pr.projectType||"external");
+        });
+        return Math.round(sum);
+      };
+
+      // авто-подстановка «Себестоимость (ред.)» из плановых часов × ставка,
+      // если пользователь ещё не редактировал поле (costEditableTouched=false)
+      useEffect(()=>{
+        setProjects(prev=>{
+          let changed = false;
+          const next = prev.map(p=>{
+            if(p.costEditableTouched) return p;
+            const auto = sumPlanCostForProject(p.id);
+            if((p.costEditable||0)!==auto){
+              changed = true;
+              return Object.assign({}, p, { costEditable: auto });
+            }
+            return p;
+          });
+          return changed ? next : prev;
+        });
+      }, [projectMemberHours, projectTeams, people, weeks]);
 
       function deletePerson(pid){
         if(!confirm("Удалить сотрудника?")) return;
-        setPeople(function(prev){ return prev.filter(function(p){return p.id!==pid;}); });
-        setAssignments(function(prev){ return prev.filter(function(a){return a.personId!==pid;}); });
-        setVacations(function(prev){
+        setPeople(prev=> prev.filter(p=>p.id!==pid));
+        setAssignments(prev=> prev.filter(a=>a.personId!==pid));
+        setVacations(prev=>{
           const c={};
           for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ if(k!==pid){ c[k]=new Set(prev[k]); } } }
           return c;
         });
-        setProjectTeams(function(prev){
+        setProjectTeams(prev=>{
           const c={};
           for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ const s=new Set(prev[k]); s.delete(pid); c[k]=s; } }
           return c;
         });
-        setTeamOrder(function(prev){ return prev.filter(function(id){return id!==pid;}); });
+        setProjectMemberHours(prev=>{
+          const c={...prev};
+          for(const pr in c){ if(Object.prototype.hasOwnProperty.call(c,pr)){ const inner={...c[pr]}; delete inner[pid]; c[pr]=inner; } }
+          return c;
+        });
+        setTeamOrder(prev=> prev.filter(id=>id!==pid));
         if(selectedPersonId===pid) setSelectedPersonId(null);
       }
       function deleteProject(prid){
         if(!confirm("Удалить проект?")) return;
-        setProjects(function(prev){ return prev.filter(function(p){return p.id!==prid;}); });
-        setAssignments(function(prev){ return prev.filter(function(a){return a.projectId!==prid;}); });
-        setProjectTeams(function(prev){
+        setProjects(prev=> prev.filter(p=>p.id!==prid));
+        setAssignments(prev=> prev.filter(a=>a.projectId!==prid));
+        setProjectTeams(prev=>{
           const c={};
           for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ if(k!==prid){ c[k]=new Set(prev[k]); } } }
           return c;
         });
-        setPersonProjectOrder(function(prev){
+        setProjectMemberHours(prev=>{ const c={...prev}; delete c[prid]; return c; });
+        setPersonProjectOrder(prev=>{
           const out={};
           for(const pid in prev){
             if(Object.prototype.hasOwnProperty.call(prev,pid)){
-              out[pid] = (prev[pid]||[]).filter(function(x){return x!==prid;});
+              out[pid] = (prev[pid]||[]).filter(x=>x!==prid);
             }
           }
           return out;
@@ -545,12 +572,11 @@
       }
 
       const dragProjectIndex = useRef(null);
-      const onProjectDragStart = function(i){ dragProjectIndex.current = i; };
-      const onProjectDrop = function(i){
-        const from = dragProjectIndex.current;
-        dragProjectIndex.current = null;
+      const onProjectDragStart = (i)=>{ dragProjectIndex.current = i; };
+      const onProjectDrop = (i)=>{
+        const from = dragProjectIndex.current; dragProjectIndex.current = null;
         if(from==null || from===i) return;
-        setProjects(function(prev){
+        setProjects(prev=>{
           const arr = prev.slice();
           const moved = arr.splice(from,1)[0];
           arr.splice(i,0,moved);
@@ -558,7 +584,7 @@
         });
       };
 
-      // create person
+      // создание
       const [createPersonOpen, setCreatePersonOpen] = useState(false);
       const [newPersonName, setNewPersonName] = useState("");
       const [newPersonRole, setNewPersonRole] = useState("other");
@@ -566,31 +592,33 @@
       function submitNewPerson(){
         const name = (newPersonName||"").trim(); if(!name) return;
         const id = rndId();
-        setPeople(function(p){ return p.concat([{ id:id, name:name, role:newPersonRole||"other", capacityPerWeek:1, active:true, external: !!newPersonExternal }]); });
+        setPeople(p=> p.concat([{ id, name, role:newPersonRole||"other", capacityPerWeek:1, active:true, external:!!newPersonExternal, rateInternal:1200, rateExternal:2200 }]));
         setCreatePersonOpen(false); setNewPersonName(""); setNewPersonRole("other"); setNewPersonExternal(false);
       }
 
-      // create project
       const [createProjectOpen, setCreateProjectOpen] = useState(false);
       const [newProjectName, setNewProjectName] = useState("");
       const [newProjectColor, setNewProjectColor] = useState("#3b82f6");
       const [newProjectStatus, setNewProjectStatus] = useState("active");
       const [projSearch, setProjSearch] = useState("");
-      const [projTeamSel, setProjTeamSel] = useState(function(){ return new Set(); });
-      const personSuggestions = useMemo(function(){
-        return peopleActiveAll.filter(function(p){
-          return p.name.toLowerCase().indexOf(projSearch.toLowerCase())!==-1 && !projTeamSel.has(p.id);
-        }).slice(0,6);
+      const [projTeamSel, setProjTeamSel] = useState(new Set());
+      const personSuggestions = useMemo(()=>{
+        return peopleActiveAll.filter(p=> p.name.toLowerCase().includes(projSearch.toLowerCase()) && !projTeamSel.has(p.id)).slice(0,6);
       }, [peopleActiveAll, projSearch, projTeamSel]);
       function submitNewProject(){
         const name = (newProjectName||"").trim(); if(!name) return;
         const id = rndId(); const color = newProjectColor || "#64748b"; const status = newProjectStatus;
-        setProjects(function(ps){ return ps.concat([{ id:id, name:name, color:color, status:status }]); });
-        setProjectTeams(function(pt){
+        setProjects(ps=> ps.concat([{ id, name, color, status, budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false }]));
+        setProjectTeams(pt=>{
           const copy={};
           for(const k in pt){ if(Object.prototype.hasOwnProperty.call(pt,k)){ copy[k]=new Set(pt[k]); } }
           copy[id]=new Set(projTeamSel);
           return copy;
+        });
+        setProjectMemberHours(prev=>{
+          const c={...prev}; c[id]={};
+          Array.from(projTeamSel).forEach(pid=>{ c[id][pid]=0; });
+          return c;
         });
         setCreateProjectOpen(false); setNewProjectName(""); setProjSearch(""); setProjTeamSel(new Set()); setNewProjectStatus("active"); setView("project");
       }
@@ -600,7 +628,7 @@
           <div className="min-h-screen grid place-items-center bg-[#F7F8FA]">
             <div className="bg-white w-[360px] rounded-2xl shadow-lg border border-neutral-200 p-5">
               <div className="text-center mb-4"><div className="text-2xl font-semibold">Вход</div></div>
-              <AuthForm onSuccess={function(remember){ if(remember){ saveJSON({authed:true, remember:true}); } else { saveJSON({remember:false, authed:false}); } setAuthed(true); }} />
+              <AuthForm onSuccess={remember=>{ if(remember){ saveJSON({authed:true, remember:true}); } else { saveJSON({remember:false, authed:false}); } setAuthed(true); }} />
             </div>
           </div>
         );
@@ -613,21 +641,21 @@
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
               <div className="ml-4 segmented">
-                <button className={view==="team" ? "active" : "idle" } onClick={function(){setView("team");}}>Нагрузка</button>
-                <button className={view==="project" ? "active" : "idle"} onClick={function(){setView("project");}}>Проекты</button>
-                <button className={view==="employees" ? "active" : "idle"} onClick={function(){setView("employees");}}>Команда</button>
-                <button className={view==="analytics" ? "active" : "idle"} onClick={function(){setView("analytics");}}>Аналитика</button>
+                <button className={view==="team" ? "active" : "idle" } onClick={()=>setView("team")}>Нагрузка</button>
+                <button className={view==="project" ? "active" : "idle"} onClick={()=>setView("project")}>Проекты</button>
+                <button className={view==="employees" ? "active" : "idle"} onClick={()=>setView("employees")}>Команда</button>
+                <button className={view==="analyticsTeam" ? "active" : "idle"} onClick={()=>setView("analyticsTeam")}>Аналитика (команда)</button>
+                <button className={view==="analyticsProjects" ? "active" : "idle"} onClick={()=>setView("analyticsProjects")}>Аналитика (проекты)</button>
               </div>
               <div className="ml-auto flex items-center gap-2">
-                <button onClick={function(){setCreateProjectOpen(true);}} className="btn">+ Проект</button>
-                <button onClick={function(){setCreatePersonOpen(true);}} className="btn">+ Сотрудник</button>
+                <button onClick={()=>setCreateProjectOpen(true)} className="btn">+ Проект</button>
+                <button onClick={()=>setCreatePersonOpen(true)} className="btn">+ Сотрудник</button>
               </div>
             </div>
           </header>
 
           <main className="max-w-screen-2xl mx-auto p-4">
-            {/* Навигатор недель в нужных вкладках */}
-            {(view==="team" || view==="analytics") && (
+            {(view==="team" || view==="analyticsTeam") && (
               <WeekNavigator
                 onLeft={goLeft}
                 onRight={goRight}
@@ -643,28 +671,28 @@
               // -------- Нагрузка --------
               <div className="grid" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
                 <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
-                {visible.map(function(w){ return (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>); })}
-                {filteredTeamIds.map(function(pid, rowIdx){
-                  const person = people.find(function(p){return p.id===pid;});
+                {visible.map(w=> (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
+                {filteredTeamIds.map((pid, rowIdx)=>{
+                  const person = people.find(p=>p.id===pid);
                   return (
                     <Fragment key={pid}>
                       <div
                         className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
                         draggable
-                        onDragStart={function(){ dragRow.current=rowIdx; }}
-                        onDragOver={function(e){e.preventDefault();}}
-                        onDrop={function(){
+                        onDragStart={()=>{ dragRow.current=rowIdx; }}
+                        onDragOver={e=>e.preventDefault()}
+                        onDrop={()=>{
                           const from=dragRow.current; const to=rowIdx; if(from==null || from===to) return;
                           const arr=filteredTeamIds.slice(); const id=arr.splice(from,1)[0]; arr.splice(to,0,id);
-                          const inactive = teamOrder.filter(function(x){ return filteredTeamIds.indexOf(x)===-1; });
+                          const inactive = teamOrder.filter(x=> filteredTeamIds.indexOf(x)===-1);
                           setTeamOrder(arr.concat(inactive)); dragRow.current=null;
                         }}
                       >
                         <div
                           role="button"
                           tabIndex={0}
-                          onClick={function(){setSelectedPersonId(person.id);}}
-                          onKeyDown={function(e){ if(e.key==='Enter'||e.key===' '){ setSelectedPersonId(person.id); } }}
+                          onClick={()=>setSelectedPersonId(person.id)}
+                          onKeyDown={e=>{ if(e.key==='Enter'||e.key===' '){ setSelectedPersonId(person.id); } }}
                           className="w-full text-left"
                         >
                           <div className="relative bg-white rounded-2xl shadow-sm h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-md hover:bg-blue-50/70 transition">
@@ -674,16 +702,14 @@
                         </div>
                       </div>
 
-                      {visible.map(function(week){
+                      {visible.map(week=>{
                         const totalFte = personWeekTotal(assignments, person.id, week);
                         const totalHoursPlan = Math.round(totalFte * HOURS_PER_WEEK);
                         const ratio = fillRatio(totalHoursPlan);
                         const vac = isVacation(person.id, week);
                         const over = totalHoursPlan > HOURS_PER_WEEK;
-
                         const factSum = personWeekFactTotal(assignments, person.id, week);
                         const hasAnyFactOrEnded = (factSum>0 || isWeekEnded(week));
-
                         return (
                           <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
                             <div className={"bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative "+(over ? "ring-2 ring-red-300" : "")}>
@@ -720,80 +746,130 @@
                 />
 
                 <div className="grid" style={{gridTemplateColumns:"300px 1fr"}}>
-                  {projects.map(function(project, idx){
+                  {projects.map((project, idx)=>{
+                    const factCost = sumFactCostForProject(project.id);
                     return (
                       <Fragment key={project.id}>
                         <div
                           className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
                           draggable
-                          onDragStart={function(){onProjectDragStart(idx);}}
-                          onDragOver={function(e){e.preventDefault();}}
-                          onDrop={function(){onProjectDrop(idx);}}
+                          onDragStart={()=>onProjectDragStart(idx)}
+                          onDragOver={e=>e.preventDefault()}
+                          onDrop={()=>onProjectDrop(idx)}
                           title="Перетащите, чтобы изменить порядок"
                         >
-                          <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px] cursor-grab active:cursor-grabbing select-none">
-                            <button
-                              className="w-8 h-8 rounded-lg flex items-center justify-center"
-                              style={{background:project.color}}
-                              title="Статус проекта"
-                              onClick={function(){
-                                setProjects(function(prev){
-                                  return prev.map(function(p){
+                          <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex flex-col gap-2 min-w-0">
+                            <div className="flex items-center gap-3">
+                              <button
+                                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                                style={{background:project.color}}
+                                title="Статус проекта"
+                                onClick={()=>{
+                                  setProjects(prev=> prev.map(p=>{
                                     if(p.id!==project.id) return p;
-                                    var next = (p.status==="active"?"onhold": p.status==="onhold"?"done": p.status==="done"?"planned":"active");
-                                    var cp = Object.assign({}, p, {status:next});
-                                    return cp;
-                                  });
-                                });
-                              }}
-                            >
-                              <StatusIcon status={project.status}/>
-                            </button>
+                                    const next = (p.status==="active"?"onhold": p.status==="onhold"?"done": p.status==="done"?"planned":"active");
+                                    return Object.assign({}, p, {status:next});
+                                  }));
+                                }}
+                              >
+                                <StatusIcon status={project.status}/>
+                              </button>
 
-                            {/* ИМЯ ПРОЕКТА — теперь редактируемое по клику */}
-                            <InlineProjectNameEditor project={project} setProjects={setProjects} />
+                              {/* Имя проекта — редактируемое */}
+                              <InlineProjectNameEditor project={project} setProjects={setProjects} />
 
-                            {/* Пипетка */}
-                            <button
-                              className="absolute top-2 right-10 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
-                              title="Изменить цвет"
-                              onClick={function(){ var el=document.getElementById("color-"+project.id); if(el) el.click(); }}
-                              type="button"
-                            >
-                              <EyedropperIcon/>
-                            </button>
-                            <input
-                              id={"color-"+project.id}
-                              type="color"
-                              className="hidden"
-                              value={project.color}
-                              onChange={function(e){
-                                const val=e.target.value;
-                                setProjects(function(prev){ return prev.map(function(p){ return p.id===project.id ? Object.assign({}, p, {color:val}) : p; }); });
-                              }}
-                            />
+                              {/* Пипетка */}
+                              <button
+                                className="ml-auto w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
+                                title="Изменить цвет"
+                                onClick={()=>{ const el=document.getElementById("color-"+project.id); if(el) el.click(); }}
+                                type="button"
+                              >
+                                <EyedropperIcon/>
+                              </button>
+                              <input
+                                id={"color-"+project.id}
+                                type="color"
+                                className="hidden"
+                                value={project.color}
+                                onChange={e=>{
+                                  const val=e.target.value;
+                                  setProjects(prev=> prev.map(p=> p.id===project.id ? Object.assign({}, p, {color:val}) : p));
+                                }}
+                              />
+                            </div>
 
-                            {/* Удаление */}
-                            <button
-                              type="button"
-                              draggable={false}
-                              aria-label="Удалить проект"
-                              onMouseDown={function(e){e.preventDefault();}}
-                              onClick={function(){ deleteProject(project.id); }}
-                              title="Удалить проект"
-                              className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
-                            >
-                              <MinusIcon className="text-neutral-700"/>
-                            </button>
+                            {/* Денежные поля */}
+                            <div className="mt-1 grid gap-2">
+                              <label className="text-xs text-neutral-600">Бюджет с НДС</label>
+                              <input
+                                inputMode="numeric"
+                                value={project.budgetWithVAT||0}
+                                onChange={e=>{
+                                  const v = Math.max(0, parseInt(e.target.value||"0", 10)||0);
+                                  setProjects(prev=> prev.map(p=> p.id===project.id ? Object.assign({}, p, {budgetWithVAT:v}) : p));
+                                }}
+                                className="border border-neutral-300 rounded-xl px-3 py-2 text-sm"
+                              />
+                              <div className="flex items-center gap-2 text-sm">
+                                <label className="text-xs text-neutral-600">Тип проекта:</label>
+                                <select
+                                  value={project.projectType||"external"}
+                                  onChange={e=>{
+                                    const type = e.target.value;
+                                    setProjects(prev=> prev.map(p=> p.id===project.id ? Object.assign({}, p, {projectType:type, costEditableTouched: p.costEditableTouched||false}) : p));
+                                  }}
+                                  className="border border-neutral-300 rounded-xl px-2 py-1"
+                                >
+                                  <option value="internal">Внутренний</option>
+                                  <option value="external">Внешний</option>
+                                </select>
+                              </div>
+
+                              <div className="grid gap-1">
+                                <label className="text-xs text-neutral-600">Себестоимость (ред.)</label>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    inputMode="numeric"
+                                    value={project.costEditable||0}
+                                    onChange={e=>{
+                                      const v = Math.max(0, parseInt(e.target.value||"0", 10)||0);
+                                      setProjects(prev=> prev.map(p=> p.id===project.id ? Object.assign({}, p, {costEditable:v, costEditableTouched:true}) : p));
+                                    }}
+                                    className="border border-neutral-300 rounded-xl px-3 py-2 text-sm w-full"
+                                  />
+                                  <button
+                                    title="Автоподстановка (часы по проекту × ставки)"
+                                    className="btn"
+                                    onClick={()=>{
+                                      const auto = sumPlanCostForProject(project.id);
+                                      setProjects(prev=> prev.map(p=> p.id===project.id ? Object.assign({}, p, {costEditable:auto, costEditableTouched:false}) : p));
+                                    }}
+                                  >↻</button>
+                                </div>
+                              </div>
+
+                              <div className="grid gap-1">
+                                <label className="text-xs text-neutral-600">Себестоимость (факт, авто)</label>
+                                <div className="px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50 text-sm">{fmtMoney(factCost)}</div>
+                              </div>
+                            </div>
                           </div>
                         </div>
+
+                        {/* Правая часть — состав проекта: участники + их часы по проекту */}
                         <div className="border border-neutral-200 p-3">
                           <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
-                            <ProjectTeamSelector
+                            <ProjectTeamEditor
                               project={project}
                               people={peopleActiveAll}
                               projectTeams={projectTeams}
                               setProjectTeams={setProjectTeams}
+                              projectMemberHours={projectMemberHours}
+                              setProjectMemberHours={setProjectMemberHours}
+                              assignments={assignments}
+                              allWeeks={weeks}
+                              rateFor={(person)=> rateFor(person, project.projectType||"external")}
                             />
                           </div>
                         </div>
@@ -812,24 +888,20 @@
                 setProjectTeams={setProjectTeams}
                 deletePerson={deletePerson}
               />
-            ) : (
-              // -------- Аналитика --------
+            ) : view==="analyticsTeam" ? (
+              // -------- Аналитика (команда) --------
               <div className="grid" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
-                {/* левая пустая и заголовки недель */}
                 <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
-                {visible.map(function(w){ return (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>); })}
-
-                {/* по сотрудникам: слева карточка, справа — график на всю ширину недель */}
-                {filteredTeamIds.map(function(pid, rowIdx){
-                  const person = people.find(function(p){return p.id===pid;});
-                  // данные для графика
-                  const planArr = visible.map(function(w){
+                {visible.map(w=> (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
+                {filteredTeamIds.map((pid, rowIdx)=>{
+                  const person = people.find(p=>p.id===pid);
+                  const planArr = visible.map(w=>{
                     const fte = personWeekTotal(assignments, person.id, w);
-                    if(vacations[person.id] && vacations[person.id].has && vacations[person.id].has(w)) return 0;
+                    if(vacations[person.id]?.has?.(w)) return 0;
                     return Math.max(0, Math.round(fteToHours(fte)));
                   });
-                  const factArr = visible.map(function(w){
-                    if(vacations[person.id] && vacations[person.id].has && vacations[person.id].has(w)) return 0;
+                  const factArr = visible.map(w=>{
+                    if(vacations[person.id]?.has?.(w)) return 0;
                     return personWeekFactTotal(assignments, person.id, w);
                   });
                   const chartWidth = visible.length * WEEK_COL_PX;
@@ -837,24 +909,23 @@
 
                   return (
                     <Fragment key={pid}>
-                      {/* левая фиксированная карточка */}
                       <div
                         className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
                         draggable
-                        onDragStart={function(){ dragRow.current=rowIdx; }}
-                        onDragOver={function(e){e.preventDefault();}}
-                        onDrop={function(){
+                        onDragStart={()=>{ dragRow.current=rowIdx; }}
+                        onDragOver={e=>e.preventDefault()}
+                        onDrop={()=>{
                           const from=dragRow.current; const to=rowIdx; if(from==null || from===to) return;
                           const arr=filteredTeamIds.slice(); const id=arr.splice(from,1)[0]; arr.splice(to,0,id);
-                          const inactive = teamOrder.filter(function(x){ return filteredTeamIds.indexOf(x)===-1; });
+                          const inactive = teamOrder.filter(x=> filteredTeamIds.indexOf(x)===-1);
                           setTeamOrder(arr.concat(inactive)); dragRow.current=null;
                         }}
                       >
                         <div
                           role="button"
                           tabIndex={0}
-                          onClick={function(){ setSelectedPersonId(person.id); /* останемся во view=analytics */ }}
-                          onKeyDown={function(e){ if(e.key==='Enter'||e.key===' '){ setSelectedPersonId(person.id); } }}
+                          onClick={()=> setSelectedPersonId(person.id)}
+                          onKeyDown={e=>{ if(e.key==='Enter'||e.key===' '){ setSelectedPersonId(person.id); } }}
                           className="w-full text-left"
                         >
                           <div className="relative bg-white rounded-2xl shadow-sm h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-md hover:bg-blue-50/70 transition">
@@ -865,7 +936,6 @@
                         </div>
                       </div>
 
-                      {/* одна ячейка на всю ширину недель со встроенным SVG-графиком */}
                       <div className="p-1" style={{gridColumn: "span "+visible.length}}>
                         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                           <ChartLineDual
@@ -881,20 +951,42 @@
                   );
                 })}
               </div>
+            ) : (
+              // -------- Аналитика (проекты) --------
+              <div className="grid grid-cols-2 gap-3">
+                {projects.map(pr=>{
+                  const planMoney = pr.costEditable||0;
+                  const factMoney = sumFactCostForProject(pr.id);
+                  return (
+                    <div key={pr.id} className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-2">
+                      <ChartBarsMoney
+                        plan={planMoney}
+                        fact={factMoney}
+                        width={520}
+                        height={160}
+                        title={pr.name}
+                        badge={"Бюджет: "+fmtMoney(pr.budgetWithVAT||0)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </main>
 
           {selectedPersonId && (
             <PersonPage
-              person={people.find(function(p){return p.id===selectedPersonId;})}
+              person={people.find(p=>p.id===selectedPersonId)}
               projects={projects}
               assignments={assignments}
               teamByProject={projectTeams}
+              projectMemberHours={projectMemberHours}
+              setProjectMemberHours={setProjectMemberHours}
               vacations={vacations}
               setVacations={setVacations}
               order={personProjectOrder[selectedPersonId]}
-              setOrder={function(o){ setPersonProjectOrder(function(prev){ var c=Object.assign({}, prev); c[selectedPersonId]=o; return c; }); }}
-              onClose={function(){ setSelectedPersonId(null); }}
+              setOrder={(o)=> setPersonProjectOrder(prev=> { const c=Object.assign({}, prev); c[selectedPersonId]=o; return c; })}
+              onClose={()=> setSelectedPersonId(null)}
               onSave={setAssignments}
               setPeople={setPeople}
               weeksAll={weeks}
@@ -904,13 +996,17 @@
               goToday={goToday}
               roles={roles}
               view={view}
-              setView={function(v){ setView(v); setSelectedPersonId(null); }}
+              setView={(v)=>{ setView(v); setSelectedPersonId(null); }}
+              rateForProject={(pid, projectId)=>{
+                const pr = projects.find(p=>p.id===projectId);
+                return rateFor(pid, pr?.projectType||"external");
+              }}
             />
           )}
 
           <CreatePersonModal
             open={createPersonOpen}
-            onClose={function(){setCreatePersonOpen(false);}}
+            onClose={()=>setCreatePersonOpen(false)}
             name={newPersonName} setName={setNewPersonName}
             role={newPersonRole} setRole={setNewPersonRole}
             external={newPersonExternal} setExternal={setNewPersonExternal}
@@ -918,7 +1014,7 @@
           />
           <CreateProjectModal
             open={createProjectOpen}
-            onClose={function(){setCreateProjectOpen(false);}}
+            onClose={()=>setCreateProjectOpen(false)}
             name={newProjectName}
             setName={setNewProjectName}
             color={newProjectColor}
@@ -938,17 +1034,7 @@
     }
 
     // Навигатор недель
-    function WeekNavigator(props){
-      const onLeft = props.onLeft;
-      const onRight = props.onRight;
-      const onToday = props.onToday;
-      const showRoleFilter = !!props.showRoleFilter;
-      const roleFilter = props.roleFilter;
-      const setRoleFilter = props.setRoleFilter || function(){};
-      const roles = props.roles || [];
-      const stickyTopClass = props.stickyTopClass || 'top-[var(--app-header-h)]';
-      const leftNode = (typeof props.leftNode!=="undefined" ? props.leftNode : null);
-
+    function WeekNavigator({onLeft,onRight,onToday,showRoleFilter,roleFilter,setRoleFilter,roles, stickyTopClass='top-[var(--app-header-h)]', leftNode=null}){
       return (
         <div className={"sticky "+stickyTopClass+" z-50 bg-[#F7F8FA] py-2 mb-2"}>
           <div className="flex items-center justify-between gap-2">
@@ -960,9 +1046,9 @@
                 <div className="flex items-center gap-2 mr-1">
                   <label className="text-sm text-neutral-700">Фильтр роли</label>
                   <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm"
-                          value={roleFilter} onChange={function(e){ setRoleFilter(e.target.value); }}>
+                          value={roleFilter} onChange={e=> setRoleFilter(e.target.value)}>
                     <option value="all">Все</option>
-                    {roles.map(function(r){ return (<option key={r} value={r}>{r}</option>); })}
+                    {roles.map(r=> (<option key={r} value={r}>{r}</option>))}
                   </select>
                 </div>
               )}
@@ -976,58 +1062,40 @@
     }
 
     // ---------- Страница одного сотрудника ----------
-    function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles, view, setView }){
+    function PersonPage({ person, projects, assignments, teamByProject, projectMemberHours, setProjectMemberHours, vacations, setVacations, order, setOrder, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles, view, setView }){
       if(!person) return null;
 
-      const isVacation = function(pid,w){
-        const set = vacations[pid]; return !!(set && set.has && set.has(w));
-      };
+      const isVacation = (pid,w)=> !!(vacations[pid] && vacations[pid].has && vacations[pid].has(w));
 
-      const unionIds = useMemo(function(){
+      const unionIds = useMemo(()=>{
         const ids={};
-        assignments.forEach(function(a){ if(a.personId===person.id){ ids[a.projectId]=true; } });
+        assignments.forEach(a=>{ if(a.personId===person.id){ ids[a.projectId]=true; } });
         for(const pr in teamByProject){
           if(Object.prototype.hasOwnProperty.call(teamByProject,pr)){
             const s = teamByProject[pr];
-            if(s && s.has && s.has(person.id)){ ids[pr]=true; }
+            if(s?.has?.(person.id)){ ids[pr]=true; }
           }
         }
         return Object.keys(ids);
       }, [assignments, person.id, teamByProject]);
 
-      const orderedIds = useMemo(function(){ return mergeOrder(order, unionIds); }, [order, unionIds]);
-      useEffect(function(){ setOrder(orderedIds); }, [orderedIds, setOrder]);
+      const orderedIds = useMemo(()=> mergeOrder(order, unionIds), [order, unionIds]);
+      useEffect(()=>{ setOrder(orderedIds); }, [orderedIds, setOrder]);
 
       const [editKey, setEditKey] = useState(null);
       const [editVal, setEditVal] = useState("");
 
-      function beginEditPlan(pid, w, curFte){
-        if(isVacation(person.id,w)) return;
-        const curHours = Math.max(0, Math.round(fteToHours(curFte||0)));
-        setEditKey(pid+"|"+w+"|plan");
-        setEditVal(String(curHours));
-      }
-      function beginEditFact(pid, w, curFact){
-        if(isVacation(person.id,w)) return;
-        const curHours = (curFact==null || isNaN(curFact)) ? "" : String(Math.max(0, Math.round(Number(curFact)||0)));
-        setEditKey(pid+"|"+w+"|fact");
-        setEditVal(curHours);
-      }
+      function beginEditPlan(pid, w, curFte){ if(isVacation(person.id,w)) return; const curHours = Math.max(0, Math.round(fteToHours(curFte||0))); setEditKey(pid+"|"+w+"|plan"); setEditVal(String(curHours)); }
+      function beginEditFact(pid, w, curFact){ if(isVacation(person.id,w)) return; const curHours = (curFact==null || isNaN(curFact)) ? "" : String(Math.max(0, Math.round(Number(curFact)||0))); setEditKey(pid+"|"+w+"|fact"); setEditVal(curHours); }
       function commitEdit(pid, w, mode){
         const k = pid+"|"+w+"|"+mode; if(editKey!==k) return;
         const normalized = (editVal||"").replace(",", ".");
         const nextHours = parseInt(normalized, 10);
         setEditKey(null);
         if(isNaN(nextHours) || nextHours<0) return;
-        onSave(function(prev){
-          const rest = prev.filter(function(a){ return !(a.personId===person.id && a.projectId===pid && a.weekStart===w); });
-          const old = (function(){
-            for(var i=0;i<prev.length;i++){
-              var a=prev[i];
-              if(a.personId===person.id && a.projectId===pid && a.weekStart===w) return a;
-            }
-            return null;
-          })();
+        onSave(prev=>{
+          const rest = prev.filter(a=> !(a.personId===person.id && a.projectId===pid && a.weekStart===w));
+          const old = prev.find(a=> a.personId===person.id && a.projectId===pid && a.weekStart===w) || null;
           if(mode==="plan"){
             const nextFte = hoursToFte(nextHours);
             return rest.concat([{ id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte:nextFte, factHours: old ? old.factHours : undefined }]);
@@ -1038,20 +1106,21 @@
       }
 
       const dragIndex = useRef(null);
-      const onDragStart = function(i){ dragIndex.current=i; };
-      const onDrop = function(i){
+      const onDragStart = (i)=>{ dragIndex.current=i; };
+      const onDrop = (i)=>{
         const from=dragIndex.current; dragIndex.current=null; if(from==null || from===i) return;
         const arr=orderedIds.slice(); const moved=arr.splice(from,1)[0]; arr.splice(i,0,moved); setOrder(arr);
       };
 
       const [vacOpen, setVacOpen] = useState(false);
-      const [personVac, setPersonVac] = useState(function(){ return new Set(vacations[person.id] || []); });
+      const [personVac, setPersonVac] = useState(new Set(vacations[person.id] || []));
       const [vacTab, setVacTab] = useState("range");
       const [vFrom, setVFrom] = useState("");
       const [vTo, setVTo] = useState("");
-      useEffect(function(){ setPersonVac(new Set(vacations[person.id] || [])); }, [person.id, vacations]);
-      const saveVac = function(){
-        var setToSave = new Set(personVac);
+      useEffect(()=>{ setPersonVac(new Set(vacations[person.id] || [])); }, [person.id, vacations]);
+
+      const saveVac = ()=>{
+        let setToSave = new Set(personVac);
         if(vFrom && vTo){
           const d1=new Date(vFrom), d2=new Date(vTo);
           if(!(isNaN(d1) || isNaN(d2) || d1>d2)){
@@ -1059,15 +1128,15 @@
             while(m1<=m2){ setToSave.add(fmtISO(m1)); m1=addDays(m1,7); }
           }
         }
-        setVacations(function(prev){
+        setVacations(prev=>{
           const c={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ c[k]=new Set(prev[k]); } }
-        c[person.id]=setToSave; return c;
+          c[person.id]=setToSave; return c;
         });
-        onSave(function(prev){ return prev.filter(function(a){ return !(a.personId===person.id && setToSave.has(a.weekStart)); }); });
+        onSave(prev=> prev.filter(a=> !(a.personId===person.id && setToSave.has(a.weekStart))));
         setVacOpen(false);
       };
-      const clearVacationWeek = function(week){
-        setVacations(function(prev){
+      const clearVacationWeek = (week)=>{
+        setVacations(prev=>{
           const c={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ c[k]=new Set(prev[k]); } }
           const s = new Set(c[person.id]||[]); s.delete(week); c[person.id]=s; return c;
         });
@@ -1075,20 +1144,17 @@
 
       const visible = visibleWeeks;
 
-      // Итоги по неделям (план/факт) — для вкладки «Нагрузка»
-      const weekTotalsPlan = useMemo(function(){
-        return visible.map(function(w){
-          if(isVacation(person.id,w)) return 0;
-          const sumFte = assignments.filter(function(a){return a.personId===person.id && a.weekStart===w;}).reduce(function(s,a){return s+a.fte;},0);
-          return Math.max(0, Math.round(fteToHours(sumFte)));
-        });
-      }, [assignments, person.id, vacations, visible]);
-      const weekTotalsFact = useMemo(function(){
-        return visible.map(function(w){
-          if(isVacation(person.id,w)) return 0;
-          return personWeekFactTotal(assignments, person.id, w);
-        });
-      }, [assignments, person.id, vacations, visible]);
+      // Итоги план/факт по неделям
+      const weekTotalsPlan = useMemo(()=> visible.map(w=> isVacation(person.id,w) ? 0 : Math.max(0, Math.round(fteToHours(assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0))))), [assignments, person.id, vacations, visible]);
+      const weekTotalsFact = useMemo(()=> visible.map(w=> isVacation(person.id,w) ? 0 : personWeekFactTotal(assignments, person.id, w)), [assignments, person.id, vacations, visible]);
+
+      // UI ставок
+      const [ri, setRi] = useState(person.rateInternal||0);
+      const [re, setRe] = useState(person.rateExternal||0);
+      useEffect(()=>{ setRi(person.rateInternal||0); setRe(person.rateExternal||0); }, [person.id]);
+      const commitRates = ()=>{
+        setPeople(prev=> prev.map(p=> p.id===person.id ? Object.assign({}, p, {rateInternal:Math.max(0,parseInt(ri||0,10)||0), rateExternal:Math.max(0,parseInt(re||0,10)||0)}) : p));
+      };
 
       // --- Рендер ---
       return (
@@ -1098,10 +1164,11 @@
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
               <div className="ml-4 segmented">
-                <button className={view==="team" ? "active" : "idle"} onClick={function(){ setView("team"); onClose(); }}>Нагрузка</button>
-                <button className={view==="project" ? "active" : "idle"} onClick={function(){ setView("project"); onClose(); }}>Проекты</button>
-                <button className={view==="employees" ? "active" : "idle"} onClick={function(){ setView("employees"); onClose(); }}>Команда</button>
-                <button className={view==="analytics" ? "active" : "idle"} onClick={function(){ setView("analytics"); onClose(); }}>Аналитика</button>
+                <button className={view==="team" ? "active" : "idle"} onClick={()=>{ setView("team"); onClose(); }}>Нагрузка</button>
+                <button className={view==="project" ? "active" : "idle"} onClick={()=>{ setView("project"); onClose(); }}>Проекты</button>
+                <button className={view==="employees" ? "active" : "idle"} onClick={()=>{ setView("employees"); onClose(); }}>Команда</button>
+                <button className={view==="analyticsTeam" ? "active" : "idle"} onClick={()=>{ setView("analyticsTeam"); onClose(); }}>Аналитика (команда)</button>
+                <button className={view==="analyticsProjects" ? "active" : "idle"} onClick={()=>{ setView("analyticsProjects"); onClose(); }}>Аналитика (проекты)</button>
               </div>
               <div className="ml-auto" />
             </div>
@@ -1118,28 +1185,31 @@
                 <Fragment>
                   <EditableName person={person} setPeople={setPeople}/>
                   <EditableRole person={person} setPeople={setPeople} roles={roles}/>
-                  <button
-                    onClick={function(){setVacOpen(true);}}
-                    className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800"
-                  >🏖 Добавить отпуск</button>
+                  <div className="ml-2 inline-flex items-center gap-2 text-sm">
+                    <span className="text-xs text-neutral-600">Ставка внутр., ₽/ч</span>
+                    <input value={ri} inputMode="numeric" onChange={e=>setRi(e.target.value)} onBlur={commitRates} className="w-24 px-2 py-1 border border-neutral-300 rounded-lg"/>
+                    <span className="text-xs text-neutral-600">Ставка внеш., ₽/ч</span>
+                    <input value={re} inputMode="numeric" onChange={e=>setRe(e.target.value)} onBlur={commitRates} className="w-24 px-2 py-1 border border-neutral-300 rounded-lg"/>
+                  </div>
+                  <button onClick={()=>setVacOpen(true)} className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800">🏖 Добавить отпуск</button>
                 </Fragment>
               }
             />
           </div>
 
-          {/* Контент карточки сотрудника: обычный режим (бары) ИЛИ аналитика (графики по проектам) */}
-          {view!=="analytics" ? (
+          {/* Контент: бары | аналитика по проектам (внутри карточки) */}
+          {view!=="analyticsTeam" ? (
             <div className="max-w-screen-2xl mx-auto px-4">
               {/* заголовки недель */}
               <div className="grid" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
                 <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
-                {visible.map(function(w){ return (<div key={w}><WeekHeader iso={w}/></div>); })}
+                {visible.map(w=> (<div key={w}><WeekHeader iso={w}/></div>))}
               </div>
 
-              {/* суммарные план/факт по неделям */}
+              {/* суммарные план/факт */}
               <div className="grid mb-1" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
                 <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
-                {visible.map(function(w,i){
+                {visible.map((w,i)=>{
                   const over = weekTotalsPlan[i]>HOURS_PER_WEEK;
                   return (
                     <div key={w} className="h-8 flex items-center justify-center">
@@ -1152,34 +1222,45 @@
                 })}
               </div>
 
-              {/* проекты с барами */}
+              {/* проекты */}
               <div className="grid pb-4" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
-                {orderedIds.map(function(pid, idx){
-                  const pr = projects.find(function(p){return p.id===pid;}); if(!pr) return null;
+                {orderedIds.map((pid, idx)=>{
+                  const pr = projects.find(p=>p.id===pid); if(!pr) return null;
+
+                  // подсветка по прогрессу: факт-часы человека на проект / план-часы по проекту (из ProjectMemberHours)
+                  const plannedH = Number((projectMemberHours?.[pr.id]||{})[person.id]||0);
+                  const factH = sumFactForPersonProject(assignments, person.id, pr.id, weeksAll);
+                  const ratio = plannedH>0 ? (factH/plannedH) : 0;
+                  let tint = null;
+                  if(plannedH>0){
+                    if(ratio>1) tint = COLOR_100;
+                    else if(ratio>=0.7) tint = COLOR_70;
+                    else if(ratio>=0.5) tint = COLOR_50;
+                  }
+                  const personRate = (pr.projectType==="internal" ? (person.rateInternal||0) : (person.rateExternal||0));
+                  const factMoney = Math.round(factH * personRate);
+
                   return (
                     <Fragment key={pid}>
-                      <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={function(){onDragStart(idx);}} onDragOver={function(e){e.preventDefault();}} onDrop={function(){onDrop(idx);}}>
-                        <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none">
+                      <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={e=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
+                        <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none" style={{background: tint || "#fff"}}>
                           <span className="text-neutral-400">⋮⋮</span>
                           <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
                           <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
+                          <div className="ml-auto text-[11px] text-neutral-600">Факт: {fmtMoney(factMoney)}</div>
                         </div>
                       </div>
-                      {visible.map(function(week){
+
+                      {visible.map(week=>{
                         const fte = fteFor(assignments, person.id, pid, week);
                         const hoursPlan = Math.max(0, Math.round(fteToHours(fte)));
-                        const ratio = fillRatio(hoursPlan);
+                        const ratioFill = fillRatio(hoursPlan);
                         const vac = isVacation(person.id, week);
                         const over = hoursPlan > HOURS_PER_WEEK;
-
-                        var curAssign = null;
-                        for(var u=0;u<assignments.length;u++){
-                          var a=assignments[u];
-                          if(a.personId===person.id && a.projectId===pid && a.weekStart===week){ curAssign=a; break; }
-                        }
+                        let curAssign = null;
+                        for(let u=0;u<assignments.length;u++){ const a=assignments[u]; if(a.personId===person.id && a.projectId===pid && a.weekStart===week){ curAssign=a; break; } }
                         const factRaw = curAssign ? curAssign.factHours : undefined;
                         const factEffective = (factRaw==null || isNaN(factRaw)) ? (isWeekEnded(week) ? Math.max(0, Math.round(fteToHours(fte))) : null) : Math.max(0, Math.round(Number(factRaw)||0));
-
                         const editingPlan = (editKey===(pid+"|"+week+"|plan"));
                         const editingFact = (editKey===(pid+"|"+week+"|fact"));
 
@@ -1187,47 +1268,31 @@
                           <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
                             <div className={"bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative "+(over ? "ring-2 ring-red-300" : "")}>
                               <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
-                                {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:(ratio*100)+"%", background:pr.color}} title={pr.name}/>)}
+                                {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:(ratioFill*100)+"%", background:pr.color}} title={pr.name}/>)}
                               </div>
                               {!vac && (
                                 <div className="absolute inset-0 flex items-center justify-center">
                                   <div className="leading-tight text-center">
                                     {!editingPlan ? (
-                                      <div className="text-sm font-semibold text-neutral-800 cursor-text" title={"план: "+hoursPlan+" ч"} onClick={function(){beginEditPlan(pid, week, fte);}}>{fmtHours(hoursPlan)}</div>
+                                      <div className="text-sm font-semibold text-neutral-800 cursor-text" title={"план: "+hoursPlan+" ч"} onClick={()=>beginEditPlan(pid, week, fte)}>{fmtHours(hoursPlan)}</div>
                                     ) : (
-                                      <input
-                                        autoFocus
-                                        inputMode="numeric"
-                                        className="h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm"
-                                        value={editVal}
-                                        onChange={function(e){setEditVal(e.target.value);}}
-                                        onBlur={function(){commitEdit(pid, week, "plan");}}
-                                        onKeyDown={function(e){ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
-                                      />
+                                      <input autoFocus inputMode="numeric" className="h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm"
+                                             value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(pid, week, "plan")}
+                                             onKeyDown={e=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}/>
                                     )}
                                     {!editingFact ? (
-                                      <div
-                                        className="text-[11px] font-normal text-neutral-500 mt-0.5 cursor-text"
-                                        title={factEffective!=null ? ("факт: "+factEffective+" ч") : "факт не заполнен"}
-                                        onClick={function(){beginEditFact(pid, week, factRaw);}}
-                                      >
+                                      <div className="text-[11px] font-normal text-neutral-500 mt-0.5 cursor-text" title={factEffective!=null ? ("факт: "+factEffective+" ч") : "факт не заполнен"} onClick={()=>beginEditFact(pid, week, factRaw)}>
                                         {factEffective!=null ? fmtHours(factEffective) : "—"}
                                       </div>
                                     ) : (
-                                      <input
-                                        autoFocus
-                                        inputMode="numeric"
-                                        className="mt-0.5 h-7 w-16 text-center text-[11px] font-normal border border-neutral-300 rounded-md bg-white shadow-sm"
-                                        value={editVal}
-                                        onChange={function(e){setEditVal(e.target.value);}}
-                                        onBlur={function(){commitEdit(pid, week, "fact");}}
-                                        onKeyDown={function(e){ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
-                                      />
+                                      <input autoFocus inputMode="numeric" className="mt-0.5 h-7 w-16 text-center text-[11px] font-normal border border-neutral-300 rounded-md bg-white shadow-sm"
+                                             value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(pid, week, "fact")}
+                                             onKeyDown={e=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}/>
                                     )}
                                   </div>
                                 </div>
                               )}
-                              {vac && (<button className="absolute inset-0 flex items-center justify-center text-2xl" title="Снять отпуск" onClick={function(){clearVacationWeek(week);}}>🏖</button>)}
+                              {vac && (<button className="absolute inset-0 flex items-center justify-center text-2xl" title="Снять отпуск" onClick={()=>clearVacationWeek(week)}>🏖</button>)}
                             </div>
                           </div>
                         );
@@ -1238,39 +1303,28 @@
               </div>
             </div>
           ) : (
-            // --- Аналитика внутри карточки сотрудника: по проектам графики план/факт ---
+            // --- Аналитика внутри карточки: по проектам (графики) ---
             <div className="max-w-screen-2xl mx-auto px-4 pb-6">
-              {/* заголовки недель */}
               <div className="grid" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
                 <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
-                {visible.map(function(w){ return (<div key={w}><WeekHeader iso={w}/></div>); })}
+                {visible.map(w=> (<div key={w}><WeekHeader iso={w}/></div>))}
               </div>
-
               <div className="grid" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
-                {orderedIds.map(function(pid, idx){
-                  const pr = projects.find(function(p){return p.id===pid;}); if(!pr) return null;
-                  const plan = visible.map(function(w){
-                    if(isVacation(person.id,w)) return 0;
-                    const f = fteFor(assignments, person.id, pid, w);
-                    return Math.max(0, Math.round(fteToHours(f)));
-                  });
-                  const fact = visible.map(function(w){
-                    if(isVacation(person.id,w)) return 0;
-                    return personProjectWeekFact(assignments, person.id, pid, w);
-                  });
+                {orderedIds.map((pid, idx)=>{
+                  const pr = projects.find(p=>p.id===pid); if(!pr) return null;
+                  const plan = visible.map(w=> isVacation(person.id,w) ? 0 : Math.max(0, Math.round(fteToHours(fteFor(assignments, person.id, pid, w)))));
+                  const fact = visible.map(w=> isVacation(person.id,w) ? 0 : personProjectWeekFact(assignments, person.id, pid, w));
                   const chartWidth = visible.length * WEEK_COL_PX;
                   const chartHeight = 120;
-
                   return (
                     <Fragment key={pid}>
-                      <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={function(){dragIndex.current=idx;}} onDragOver={function(e){e.preventDefault();}} onDrop={function(){onDrop(idx);}}>
+                      <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={e=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
                         <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none">
                           <span className="text-neutral-400">⋮⋮</span>
                           <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
                           <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
                         </div>
                       </div>
-
                       <div className="p-1" style={{gridColumn: "span "+visible.length}}>
                         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                           <ChartLineDual plan={plan} fact={fact} width={chartWidth} height={chartHeight} title={"Проект "+pr.name+" — план/факт"} />
@@ -1285,21 +1339,21 @@
 
           {/* Модал отпусков */}
           {vacOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={function(){setVacOpen(false);}}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={()=>setVacOpen(false)}>
               <div className="absolute inset-0 bg-black/40"/>
-              <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max-h-[80vh] overflow-auto p-4" onClick={function(e){e.stopPropagation();}}>
+              <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
                 <div className="text-base font-semibold mb-3">Отпуск — {person.name}</div>
                 <div className="mb-3 inline-flex items-center gap-1 rounded-xl border border-neutral-200 p-1">
-                  <button className={"px-3 py-1 rounded-lg text-sm "+(vacTab==="range" ? "bg-neutral-100 shadow":"")} onClick={function(){setVacTab("range");}}>Диапазон дат</button>
-                  <button className={"px-3 py-1 rounded-lg text-sm "+(vacTab==="weeks" ? "bg-neutral-100 shadow":"")} onClick={function(){setVacTab("weeks");}}>По неделям</button>
+                  <button className={"px-3 py-1 rounded-lg text-sm "+(vacTab==="range" ? "bg-neutral-100 shadow":"")} onClick={()=>setVacTab("range")}>Диапазон дат</button>
+                  <button className={"px-3 py-1 rounded-lg text-sm "+(vacTab==="weeks" ? "bg-neutral-100 shadow":"")} onClick={()=>setVacTab("weeks")}>По неделям</button>
                 </div>
                 {vacTab==="range" && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <label className="text-sm text-neutral-700">С</label>
-                      <input type="date" value={vFrom} onChange={function(e){setVFrom(e.target.value);}} className="border border-neutral-300 rounded-lg px-2 py-1"/>
+                      <input type="date" value={vFrom} onChange={e=>setVFrom(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/>
                       <label className="text-sm text-neutral-700">по</label>
-                      <input type="date" value={vTo} onChange={function(e){setVTo(e.target.value);}} className="border border-neutral-300 rounded-lg px-2 py-1"/>
+                      <input type="date" value={vTo} onChange={e=>setVTo(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/>
                     </div>
                     {(vFrom && vTo) && (<div className="text-xs text-neutral-600">Будут добавлены недели диапазона после сохранения.</div>)}
                   </div>
@@ -1308,15 +1362,15 @@
                   <div className="space-y-3">
                     <div className="text-sm text-neutral-600">Отметьте недели (диапазон дат):</div>
                     <div className="grid grid-cols-3 gap-2">
-                      {yearWeekMondays(new Date().getFullYear()).map(function(m){
+                      {yearWeekMondays(new Date().getFullYear()).map(m=>{
                         const checked = personVac.has(m);
                         return (
                           <label key={m} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl hover:bg-amber-50">
-                            <input type="checkbox" checked={checked} onChange={function(){
-                              setPersonVac(function(prev){ const s=new Set(prev); if(s.has(m)) s.delete(m); else s.add(m); return s; });
+                            <input type="checkbox" checked={checked} onChange={()=>{
+                              setPersonVac(prev=>{ const s=new Set(prev); if(s.has(m)) s.delete(m); else s.add(m); return s; });
                             }} />
                             <span className="text-sm">{weekRangeLabel(m)}</span>
-                            {checked && (<button type="button" className="ml-auto text-amber-700" title="Убрать" onClick={function(){ setPersonVac(function(prev){ const s=new Set(prev); s.delete(m); return s; }); }}>−</button>)}
+                            {checked && (<button type="button" className="ml-auto text-amber-700" title="Убрать" onClick={()=>{ setPersonVac(prev=>{ const s=new Set(prev); s.delete(m); return s; }); }}>−</button>)}
                           </label>
                         );
                       })}
@@ -1327,19 +1381,17 @@
                   <div className="mt-3">
                     <div className="text-sm mb-1">Выбрано недель:</div>
                     <div className="flex flex-wrap gap-2">
-                      {Array.from(personVac).map(function(w){
-                        return (
-                          <span key={w} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                            {weekRangeLabel(w)}
-                            <button type="button" className="ml-1" title="Удалить" onClick={function(){ setPersonVac(function(prev){ const s=new Set(prev); s.delete(w); return s; }); }}>×</button>
-                          </span>
-                        );
-                      })}
+                      {Array.from(personVac).map(w=>(
+                        <span key={w} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
+                          {weekRangeLabel(w)}
+                          <button type="button" className="ml-1" title="Удалить" onClick={()=>{ setPersonVac(prev=>{ const s=new Set(prev); s.delete(w); return s; }); }}>×</button>
+                        </span>
+                      ))}
                     </div>
                   </div>
                 )}
                 <div className="mt-4 flex justify-end gap-2">
-                  <button type="button" className="btn" onClick={function(){setVacOpen(false);}}>Отмена</button>
+                  <button type="button" className="btn" onClick={()=>setVacOpen(false)}>Отмена</button>
                   <button type="button" className="rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-1" onClick={saveVac}>Сохранить</button>
                 </div>
               </div>
@@ -1353,50 +1405,41 @@
     function InlineNameEditor({person, setPeople}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(person.name);
-      useEffect(function(){ setVal(person.name); }, [person.id, person.name]);
-      const commit = function(){
+      useEffect(()=>{ setVal(person.name); }, [person.id, person.name]);
+      const commit = ()=>{
         const name=(val||"").trim(); setEditing(false);
         if(!name || name===person.name) return;
-        setPeople(function(prev){ return prev.map(function(p){ return p.id===person.id ? Object.assign({}, p, {name:name}) : p; }); });
+        setPeople(prev=> prev.map(p=> p.id===person.id ? Object.assign({}, p, {name}) : p));
       };
       return editing ? (
-        <input
-          autoFocus
-          value={val}
-          onChange={function(e){setVal(e.target.value);}}
-          onBlur={commit}
-          onKeyDown={function(e){ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
-          className="px-2 py-1 text-sm border border-neutral-300 rounded-lg w-[70%]"
-        />
+        <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit}
+               onKeyDown={e=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
+               className="px-2 py-1 text-sm border border-neutral-300 rounded-lg w-[70%]"/>
       ) : (
-        <button className="font-medium truncate text-left hover:underline" onClick={function(){setEditing(true);}} title="Редактировать имя">
+        <button className="font-medium truncate text-left hover:underline" onClick={()=>setEditing(true)} title="Редактировать имя">
           {person.name}
         </button>
       );
     }
 
-    // ---------- Инлайновое редактирование имени проекта (страница «Проекты») ----------
+    // ---------- Имя проекта (страница «Проекты») ----------
     function InlineProjectNameEditor({project, setProjects}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(project.name);
-      useEffect(function(){ setVal(project.name); }, [project.id, project.name]);
-      const commit = function(){
+      useEffect(()=>{ setVal(project.name); }, [project.id, project.name]);
+      const commit = ()=>{
         const name=(val||"").trim();
         setEditing(false);
         if(!name || name===project.name) return;
-        setProjects(function(prev){ return prev.map(function(p){ return p.id===project.id ? Object.assign({}, p, {name:name}) : p; }); });
+        setProjects(prev=> prev.map(p=> p.id===project.id ? Object.assign({}, p, {name}) : p));
       };
       return editing ? (
-        <input
-          autoFocus
-          value={val}
-          onChange={function(e){setVal(e.target.value);}}
-          onBlur={commit}
-          onKeyDown={function(e){ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(project.name);} }}
-          className="flex-1 min-w-0 px-2 py-1 text-sm border border-neutral-300 rounded-lg"
+        <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit}
+               onKeyDown={e=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(project.name);} }}
+               className="flex-1 min-w-0 px-2 py-1 text-sm border border-neutral-300 rounded-lg"
         />
       ) : (
-        <button className="font-medium truncate text-left hover:underline" title="Переименовать проект" onClick={function(){setEditing(true);}}>
+        <button className="font-medium truncate text-left hover:underline" title="Переименовать проект" onClick={()=>setEditing(true)}>
           {project.name}
         </button>
       );
@@ -1406,71 +1449,75 @@
     function EditableName({person, setPeople}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(person.name);
-      useEffect(function(){ setVal(person.name); }, [person.id, person.name]);
-      const commit = function(){
+      useEffect(()=>{ setVal(person.name); }, [person.id, person.name]);
+      const commit = ()=>{
         const name=(val||"").trim(); setEditing(false);
         if(!name || name===person.name) return;
-        setPeople(function(prev){ return prev.map(function(p){ return p.id===person.id ? Object.assign({}, p, {name:name}) : p; }); });
+        setPeople(prev=> prev.map(p=> p.id===person.id ? Object.assign({}, p, {name}) : p));
       };
       return editing ? (
-        <input autoFocus value={val} onChange={function(e){setVal(e.target.value);}} onBlur={commit}
-               onKeyDown={function(e){ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
+        <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit}
+               onKeyDown={e=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
                className="text-lg font-semibold leading-tight border border-neutral-300 rounded-md px-2 py-0.5"/>
       ) : (
-        <button className="text-lg font-semibold leading-tight hover:underline" title="Редактировать имя" onClick={function(){setEditing(true);}}>{person.name}</button>
+        <button className="text-lg font-semibold leading-tight hover:underline" title="Редактировать имя" onClick={()=>setEditing(true)}>{person.name}</button>
       );
     }
     function EditableRole({person, setPeople, roles}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(person.role || "other");
-      useEffect(function(){ setVal(person.role || "other"); }, [person.id, person.role]);
-      const commit = function(){ const role = val || "other"; setEditing(false); if(role===person.role) return; setPeople(function(prev){ return prev.map(function(p){ return p.id===person.id ? Object.assign({}, p, {role:role}) : p; }); }); };
+      useEffect(()=>{ setVal(person.role || "other"); }, [person.id, person.role]);
+      const commit = ()=>{ const role = val || "other"; setEditing(false); if(role===person.role) return; setPeople(prev=> prev.map(p=> p.id===person.id ? Object.assign({}, p, {role}) : p)); };
       return editing ? (
-        <select autoFocus value={val} onChange={function(e){setVal(e.target.value);}} onBlur={commit} className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
-          {roles.map(function(r){ return (<option key={r} value={r}>{r.toUpperCase()}</option>); })}
+        <select autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
+          {roles.map(r=> (<option key={r} value={r}>{r.toUpperCase()}</option>))}
         </select>
       ) : (
-        <button className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={function(){setEditing(true);}}>
+        <button className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={()=>setEditing(true)}>
           <PencilIcon className="opacity-70"/> {(person.role||"OTHER").toUpperCase()}
         </button>
       );
     }
 
-    // ---------- Проекты → команда ----------
-    function ProjectTeamSelector({project, people, projectTeams, setProjectTeams}){
+    // ---------- Проекты → редактор состава + часы по проекту ----------
+    function ProjectTeamEditor({project, people, projectTeams, setProjectTeams, projectMemberHours, setProjectMemberHours, assignments, allWeeks, rateFor}){
       const [search, setSearch] = useState("");
-      const list = useMemo(function(){
-        const teamSet = projectTeams[project.id];
-        return people.filter(function(p){
-          const inTeam = !!(teamSet && teamSet.has && teamSet.has(p.id));
-          return !inTeam && p.name.toLowerCase().indexOf(search.toLowerCase())!==-1;
-        }).slice(0,8);
-      }, [people, project.id, projectTeams, search]);
+      const teamSet = projectTeams[project.id] || new Set();
+      const list = useMemo(()=>{
+        return people.filter(p=> !teamSet.has(p.id) && p.name.toLowerCase().includes(search.toLowerCase())).slice(0,8);
+      }, [people, teamSet, search]);
 
-      const addToTeam = function(pid){
-        setProjectTeams(function(prev){
+      const addToTeam = (pid)=>{
+        setProjectTeams(prev=>{
           const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=new Set(prev[k]); } }
           if(!copy[project.id]) copy[project.id]=new Set();
           copy[project.id].add(pid);
           return copy;
         });
+        setProjectMemberHours(prev=>{
+          const c={...prev}; const inner={...(c[project.id]||{})}; if(!inner[pid]) inner[pid]=0; c[project.id]=inner; return c;
+        });
       };
-      const removeFromTeam = function(pid){
-        setProjectTeams(function(prev){
+      const removeFromTeam = (pid)=>{
+        setProjectTeams(prev=>{
           const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=new Set(prev[k]); } }
           if(copy[project.id]) copy[project.id].delete(pid);
           return copy;
         });
+        setProjectMemberHours(prev=>{
+          const c={...prev}; const inner={...(c[project.id]||{})}; delete inner[pid]; c[project.id]=inner; return c;
+        });
       };
 
-      const currentTeam = Array.from(projectTeams[project.id] ? projectTeams[project.id] : new Set());
+      const currentTeam = Array.from(teamSet);
 
+      // рендер
       return (
         <div>
           <div className="flex items-center gap-2">
             <input
               value={search}
-              onChange={function(e){setSearch(e.target.value);}}
+              onChange={e=>setSearch(e.target.value)}
               placeholder="Добавить сотрудника..."
               className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
             />
@@ -1478,29 +1525,66 @@
           {search && (
             <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
               {list.length>0 ? (
-                list.map(function(sug){
-                  return (
-                    <button key={sug.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={function(){ addToTeam(sug.id); setSearch(""); }}>
-                      {sug.name} <span className="text-[10px] text-neutral-500">{String(sug.role).toUpperCase()}</span> {sug.external ? (<span className="ml-1 text-[10px] text-amber-700">внешн.</span>) : null}
-                    </button>
-                  );
-                })
+                list.map(sug=>(
+                  <button key={sug.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ addToTeam(sug.id); setSearch(""); }}>
+                    {sug.name} <span className="text-[10px] text-neutral-500">{String(sug.role).toUpperCase()}</span> {sug.external ? (<span className="ml-1 text-[10px] text-amber-700">внешн.</span>) : null}
+                  </button>
+                ))
               ) : (
                 <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
               )}
             </div>
           )}
 
-          <div className="mt-3 flex flex-wrap gap-2">
-            {currentTeam.map(function(pid){
-              const p = people.find(function(x){return x.id===pid;}); if(!p) return null;
+          {/* список участников с полем "часы по проекту" и прогрессом */}
+          <div className="mt-3 space-y-2">
+            {currentTeam.map(pid=>{
+              const p = people.find(x=>x.id===pid); if(!p) return null;
+              const hPlan = Number((projectMemberHours?.[project.id]||{})[pid]||0);
+              const hFact = sumFactForPersonProject(assignments, pid, project.id, allWeeks);
+              const ratio = hPlan>0 ? (hFact/hPlan) : 0;
+              let tint = "transparent";
+              if(hPlan>0){
+                if(ratio>1) tint = COLOR_100;
+                else if(ratio>=0.7) tint = COLOR_70;
+                else if(ratio>=0.5) tint = COLOR_50;
+              }
+              const personRate = rateFor(p);
+              const costPlan = Math.round(hPlan * personRate);
+              const costFact = Math.round(hFact * personRate);
               return (
-                <span key={pid} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                  {p.name}{p.external ? (<span className="ml-1 text-amber-700">(внешн.)</span>) : null}
-                  <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={function(){removeFromTeam(pid);}}>×</button>
-                </span>
+                <div key={pid} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl" style={{background:tint}}>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{p.name} <span className="text-[10px] text-neutral-500">{String(p.role).toUpperCase()}</span></div>
+                    <div className="text-[11px] text-neutral-500 mt-0.5">
+                      план: {fmtHours(hPlan)} ч · факт: {fmtHours(hFact)} ч · ставка: {fmtMoney(personRate)} /ч
+                    </div>
+                  </div>
+                  <div className="text-xs text-neutral-600">
+                    {hPlan>0 ? Math.floor(ratio*100) : 0}%{/* индикатор процента */}
+                  </div>
+                  <input
+                    title="Часы по проекту (суммарно)"
+                    inputMode="numeric"
+                    className="w-24 text-sm border border-neutral-300 rounded-lg px-2 py-1 text-right"
+                    value={hPlan}
+                    onChange={e=>{
+                      const v = Math.max(0, parseInt(e.target.value||"0", 10)||0);
+                      setProjectMemberHours(prev=>{
+                        const c={...prev}; const inner={...(c[project.id]||{})}; inner[pid]=v; c[project.id]=inner; return c;
+                      });
+                    }}
+                  />
+                  <div className="text-[11px] text-neutral-500 w-36 text-right">
+                    план ₽: {fmtMoney(costPlan)}<br/>факт ₽: {fmtMoney(costFact)}
+                  </div>
+                  <button className="w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition" title="Убрать из проекта" onClick={()=>removeFromTeam(pid)}>
+                    <MinusIcon/>
+                  </button>
+                </div>
               );
             })}
+            {currentTeam.length===0 && (<div className="text-xs text-neutral-500">Пока никого нет</div>)}
           </div>
         </div>
       );
@@ -1509,56 +1593,47 @@
     // ---------- Команда (список) ----------
     function EmployeesPage({people, setPeople, projects, projectTeams, setProjectTeams, deletePerson}){
       const [search, setSearch] = useState("");
-      const list = useMemo(function(){ return people.filter(function(p){ return p.active && p.name.toLowerCase().indexOf(search.toLowerCase())!==-1; }); }, [people, search]);
-
+      const list = useMemo(()=> people.filter(p=> p.active && p.name.toLowerCase().includes(search.toLowerCase())), [people, search]);
       return (
         <div className="space-y-3">
-          <input
-            value={search}
-            onChange={function(e){setSearch(e.target.value);}}
-            placeholder="Найти сотрудника..."
-            className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
-          />
-
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Найти сотрудника..." className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"/>
           <div className="grid" style={{gridTemplateColumns:"300px 1fr"}}>
-            {list.map(function(p){
-              return (
-                <Fragment key={p.id}>
-                  <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
-                    <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 min-w-0 h-[120px] flex flex-col justify-center">
-                      <div className="flex items-center gap-2">
-                        <InlineNameEditor person={p} setPeople={setPeople}/>
-                        <button
-                          className="text-neutral-500 hover:text-red-600 ml-auto"
-                          title="Удалить сотрудника"
-                          onClick={function(){deletePerson(p.id);}}
-                        ><TrashIcon/></button>
-                      </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <select
-                          value={p.role||"other"}
-                          onChange={function(e){ setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({}, x, {role:e.target.value}) : x; }); }); }}
-                          className="text-[12px] px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200"
-                        >
-                          {["designer","dev","manager","pm","other"].map(function(r){ return (<option key={r} value={r}>{r.toUpperCase()}</option>); })}
-                        </select>
-                        <label className="text-xs flex items-center gap-1 ml-2">
-                          <input type="checkbox" checked={!!p.external} onChange={function(e){ setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({}, x, {external:e.target.checked}) : x; }); }); }}/>
-                          Внешний
-                        </label>
-                      </div>
-                      <div className="mt-1 text-[11px] text-neutral-500">ID: {p.id.slice(0,6)}…</div>
+            {list.map(p=>(
+              <Fragment key={p.id}>
+                <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
+                  <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 min-w-0 h-[120px] flex flex-col justify-center">
+                    <div className="flex items-center gap-2">
+                      <InlineNameEditor person={p} setPeople={setPeople}/>
+                      <button className="text-neutral-500 hover:text-red-600 ml-auto" title="Удалить сотрудника" onClick={()=>deletePerson(p.id)}><TrashIcon/></button>
                     </div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <select
+                        value={p.role||"other"}
+                        onChange={e=> setPeople(prev=> prev.map(x=> x.id===p.id ? Object.assign({}, x, {role:e.target.value}) : x))}
+                        className="text-[12px] px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200"
+                      >
+                        {["designer","dev","manager","pm","other"].map(r=> (<option key={r} value={r}>{r.toUpperCase()}</option>))}
+                      </select>
+                      <label className="text-xs flex items-center gap-1 ml-2">
+                        <input type="checkbox" checked={!!p.external} onChange={e=> setPeople(prev=> prev.map(x=> x.id===p.id ? Object.assign({}, x, {external:e.target.checked}) : x))}/>
+                        Внешний
+                      </label>
+                      <div className="ml-auto flex items-center gap-2 text-[11px]">
+                        внутр. ₽/ч <input value={p.rateInternal||0} inputMode="numeric" onChange={e=> setPeople(prev=> prev.map(x=> x.id===p.id ? Object.assign({}, x, {rateInternal: Math.max(0,parseInt(e.target.value||"0",10)||0)}) : x))} className="w-18 border border-neutral-300 rounded-md px-2 py-0.5"/>
+                        внеш. ₽/ч <input value={p.rateExternal||0} inputMode="numeric" onChange={e=> setPeople(prev=> prev.map(x=> x.id===p.id ? Object.assign({}, x, {rateExternal: Math.max(0,parseInt(e.target.value||"0",10)||0)}) : x))} className="w-18 border border-neutral-300 rounded-md px-2 py-0.5"/>
+                      </div>
+                    </div>
+                    <div className="mt-1 text-[11px] text-neutral-500">ID: {p.id.slice(0,6)}…</div>
                   </div>
+                </div>
 
-                  <div className="border border-neutral-200 p-3">
-                    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
-                      <PersonProjectsEditor person={p} projects={projects} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/>
-                    </div>
+                <div className="border border-neutral-200 p-3">
+                  <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+                    <PersonProjectsEditor person={p} projects={projects} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/>
                   </div>
-                </Fragment>
-              );
-            })}
+                </div>
+              </Fragment>
+            ))}
           </div>
         </div>
       );
@@ -1566,77 +1641,56 @@
 
     function PersonProjectsEditor({person, projects, projectTeams, setProjectTeams}){
       const [search, setSearch] = useState("");
-      const memberOf = useMemo(function(){
+      const memberOf = useMemo(()=>{
         const ids = [];
-        for(var i=0;i<projects.length;i++){
-          var pr=projects[i];
-          const set = projectTeams[pr.id];
-          if(set && set.has && set.has(person.id)) ids.push(pr.id);
+        for(let i=0;i<projects.length;i++){
+          const pr=projects[i]; const set = projectTeams[pr.id];
+          if(set?.has?.(person.id)) ids.push(pr.id);
         }
         return new Set(ids);
       }, [projects, projectTeams, person.id]);
-
-      const pool = useMemo(function(){
-        return projects.filter(function(pr){
-          return !memberOf.has(pr.id) && pr.name.toLowerCase().indexOf(search.toLowerCase())!==-1;
-        }).slice(0,8);
-      }, [projects, memberOf, search]);
-
-      const add = function(prid){
-        setProjectTeams(function(prev){
+      const pool = useMemo(()=> projects.filter(pr=> !memberOf.has(pr.id) && pr.name.toLowerCase().includes(search.toLowerCase())).slice(0,8), [projects, memberOf, search]);
+      const add = (prid)=>{
+        setProjectTeams(prev=>{
           const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=new Set(prev[k]); } }
           if(!copy[prid]) copy[prid]=new Set();
           copy[prid].add(person.id);
           return copy;
         });
       };
-      const remove = function(prid){
-        setProjectTeams(function(prev){
+      const remove = (prid)=>{
+        setProjectTeams(prev=>{
           const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=new Set(prev[k]); } }
           if(copy[prid]) copy[prid].delete(person.id);
           return copy;
         });
       };
-
       const current = Array.from(memberOf);
-
       return (
         <div>
           <div className="flex items-center gap-2">
-            <input
-              value={search}
-              onChange={function(e){setSearch(e.target.value);}}
-              placeholder="Добавить проект..."
-              className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
-            />
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Добавить проект..." className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"/>
           </div>
           {search && (
             <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
-              {pool.length>0 ? (
-                pool.map(function(pr){
-                  return (
-                    <button key={pr.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={function(){ add(pr.id); setSearch(""); }}>
-                      <span className="inline-flex items-center gap-2">
-                        <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
-                        {pr.name}
-                      </span>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
-              )}
+              {pool.length>0 ? pool.map(pr=>(
+                <button key={pr.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ add(pr.id); setSearch(""); }}>
+                  <span className="inline-flex items-center gap-2">
+                    <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
+                    {pr.name}
+                  </span>
+                </button>
+              )) : (<div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>)}
             </div>
           )}
-
           <div className="mt-3 flex flex-wrap gap-2">
-            {current.map(function(prid){
-              const pr = projects.find(function(p){return p.id===prid;}); if(!pr) return null;
+            {current.map(prid=>{
+              const pr = projects.find(p=>p.id===prid); if(!pr) return null;
               return (
                 <span key={prid} className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
                   <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
                   {pr.name}
-                  <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={function(){remove(prid);}}>×</button>
+                  <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>remove(prid)}>×</button>
                 </span>
               );
             })}
@@ -1646,52 +1700,38 @@
     }
 
     // ---------- Менеджер ролей ----------
-    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass}){
-      stickyTopClass = stickyTopClass || 'top-[calc(var(--app-header-h)+48px)]';
+    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass='top-[calc(var(--app-header-h)+48px)]'}){
       const [adding, setAdding] = useState("");
       const [editing, setEditing] = useState(null);
       const [val, setVal] = useState("");
-
-      const add = function(){ const x=(adding||"").trim(); if(!x || roles.indexOf(x)!==-1) return; setRoles(roles.concat([x])); setAdding(""); };
-      const startEdit = function(r){ setEditing(r); setVal(r); };
-      const commit = function(){
-        if(!editing) return;
-        const x=(val||"").trim(); setEditing(null);
-        if(!x) return;
-        setRoles(roles.map(function(r){ return r===editing ? x : r; })); setRoleFilter(x);
-      };
-      const remove = function(r){
+      const add = ()=>{ const x=(adding||"").trim(); if(!x || roles.includes(x)) return; setRoles(roles.concat([x])); setAdding(""); };
+      const startEdit = (r)=>{ setEditing(r); setVal(r); };
+      const commit = ()=>{ if(!editing) return; const x=(val||"").trim(); setEditing(null); if(!x) return; setRoles(roles.map(r=> r===editing ? x : r)); setRoleFilter(x); };
+      const remove = (r)=>{
         if(!confirm("Удалить роль «"+r+"»? Людям с этой ролью будет проставлено OTHER.")) return;
-        setRoles(roles.filter(function(x){return x!==r;}));
-        setPeople(function(prev){ return prev.map(function(p){ return p.role===r ? Object.assign({}, p, {role:"other"}) : p; }); });
+        setRoles(roles.filter(x=>x!==r));
+        setPeople(prev=> prev.map(p=> p.role===r ? Object.assign({}, p, {role:"other"}) : p));
         setRoleFilter("all");
       };
-
       return (
         <div className={"bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky "+stickyTopClass+" z-50"}>
           <div className="text-sm font-medium">Роли</div>
           <div className="mt-2 flex flex-wrap gap-2">
-            {roles.map(function(r){
-              return (
-                <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
-                  {editing===r ? (
-                    <input autoFocus value={val} onChange={function(e){setVal(e.target.value);}} onBlur={commit} onKeyDown={function(e){ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape') setEditing(null); }} className="px-1 py-0.5 border border-neutral-300 rounded"/>
-                  ) : (
-                    <Fragment>
-                      <button className="hover:underline" onClick={function(){setRoleFilter(r);}}>{r}</button>
-                      <button className="text-neutral-500 hover:text-neutral-800" title="Переименовать роль" onClick={function(){startEdit(r);}}>
-                        <PencilIcon/>
-                      </button>
-                      <button className="text-neutral-500 hover:text-red-600" title="Удалить роль" onClick={function(){remove(r);}}>
-                        <TrashIcon/>
-                      </button>
-                    </Fragment>
-                  )}
-                </span>
-              );
-            })}
+            {roles.map(r=>(
+              <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
+                {editing===r ? (
+                  <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape') setEditing(null); }} className="px-1 py-0.5 border border-neutral-300 rounded"/>
+                ) : (
+                  <Fragment>
+                    <button className="hover:underline" onClick={()=>setRoleFilter(r)}>{r}</button>
+                    <button className="text-neutral-500 hover:text-neutral-800" title="Переименовать роль" onClick={()=>startEdit(r)}><PencilIcon/></button>
+                    <button className="text-neutral-500 hover:text-red-600" title="Удалить роль" onClick={()=>remove(r)}><TrashIcon/></button>
+                  </Fragment>
+                )}
+              </span>
+            ))}
             <span className="inline-flex items-center gap-1">
-              <input value={adding} onChange={function(e){setAdding(e.target.value);}} placeholder="Добавить роль" className="px-2 py-1 text-sm border border-neutral-300 rounded-lg"/>
+              <input value={adding} onChange={e=>setAdding(e.target.value)} placeholder="Добавить роль" className="px-2 py-1 text-sm border border-neutral-300 rounded-lg"/>
               <button className="btn" onClick={add}>Сохранить</button>
             </span>
           </div>
@@ -1705,23 +1745,16 @@
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[460px] p-4" onClick={function(e){e.stopPropagation();}}>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[460px] p-4" onClick={e=>e.stopPropagation()}>
             <div className="text-base font-semibold mb-3">Новый сотрудник</div>
             <div className="space-y-3">
-              <div>
-                <label className="block text-sm mb-1">Имя</label>
-                <input value={name} onChange={function(e){setName(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Роль</label>
-                <select value={role} onChange={function(e){setRole(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
-                  {roles.map(function(r){ return (<option key={r} value={r}>{r}</option>); })}
+              <div><label className="block text-sm mb-1">Имя</label><input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/></div>
+              <div><label className="block text-sm mb-1">Роль</label>
+                <select value={role} onChange={e=>setRole(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
+                  {roles.map(r=> (<option key={r} value={r}>{r}</option>))}
                 </select>
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={!!external} onChange={function(e){setExternal(e.target.checked);}} />
-                Внешний сотрудник (не показывать во «Нагрузка»)
-              </label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!external} onChange={e=>setExternal(e.target.checked)} />Внешний сотрудник (не показывать во «Нагрузка»)</label>
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button className="btn" onClick={onClose}>Отмена</button>
@@ -1737,55 +1770,39 @@
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-h-[80vh] overflow-auto p-4" onClick={function(e){e.stopPropagation();}}>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-h-[80vh] overflow-auto p-4" onClick={e=>e.stopPropagation()}>
             <div className="text-base font-semibold mb-3">Новый проект</div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm mb-1">Название</label>
-                <input value={name} onChange={function(e){setName(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Статус</label>
-                <select value={status} onChange={function(e){setStatus(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
-                  <option value="active">active</option>
-                  <option value="onhold">onhold</option>
-                  <option value="done">done</option>
-                  <option value="planned">planned</option>
+              <div><label className="block text-sm mb-1">Название</label><input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/></div>
+              <div><label className="block text-sm mb-1">Статус</label>
+                <select value={status} onChange={e=>setStatus(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
+                  <option value="active">active</option><option value="onhold">onhold</option><option value="done">done</option><option value="planned">planned</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm mb-1">Цвет</label>
-                <input type="color" value={color} onChange={function(e){setColor(e.target.value);}} className="w-16 h-10 p-0 border border-neutral-300 rounded-lg"/>
-              </div>
+              <div><label className="block text-sm mb-1">Цвет</label><input type="color" value={color} onChange={e=>setColor(e.target.value)} className="w-16 h-10 p-0 border border-neutral-300 rounded-lg"/></div>
             </div>
 
             <div className="mt-4">
               <div className="text-sm font-medium mb-2">Команда</div>
               <div className="flex items-center gap-2 mb-2">
-                <input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Добавить сотрудника..." className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"/>
+                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Добавить сотрудника..." className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"/>
               </div>
               {search && (
                 <div className="mb-2 border border-neutral-200 rounded-xl overflow-hidden">
-                  {suggestions.length>0 ? suggestions.map(function(s){
-                    return (
-                      <button key={s.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={function(){
-                        const c=new Set(teamSel); c.add(s.id); setTeamSel(c); setSearch("");
-                      }}>
-                        {s.name} <span className="text-[10px] text-neutral-500">{String(s.role).toUpperCase()}</span> {s.external ? (<span className="ml-1 text-[10px] text-amber-700">внешн.</span>) : null}
-                      </button>
-                    );
-                  }) : (
-                    <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
-                  )}
+                  {suggestions.length>0 ? suggestions.map(s=>(
+                    <button key={s.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ const c=new Set(teamSel); c.add(s.id); setTeamSel(c); setSearch(""); }}>
+                      {s.name} <span className="text-[10px] text-neutral-500">{String(s.role).toUpperCase()}</span> {s.external ? (<span className="ml-1 text-[10px] text-amber-700">внешн.</span>) : null}
+                    </button>
+                  )) : (<div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>)}
                 </div>
               )}
               <div className="flex flex-wrap gap-2">
-                {Array.from(teamSel).map(function(pid){
-                  const p = people.find(function(x){return x.id===pid;}); if(!p) return null;
+                {Array.from(teamSel).map(pid=>{
+                  const p = people.find(x=>x.id===pid); if(!p) return null;
                   return (
                     <span key={pid} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
                       {p.name}{p.external ? (<span className="ml-1 text-amber-700">(внешн.)</span>) : null}
-                      <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={function(){ const c=new Set(teamSel); c.delete(pid); setTeamSel(c); }}>×</button>
+                      <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>{ const c=new Set(teamSel); c.delete(pid); setTeamSel(c); }}>×</button>
                     </span>
                   );
                 })}
@@ -1798,34 +1815,6 @@
             </div>
           </div>
         </div>
-      );
-    }
-
-    // ---------- Auth ----------
-    function AuthForm({onSuccess}){
-      const [login, setLogin] = useState("");
-      const [pass, setPass] = useState("");
-      const [remember, setRemember] = useState(false);
-      const submit = function(e){
-        e.preventDefault();
-        if((login||"").trim().toLowerCase()==="панквеб" && pass==="123455"){ onSuccess(remember); } else { alert("Неверные данные"); }
-      };
-      return (
-        <form onSubmit={submit} className="space-y-3">
-          <div>
-            <label className="block text-sm mb-1">Логин</label>
-            <input value={login} onChange={function(e){setLogin(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
-          </div>
-          <div>
-            <label className="block text-sm mb-1">Пароль</label>
-            <input type="password" value={pass} onChange={function(e){setPass(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
-          </div>
-          <label className="flex items-center gap-2 text-sm select-none">
-            <input type="checkbox" checked={!!remember} onChange={function(e){setRemember(e.target.checked);}} />
-            Запомнить данные
-          </label>
-          <button className="w-full rounded-xl border border-green-300 bg-green-50 text-green-800 py-2">Войти</button>
-        </form>
       );
     }
 
