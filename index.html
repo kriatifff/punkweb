@@ -16,14 +16,12 @@
       --app-header-h: 56px;
       --left-col-w: 220px;
     }
-    /* util */
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
     .no-scrollbar::-webkit-scrollbar{ display:none; }
 
-    /* простые версии классов, без @apply */
     .btn{
       border-radius: 0.75rem;
-      border: 1px solid rgb(212 212 216); /* neutral-300 */
+      border: 1px solid rgb(212 212 216);
       background: #fff;
       padding: 0.25rem 0.75rem;
       box-shadow: 0 1px 1px rgba(0,0,0,.05);
@@ -31,11 +29,10 @@
     }
     .btn:hover{ box-shadow: 0 2px 6px rgba(0,0,0,.08); }
 
-    /* сегмент в шапке с видимыми отступами между кнопками */
     .segmented{
       display:flex; align-items:center; gap:0.75rem;
-      background:#f5f5f5; /* neutral-100 */
-      border:1px solid #e5e7eb; /* neutral-200 */
+      background:#f5f5f5;
+      border:1px solid #e5e7eb;
       border-radius: 1rem; padding: 0.25rem 0.5rem;
       box-shadow: 0 1px 1px rgba(0,0,0,.04);
     }
@@ -56,7 +53,8 @@
 <body class="bg-[#F7F8FA] no-scrollbar">
   <div id="root"></div>
 
-  <script type="text/babel">
+  <!-- ВАЖНО: включаем preset env, чтобы гарантировать трансформации современного синтаксиса -->
+  <script type="text/babel" data-presets="env,react">
     const {useState, useEffect, useMemo, useRef, Fragment} = React;
 
     // ---------- Конфигурация ----------
@@ -66,17 +64,15 @@
     const VISIBLE_WEEKS = 16;
 
     // ==== часы ====
-    const HOURS_PER_WEEK = 40; // лимит для нормальной загрузки
-    const BAR_MAX_HOURS = 40;  // визуальный максимум заполнения бара (можно задать больше фактически)
+    const HOURS_PER_WEEK = 40;
+    const BAR_MAX_HOURS = 40;
 
     const fteToHours = (fte) => Math.round((Number(fte)||0) * HOURS_PER_WEEK);
-    // ВАЖНО: теперь не ограничиваем сверху — можно >40
     const hoursToFte = (hours) => {
       const h = Math.max(0, Math.round(Number(hours)||0));
       return h / HOURS_PER_WEEK;
     };
     const fmtHours = (h) => String(Math.round(Number(h)||0));
-    // Высота заполнения ограничена 40, число — фактическое
     const fillRatio = (h) => {
       const v = Math.min(Math.max(0, Math.round(Number(h)||0)), BAR_MAX_HOURS);
       return v / BAR_MAX_HOURS;
@@ -84,48 +80,61 @@
 
     // ---------- Persistence ----------
     const LS_KEY = "fteplanner.v1";
-    function loadAll(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch{ return {}; } }
+    function loadAll(){
+      try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch(e){ return {}; }
+    }
     function loadJSON(key, fallback){
       const all = loadAll();
-      return (key in all) ? all[key] : fallback;
+      return (all && (key in all)) ? all[key] : fallback;
     }
     function saveJSON(patch){
       try{
         const all = loadAll();
-        const merged = {...all, ...patch};
+        const merged = Object.assign({}, all, patch);
         localStorage.setItem(LS_KEY, JSON.stringify(merged));
         debouncedSaveAllRemote(merged);
-      }catch{}
+      }catch(e){}
     }
     async function loadAllRemote(){ return null; }
     async function saveAllRemote(_state){}
     let saveTimer=null;
     function debouncedSaveAllRemote(state){
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(()=>{ saveAllRemote(state).catch(()=>{}); }, 400);
+      if(saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(function(){ try{ saveAllRemote(state); }catch(e){} }, 400);
     }
 
     // ---------- Даты/форматы ----------
     const fmtISO = (date) => date.toISOString().slice(0,10);
     const addDays = (d, n) => { const x=new Date(d); x.setDate(x.getDate()+n); x.setHours(0,0,0,0); return x; };
-    const pad2 = (n) => (n<10 ? `0${n}` : String(n));
-    const fmtDM = (d) => `${pad2(d.getDate())}.${pad2(d.getMonth()+1)}`;
+    const pad2 = (n) => (n<10 ? ("0"+n) : String(n));
+    const fmtDM = (d) => pad2(d.getDate())+"."+pad2(d.getMonth()+1);
     const RU_MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
-    const ruMonthShort = (m) => RU_MONTHS[m] ?? "";
+    const ruMonthShort = (m) => (RU_MONTHS[m] ? RU_MONTHS[m] : "");
     const startOfISOWeek = (d) => {
       const day=d.getDay(); const diff=(day===0?-6:1)-day;
       const m=new Date(d); m.setDate(d.getDate()+diff); m.setHours(0,0,0,0); return m;
     };
     const addWeeks = (m, n) => { const d=new Date(m); d.setDate(d.getDate()+n*7); d.setHours(0,0,0,0); return d; };
     const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-    const scaleRatio = (v, max=MAX_FTE) => clamp(v/max, 0, 1);
-    const weekLabelParts = (iso) => { const d=new Date(iso); const w=1+Math.floor((d.getDate()-1)/7); return { top:`${w} нед`, bot:ruMonthShort(d.getMonth()) }; };
-    const weekRangeLabel = (iso) => { const d=new Date(iso); const end=addDays(d,6); return `${fmtDM(d)}–${fmtDM(end)}`; };
-    const rndId = () => (globalThis.crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+    const scaleRatio = (v, max) => { if(typeof max!=="number") max=MAX_FTE; return clamp(v/max, 0, 1); };
+    const weekLabelParts = (iso) => { const d=new Date(iso); const w=1+Math.floor((d.getDate()-1)/7); return { top:(w+" нед"), bot:ruMonthShort(d.getMonth()) }; };
+    const weekRangeLabel = (iso) => { const d=new Date(iso); const end=addDays(d,6); return fmtDM(d)+"–"+fmtDM(end); };
+    const rndId = () => {
+      try{
+        if(window && window.crypto && typeof window.crypto.randomUUID==="function"){
+          return window.crypto.randomUUID();
+        }
+      }catch(e){}
+      return Math.random().toString(36).slice(2)+"_"+Date.now();
+    };
     const fmtFTE1 = (n) => (Math.round(n*10)/10).toFixed(1);
-    const yearWeekMondays = (year) => { let m=startOfISOWeek(new Date(year,0,1)); const end=new Date(year,11,31); end.setHours(0,0,0,0); const list=[]; while(m<=end){ list.push(fmtISO(m)); m=addDays(m,7);} return list; };
+    const yearWeekMondays = (year) => {
+      let m=startOfISOWeek(new Date(year,0,1));
+      const end=new Date(year,11,31); end.setHours(0,0,0,0);
+      const list=[]; while(m<=end){ list.push(fmtISO(m)); m=addDays(m,7); }
+      return list;
+    };
 
-    // Неделя завершилась? (сравниваем с сегодняшним началом дня)
     const isWeekEnded = (weekISO) => {
       const end = addDays(new Date(weekISO), 6);
       const today = new Date(); today.setHours(0,0,0,0);
@@ -134,7 +143,7 @@
 
     // ---------- Данные по умолчанию ----------
     const base = startOfISOWeek(new Date());
-    const initialWeeks = Array.from({length:24}, (_,i)=> fmtISO(addWeeks(base, i-4)));
+    const initialWeeks = Array.from({length:24}, function(_,i){ return fmtISO(addWeeks(base, i-4)); });
     const seedPeople = [
       { id:"p1", name:"Саша", role:"manager", capacityPerWeek:1, active:true, external:false },
       { id:"p2", name:"Катя К.", role:"designer", capacityPerWeek:1, active:true, external:false },
@@ -152,28 +161,36 @@
     const seedRoles = ["designer","dev","manager","pm","other"];
 
     // ---------- Агрегации ----------
-    const personWeekTotal = (as, pid, w) => as.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
+    const personWeekTotal = (as, pid, w) => as.filter(function(a){return a.personId===pid && a.weekStart===w;}).reduce(function(s,a){return s+a.fte;},0);
 
-    // Факт для одной записи: явный factHours, либо (если неделя закончилась и факт не внесён) — план в часах
     const effectiveFactHours = (a, w) => {
-      const has = a && a.factHours!=null && !isNaN(a.factHours);
+      var has = (a && a.factHours!=null && !isNaN(a.factHours));
       if(has) return Math.max(0, Math.round(Number(a.factHours)||0));
       if(isWeekEnded(w)) return Math.max(0, Math.round(fteToHours(a.fte)));
       return 0;
     };
     const personWeekFactTotal = (as, pid, w) =>
-      as.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=> s + effectiveFactHours(a,w), 0);
+      as.filter(function(a){ return a.personId===pid && a.weekStart===w; })
+        .reduce(function(s,a){ return s + effectiveFactHours(a,w); }, 0);
 
-    const fteFor = (as, pid, pr, w) => as.filter(a=>a.personId===pid && a.projectId===pr && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
+    const fteFor = (as, pid, pr, w) => as.filter(function(a){return a.personId===pid && a.projectId===pr && a.weekStart===w;}).reduce(function(s,a){return s+a.fte;},0);
     const mergeOrder = (existing, nextIds) => {
-      const seen=new Set(); const res=[];
-      for(const id of (existing||[])) if(nextIds.includes(id) && !seen.has(id)){ res.push(id); seen.add(id); }
-      for(const id of nextIds) if(!seen.has(id)){ res.push(id); seen.add(id); }
+      const seen={}; const res=[];
+      var i;
+      for(i=0;i<(existing||[]).length;i++){
+        var id = existing[i];
+        if(nextIds.indexOf(id)!==-1 && !seen[id]){ res.push(id); seen[id]=true; }
+      }
+      for(i=0;i<nextIds.length;i++){
+        var id2 = nextIds[i];
+        if(!seen[id2]){ res.push(id2); seen[id2]=true; }
+      }
       return res;
     };
 
     // ---------- Icons ----------
-    function StatusIcon({status}){
+    function StatusIcon(props){
+      const status = props.status;
       const common = { width:16, height:16, viewBox:"0 0 24 24", fill:"white" };
       if(status==="active") return (<svg {...common}><polygon points="8,5 19,12 8,19"/></svg>);
       if(status==="onhold") return (<svg {...common}><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>);
@@ -213,12 +230,12 @@
     );
 
     function WeekHeader({iso}){
-      const {top, bot} = weekLabelParts(iso);
+      const parts = weekLabelParts(iso);
       return (
         <div className="h-[40px] flex items-center justify-center text-neutral-700">
           <span className="block text-center leading-tight" style={{width:WEEK_COL_PX}}>
-            <div className="text-xs font-medium">{top}</div>
-            <div className="text-[10px]">{bot}</div>
+            <div className="text-xs font-medium">{parts.top}</div>
+            <div className="text-[10px]">{parts.bot}</div>
           </span>
         </div>
       );
@@ -232,43 +249,56 @@
       const [firstIdx, setFirstIdx] = useState(initIdx);
 
       const ensureRange = (needIdx) => {
+        // расширение диапазона слева
         if(needIdx < 0){
           const first = new Date(weeks[0]);
-          const prepend = Array.from({length: Math.ceil((-needIdx)/8)*8 }, (_,i)=> fmtISO(addWeeks(first, -(i+1)))).reverse();
-          const next = [...prepend, ...weeks];
+          const addCount = Math.ceil((-needIdx)/8)*8;
+          const prepend = [];
+          for(var i=0;i<addCount;i++){ prepend.push(fmtISO(addWeeks(first, -(i+1)))); }
+          prepend.reverse();
+          const next = prepend.concat(weeks);
           setWeeks(next);
           return { weeks: next, firstIdx: needIdx + prepend.length };
         }
+        // расширение справа
         if(needIdx + VISIBLE_WEEKS >= weeks.length){
           const last = new Date(weeks[weeks.length-1]);
-          const more = Array.from({length:16}, (_,i)=> fmtISO(addWeeks(last, i+1)));
-          const next = [...weeks, ...more];
+          const more = [];
+          for(var j=0;j<16;j++){ more.push(fmtISO(addWeeks(last, j+1))); }
+          const next = weeks.concat(more);
           setWeeks(next);
           return { weeks: next, firstIdx: needIdx };
         }
-        return { weeks, firstIdx: needIdx };
+        return { weeks: weeks, firstIdx: needIdx };
       };
 
       const goLeft = () => {
-        const {weeks: w2, firstIdx: f2} = ensureRange(firstIdx-1);
-        setFirstIdx(f2); saveJSON({firstWeekISO: w2[f2]}); saveJSON({weeks: w2});
+        const r = ensureRange(firstIdx-1);
+        setFirstIdx(r.firstIdx);
+        saveJSON({firstWeekISO: r.weeks[r.firstIdx]});
+        saveJSON({weeks: r.weeks});
       };
       const goRight = () => {
-        const {weeks: w2, firstIdx: f2} = ensureRange(firstIdx+1);
-        setFirstIdx(f2); saveJSON({firstWeekISO: w2[f2]}); saveJSON({weeks: w2});
+        const r = ensureRange(firstIdx+1);
+        setFirstIdx(r.firstIdx);
+        saveJSON({firstWeekISO: r.weeks[r.firstIdx]});
+        saveJSON({weeks: r.weeks});
       };
 
-      // «Сегодня» делает текущую неделю ПЕРВОЙ колонкой
+      // «Сегодня» — текущая неделя становится ПЕРВОЙ колонкой
       const goToday = () => {
         const todayISO = fmtISO(startOfISOWeek(new Date()));
-        let idx = weeks.indexOf(todayISO);
-        let next = weeks;
+        var idx = weeks.indexOf(todayISO);
+        var next = weeks.slice();
         if(idx<0){
-          // гарантируем, что текущая и следующие недели присутствуют
-          const need = Array.from({length: Math.max(VISIBLE_WEEKS, 24)}, (_,i)=> fmtISO(addWeeks(new Date(todayISO), i)));
-          const set = new Set(weeks);
-          for(const iso of need) set.add(iso);
-          next = Array.from(set).sort();
+          // добавим текущую и следующие недели (минимум VISIBLE_WEEKS)
+          const needLen = Math.max(VISIBLE_WEEKS, 24);
+          const need = [];
+          for(var k=0;k<needLen;k++){ need.push(fmtISO(addWeeks(new Date(todayISO), k))); }
+          const set = {};
+          for(var z=0; z<next.length; z++){ set[next[z]] = true; }
+          for(var q=0; q<need.length; q++){ if(!set[need[q]]){ next.push(need[q]); set[need[q]]=true; } }
+          next.sort(); // ISO строки сортируются корректно по времени
           setWeeks(next);
           saveJSON({weeks: next});
           idx = next.indexOf(todayISO);
@@ -277,7 +307,7 @@
         saveJSON({firstWeekISO: next[idx]});
       };
 
-      const visible = useMemo(()=> weeks.slice(firstIdx, firstIdx+VISIBLE_WEEKS), [weeks, firstIdx]);
+      const visible = useMemo(function(){ return weeks.slice(firstIdx, firstIdx+VISIBLE_WEEKS); }, [weeks, firstIdx]);
 
       return {weeks, setWeeks, firstIdx, setFirstIdx, visible, goLeft, goRight, goToday};
     }
@@ -289,69 +319,72 @@
       const [people, setPeople] = useState(loadJSON("people", seedPeople));
       const [projects, setProjects] = useState(loadJSON("projects", seedProjects));
       const [assignments, setAssignments] = useState(loadJSON("assignments", seedAssignments));
-      const [roles, setRoles] = useState(loadJSON("roles",[...seedRoles]));
-      const [projectTeams, setProjectTeams] = useState(()=>{
+      const [roles, setRoles] = useState(loadJSON("roles",[].concat(seedRoles)));
+      const [projectTeams, setProjectTeams] = useState(function(){
         const saved = loadJSON("projectTeams", {});
         const map = {};
-        Object.keys(saved).forEach(k => (map[k]=new Set(saved[k])));
+        for(const k in saved){ if(Object.prototype.hasOwnProperty.call(saved,k)){ map[k]=new Set(saved[k]); } }
         if(Object.keys(map).length===0){
-          for(const p of seedProjects) map[p.id]=new Set();
-          for(const a of seedAssignments) (map[a.projectId] = map[a.projectId] || new Set()).add(a.personId);
+          for(var i=0;i<seedProjects.length;i++){ map[seedProjects[i].id]=new Set(); }
+          for(var j=0;j<seedAssignments.length;j++){
+            var a=seedAssignments[j]; if(!map[a.projectId]) map[a.projectId]=new Set();
+            map[a.projectId].add(a.personId);
+          }
         }
         return map;
       });
-      const [vacations, setVacations] = useState(()=>{
+      const [vacations, setVacations] = useState(function(){
         const saved = loadJSON("vacations", {});
-        const map = {}; Object.keys(saved).forEach(k => (map[k] = new Set(saved[k])));
+        const map = {}; for(const k in saved){ if(Object.prototype.hasOwnProperty.call(saved,k)){ map[k]=new Set(saved[k]); } }
         return map;
       });
       const [personProjectOrder, setPersonProjectOrder] = useState(loadJSON("personProjectOrder", {}));
-      const [teamOrder, setTeamOrder] = useState(()=> loadJSON("teamOrder", seedPeople.map(p=>p.id)));
+      const [teamOrder, setTeamOrder] = useState(function(){ return loadJSON("teamOrder", seedPeople.map(function(p){return p.id;})); });
 
       const [authed, setAuthed] = useState(loadJSON("authed", false));
 
-      // вкладки
-      const [view, setView] = useState(loadJSON("view","team")); // 'team' | 'project' | 'employees'
-      useEffect(()=> saveJSON({view}), [view]);
+      const [view, setView] = useState(loadJSON("view","team"));
+      useEffect(function(){ saveJSON({view:view}); }, [view]);
 
       const [selectedPersonId, setSelectedPersonId] = useState(null);
 
       const {weeks, setWeeks, visible, goLeft, goRight, goToday} = useWeeksWindow();
 
-      // remote load (optional)
-      useEffect(()=>{
-        (async()=>{
-          const remote = await loadAllRemote();
-          if(remote && typeof remote==="object"){
-            localStorage.setItem(LS_KEY, JSON.stringify(remote));
-            if(remote.people) setPeople(remote.people);
-            if(remote.projects) setProjects(remote.projects);
-            if(remote.assignments) setAssignments(remote.assignments);
-            if(remote.roles) setRoles(remote.roles);
-            if(remote.projectTeams){
-              const map={}; Object.entries(remote.projectTeams).forEach(([k,v])=> map[k]=new Set(v));
-              setProjectTeams(map);
+      useEffect(function(){
+        (async function(){
+          try{
+            const remote = await loadAllRemote();
+            if(remote && typeof remote==="object"){
+              localStorage.setItem(LS_KEY, JSON.stringify(remote));
+              if(remote.people) setPeople(remote.people);
+              if(remote.projects) setProjects(remote.projects);
+              if(remote.assignments) setAssignments(remote.assignments);
+              if(remote.roles) setRoles(remote.roles);
+              if(remote.projectTeams){
+                const map={}; for(const k in remote.projectTeams){ if(Object.prototype.hasOwnProperty.call(remote.projectTeams,k)){ map[k]=new Set(remote.projectTeams[k]); } }
+                setProjectTeams(map);
+              }
+              if(remote.vacations){
+                const map2={}; for(const k2 in remote.vacations){ if(Object.prototype.hasOwnProperty.call(remote.vacations,k2)){ map2[k2]=new Set(remote.vacations[k2]); } }
+                setVacations(map2);
+              }
+              if(remote.personProjectOrder) setPersonProjectOrder(remote.personProjectOrder);
+              if(remote.teamOrder) setTeamOrder(remote.teamOrder);
+              if(remote.weeks) setWeeks(remote.weeks);
             }
-            if(remote.vacations){
-              const map={}; Object.entries(remote.vacations).forEach(([k,v])=> map[k]=new Set(v));
-              setVacations(map);
-            }
-            if(remote.personProjectOrder) setPersonProjectOrder(remote.personProjectOrder);
-            if(remote.teamOrder) setTeamOrder(remote.teamOrder);
-            if(remote.weeks) setWeeks(remote.weeks);
-          }
-        })().catch(()=>{});
+          }catch(e){}
+        })();
       }, []);
 
       // Автоперенос плана -> факт после завершения недели (если факт ещё не задан)
-      useEffect(()=>{
-        setAssignments(prev => {
-          let changed=false;
-          const next = prev.map(a=>{
-            const has = a.factHours!=null && !isNaN(a.factHours);
+      useEffect(function(){
+        setAssignments(function(prev){
+          var changed=false;
+          const next = prev.map(function(a){
+            var has = (a && a.factHours!=null && !isNaN(a.factHours));
             if(!has && isWeekEnded(a.weekStart)){
               const v = Math.max(0, Math.round(fteToHours(a.fte)));
-              if(a.factHours!==v){ changed=true; return {...a, factHours:v}; }
+              if(a.factHours!==v){ changed=true; var b=Object.assign({}, a); b.factHours=v; return b; }
             }
             return a;
           });
@@ -359,62 +392,93 @@
         });
       }, [weeks]);
 
-      // save effects
-      useEffect(()=> saveJSON({people}), [people]);
-      useEffect(()=> saveJSON({projects}), [projects]);
-      useEffect(()=> saveJSON({assignments}), [assignments]);
-      useEffect(()=> saveJSON({roles}), [roles]);
-      useEffect(()=>{ const obj={}; Object.entries(projectTeams).forEach(([k,v])=> obj[k]=Array.from(v)); saveJSON({projectTeams:obj}); }, [projectTeams]);
-      useEffect(()=>{ const obj={}; Object.entries(vacations).forEach(([k,v])=> obj[k]=Array.from(v)); saveJSON({vacations:obj}); }, [vacations]);
-      useEffect(()=> saveJSON({personProjectOrder}), [personProjectOrder]);
-      useEffect(()=> saveJSON({teamOrder}), [teamOrder]);
+      useEffect(function(){ saveJSON({people:people}); }, [people]);
+      useEffect(function(){ saveJSON({projects:projects}); }, [projects]);
+      useEffect(function(){ saveJSON({assignments:assignments}); }, [assignments]);
+      useEffect(function(){ saveJSON({roles:roles}); }, [roles]);
+      useEffect(function(){
+        const obj={}; for(const k in projectTeams){ if(Object.prototype.hasOwnProperty.call(projectTeams,k)){ obj[k]=Array.from(projectTeams[k]); } }
+        saveJSON({projectTeams:obj});
+      }, [projectTeams]);
+      useEffect(function(){
+        const obj={}; for(const k in vacations){ if(Object.prototype.hasOwnProperty.call(vacations,k)){ obj[k]=Array.from(vacations[k]); } }
+        saveJSON({vacations:obj});
+      }, [vacations]);
+      useEffect(function(){ saveJSON({personProjectOrder:personProjectOrder}); }, [personProjectOrder]);
+      useEffect(function(){ saveJSON({teamOrder:teamOrder}); }, [teamOrder]);
 
       // helpers
-      const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
+      const isVacation = function(pid,w){
+        const set = vacations[pid];
+        return !!(set && set.has && set.has(w));
+      };
       const dragRow = useRef(null);
 
-      // people collections
-      const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]);
-      const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]);
+      const peopleForTeam = useMemo(function(){ return people.filter(function(p){ return p.active && !p.external; }); }, [people]);
+      const peopleActiveAll = useMemo(function(){ return people.filter(function(p){ return p.active; }); }, [people]);
 
-      useEffect(()=>{
-        setTeamOrder(prev => mergeOrder(prev, peopleForTeam.map(p=>p.id)));
+      useEffect(function(){
+        setTeamOrder(function(prev){ return mergeOrder(prev, peopleForTeam.map(function(p){return p.id;})); });
       }, [peopleForTeam]);
 
-      // фильтр ролей
       const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
-      useEffect(()=> saveJSON({roleFilter}), [roleFilter]);
+      useEffect(function(){ saveJSON({roleFilter:roleFilter}); }, [roleFilter]);
 
-      const activeTeamIds = useMemo(()=> teamOrder.filter(id => peopleForTeam.some(p=>p.id===id)), [teamOrder, peopleForTeam]);
-      const filteredTeamIds = useMemo(()=> activeTeamIds.filter(id => roleFilter==="all" ? true : (people.find(p=>p.id===id)?.role===roleFilter)), [activeTeamIds, roleFilter, people]);
+      const activeTeamIds = useMemo(function(){ return teamOrder.filter(function(id){ return peopleForTeam.some(function(p){return p.id===id;}); }); }, [teamOrder, peopleForTeam]);
+      const filteredTeamIds = useMemo(function(){
+        return activeTeamIds.filter(function(id){
+          if(roleFilter==="all") return true;
+          const p = people.find(function(x){return x.id===id;});
+          return p ? (p.role===roleFilter) : false;
+        });
+      }, [activeTeamIds, roleFilter, people]);
 
-      // CRUD
       function deletePerson(pid){
         if(!confirm("Удалить сотрудника?")) return;
-        setPeople(prev => prev.filter(p=>p.id!==pid));
-        setAssignments(prev => prev.filter(a=>a.personId!==pid));
-        setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=>{ if(k!==pid) c[k]=new Set(v); }); return c; });
-        setProjectTeams(prev => { const c={}; Object.entries(prev).forEach(([k,v])=>{ const s=new Set(v); s.delete(pid); c[k]=s; }); return c; });
-        setTeamOrder(prev => prev.filter(id=>id!==pid));
+        setPeople(function(prev){ return prev.filter(function(p){return p.id!==pid;}); });
+        setAssignments(function(prev){ return prev.filter(function(a){return a.personId!==pid;}); });
+        setVacations(function(prev){
+          const c={};
+          for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ if(k!==pid){ c[k]=new Set(prev[k]); } } }
+          return c;
+        });
+        setProjectTeams(function(prev){
+          const c={};
+          for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ const s=new Set(prev[k]); s.delete(pid); c[k]=s; } }
+          return c;
+        });
+        setTeamOrder(function(prev){ return prev.filter(function(id){return id!==pid;}); });
         if(selectedPersonId===pid) setSelectedPersonId(null);
       }
       function deleteProject(prid){
         if(!confirm("Удалить проект?")) return;
-        setProjects(prev => prev.filter(p=>p.id!==prid));
-        setAssignments(prev => prev.filter(a=>a.projectId!==prid));
-        setProjectTeams(prev => { const c={}; Object.entries(prev).forEach(([k,v])=>{ if(k!==prid) c[k]=new Set(v); }); return c; });
-        setPersonProjectOrder(prev => { const out={}; Object.entries(prev).forEach(([pid, arr]) => { out[pid]=(arr||[]).filter(x=>x!==prid); }); return out; });
+        setProjects(function(prev){ return prev.filter(function(p){return p.id!==prid;}); });
+        setAssignments(function(prev){ return prev.filter(function(a){return a.projectId!==prid;}); });
+        setProjectTeams(function(prev){
+          const c={};
+          for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ if(k!==prid){ c[k]=new Set(prev[k]); } } }
+          return c;
+        });
+        setPersonProjectOrder(function(prev){
+          const out={};
+          for(const pid in prev){
+            if(Object.prototype.hasOwnProperty.call(prev,pid)){
+              out[pid] = (prev[pid]||[]).filter(function(x){return x!==prid;});
+            }
+          }
+          return out;
+        });
       }
 
       const dragProjectIndex = useRef(null);
-      const onProjectDragStart = (i) => { dragProjectIndex.current = i; };
-      const onProjectDrop = (i) => {
+      const onProjectDragStart = function(i){ dragProjectIndex.current = i; };
+      const onProjectDrop = function(i){
         const from = dragProjectIndex.current;
         dragProjectIndex.current = null;
         if(from==null || from===i) return;
-        setProjects(prev => {
-          const arr = [...prev];
-          const [moved] = arr.splice(from,1);
+        setProjects(function(prev){
+          const arr = prev.slice();
+          const moved = arr.splice(from,1)[0];
           arr.splice(i,0,moved);
           return arr;
         });
@@ -426,9 +490,9 @@
       const [newPersonRole, setNewPersonRole] = useState("other");
       const [newPersonExternal, setNewPersonExternal] = useState(false);
       function submitNewPerson(){
-        const name = newPersonName.trim(); if(!name) return;
+        const name = (newPersonName||"").trim(); if(!name) return;
         const id = rndId();
-        setPeople(p => [...p, { id, name, role:newPersonRole||"other", capacityPerWeek:1, active:true, external: !!newPersonExternal }]);
+        setPeople(function(p){ return p.concat([{ id:id, name:name, role:newPersonRole||"other", capacityPerWeek:1, active:true, external: !!newPersonExternal }]); });
         setCreatePersonOpen(false); setNewPersonName(""); setNewPersonRole("other"); setNewPersonExternal(false);
       }
 
@@ -438,13 +502,22 @@
       const [newProjectColor, setNewProjectColor] = useState("#3b82f6");
       const [newProjectStatus, setNewProjectStatus] = useState("active");
       const [projSearch, setProjSearch] = useState("");
-      const [projTeamSel, setProjTeamSel] = useState(()=> new Set());
-      const personSuggestions = useMemo(()=> peopleActiveAll.filter(p => p.name.toLowerCase().includes(projSearch.toLowerCase()) && !projTeamSel.has(p.id)).slice(0,6), [peopleActiveAll, projSearch, projTeamSel]);
+      const [projTeamSel, setProjTeamSel] = useState(function(){ return new Set(); });
+      const personSuggestions = useMemo(function(){
+        return peopleActiveAll.filter(function(p){
+          return p.name.toLowerCase().indexOf(projSearch.toLowerCase())!==-1 && !projTeamSel.has(p.id);
+        }).slice(0,6);
+      }, [peopleActiveAll, projSearch, projTeamSel]);
       function submitNewProject(){
-        const name = newProjectName.trim(); if(!name) return;
+        const name = (newProjectName||"").trim(); if(!name) return;
         const id = rndId(); const color = newProjectColor || "#64748b"; const status = newProjectStatus;
-        setProjects(ps => [...ps, { id, name, color, status }]);
-        setProjectTeams(pt => { const copy={}; Object.entries(pt).forEach(([k,v])=>copy[k]=new Set(v)); copy[id]=new Set(projTeamSel); return copy; });
+        setProjects(function(ps){ return ps.concat([{ id:id, name:name, color:color, status:status }]); });
+        setProjectTeams(function(pt){
+          const copy={};
+          for(const k in pt){ if(Object.prototype.hasOwnProperty.call(pt,k)){ copy[k]=new Set(pt[k]); } }
+          copy[id]=new Set(projTeamSel);
+          return copy;
+        });
         setCreateProjectOpen(false); setNewProjectName(""); setProjSearch(""); setProjTeamSel(new Set()); setNewProjectStatus("active"); setView("project");
       }
 
@@ -453,7 +526,7 @@
           <div className="min-h-screen grid place-items-center bg-[#F7F8FA]">
             <div className="bg-white w-[360px] rounded-2xl shadow-lg border border-neutral-200 p-5">
               <div className="text-center mb-4"><div className="text-2xl font-semibold">Вход</div></div>
-              <AuthForm onSuccess={(remember)=>{ if(remember){ saveJSON({authed:true, remember:true}); } else { saveJSON({remember:false, authed:false}); } setAuthed(true); }} />
+              <AuthForm onSuccess={function(remember){ if(remember){ saveJSON({authed:true, remember:true}); } else { saveJSON({remember:false, authed:false}); } setAuthed(true); }} />
             </div>
           </div>
         );
@@ -466,19 +539,18 @@
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
               <div className="ml-4 segmented">
-                <button className={view==="team" ? "active" : "idle" } onClick={()=>setView("team")}>Нагрузка</button>
-                <button className={view==="project" ? "active" : "idle"} onClick={()=>setView("project")}>Проекты</button>
-                <button className={view==="employees" ? "active" : "idle"} onClick={()=>setView("employees")}>Команда</button>
+                <button className={view==="team" ? "active" : "idle" } onClick={function(){setView("team");}}>Нагрузка</button>
+                <button className={view==="project" ? "active" : "idle"} onClick={function(){setView("project");}}>Проекты</button>
+                <button className={view==="employees" ? "active" : "idle"} onClick={function(){setView("employees");}}>Команда</button>
               </div>
               <div className="ml-auto flex items-center gap-2">
-                <button onClick={()=>setCreateProjectOpen(true)} className="btn">+ Проект</button>
-                <button onClick={()=>setCreatePersonOpen(true)} className="btn">+ Сотрудник</button>
+                <button onClick={function(){setCreateProjectOpen(true);}} className="btn">+ Проект</button>
+                <button onClick={function(){setCreatePersonOpen(true);}} className="btn">+ Сотрудник</button>
               </div>
             </div>
           </header>
 
           <main className="max-w-screen-2xl mx-auto p-4">
-            {/* Навигатор недель только во вкладке «Нагрузка» */}
             {view==="team" && (
               <WeekNavigator
                 onLeft={goLeft}
@@ -493,30 +565,30 @@
 
             {view==="team" ? (
               // -------- Нагрузка --------
-              <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
+              <div className="grid" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
                 <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
-                {visible.map(w => (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
-                {filteredTeamIds.map((pid, rowIdx) => {
-                  const person = people.find(p=>p.id===pid);
+                {visible.map(function(w){ return (<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>); })}
+                {filteredTeamIds.map(function(pid, rowIdx){
+                  const person = people.find(function(p){return p.id===pid;});
                   return (
                     <Fragment key={pid}>
                       <div
                         className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
                         draggable
-                        onDragStart={()=>{ dragRow.current=rowIdx; }}
-                        onDragOver={e=>e.preventDefault()}
-                        onDrop={()=>{
+                        onDragStart={function(){ dragRow.current=rowIdx; }}
+                        onDragOver={function(e){e.preventDefault();}}
+                        onDrop={function(){
                           const from=dragRow.current; const to=rowIdx; if(from==null || from===to) return;
-                          const arr=[...filteredTeamIds]; const id=arr.splice(from,1)[0]; arr.splice(to,0,id);
-                          const inactive = teamOrder.filter(id => !filteredTeamIds.includes(id));
-                          setTeamOrder([...arr, ...inactive]); dragRow.current=null;
+                          const arr=filteredTeamIds.slice(); const id=arr.splice(from,1)[0]; arr.splice(to,0,id);
+                          const inactive = teamOrder.filter(function(x){ return filteredTeamIds.indexOf(x)===-1; });
+                          setTeamOrder(arr.concat(inactive)); dragRow.current=null;
                         }}
                       >
                         <div
                           role="button"
                           tabIndex={0}
-                          onClick={()=>setSelectedPersonId(person.id)}
-                          onKeyDown={e=>{ if(e.key==='Enter'||e.key===' ') setSelectedPersonId(person.id) }}
+                          onClick={function(){setSelectedPersonId(person.id);}}
+                          onKeyDown={function(e){ if(e.key==='Enter'||e.key===' '){ setSelectedPersonId(person.id); } }}
                           className="w-full text-left"
                         >
                           <div className="relative bg-white rounded-2xl shadow-sm h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-md hover:bg-blue-50/70 transition">
@@ -526,25 +598,24 @@
                         </div>
                       </div>
 
-                      {visible.map(week => {
+                      {visible.map(function(week){
                         const totalFte = personWeekTotal(assignments, person.id, week);
                         const totalHoursPlan = Math.round(totalFte * HOURS_PER_WEEK);
                         const ratio = fillRatio(totalHoursPlan);
                         const vac = isVacation(person.id, week);
                         const over = totalHoursPlan > HOURS_PER_WEEK;
 
-                        // суммарный факт по всем проектам сотрудника за неделю
                         const factSum = personWeekFactTotal(assignments, person.id, week);
-                        const hasAnyFactOrEnded = factSum>0 || isWeekEnded(week);
+                        const hasAnyFactOrEnded = (factSum>0 || isWeekEnded(week));
 
                         return (
                           <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
-                            <div className={`bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative ${over ? "ring-2 ring-red-300" : ""}`}>
+                            <div className={"bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative "+(over ? "ring-2 ring-red-300" : "")}>
                               <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
-                                {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:TEAM_BAR_COLOR}} />)}
+                                {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:(ratio*100)+"%", background:TEAM_BAR_COLOR}} />)}
                               </div>
                               {!vac && (
-                                <div className="absolute inset-0 flex items-center justify-center" title={`план: ${totalHoursPlan} ч${hasAnyFactOrEnded ? `, факт: ${factSum} ч` : ""}`}>
+                                <div className="absolute inset-0 flex items-center justify-center" title={"план: "+totalHoursPlan+" ч"+(hasAnyFactOrEnded ? (", факт: "+factSum+" ч") : "")}>
                                   <div className="leading-tight text-center">
                                     <div className="text-sm font-semibold text-neutral-900">{fmtHours(totalHoursPlan)}</div>
                                     <div className="text-[11px] font-normal text-neutral-500 mt-0.5">{hasAnyFactOrEnded ? fmtHours(factSum) : "—"}</div>
@@ -562,7 +633,7 @@
               </div>
             ) : view==="project" ? (
               // -------- Проекты --------
-              <>
+              <Fragment>
                 <RoleManager
                   roles={roles}
                   setRoles={setRoles}
@@ -572,73 +643,85 @@
                   stickyTopClass="top-[var(--app-header-h)]"
                 />
 
-                <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
-                  {projects.map((project, idx) => (
-                    <Fragment key={project.id}>
-                      <div
-                        className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
-                        draggable
-                        onDragStart={()=>onProjectDragStart(idx)}
-                        onDragOver={e=>e.preventDefault()}
-                        onDrop={()=>onProjectDrop(idx)}
-                        title="Перетащите, чтобы изменить порядок"
-                      >
-                        <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px] cursor-grab active:cursor-grabbing select-none">
-                          <button
-                            className="w-8 h-8 rounded-lg flex items-center justify-center"
-                            style={{background:project.color}}
-                            title="Статус проекта"
-                            onClick={()=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, status:(p.status==="active"?"onhold": p.status==="onhold"?"done": p.status==="done"?"planned":"active")} : p))}
-                          >
-                            <StatusIcon status={project.status}/>
-                          </button>
-                          <div className="font-medium truncate" title={project.name}>{project.name}</div>
+                <div className="grid" style={{gridTemplateColumns:"300px 1fr"}}>
+                  {projects.map(function(project, idx){
+                    return (
+                      <Fragment key={project.id}>
+                        <div
+                          className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                          draggable
+                          onDragStart={function(){onProjectDragStart(idx);}}
+                          onDragOver={function(e){e.preventDefault();}}
+                          onDrop={function(){onProjectDrop(idx);}}
+                          title="Перетащите, чтобы изменить порядок"
+                        >
+                          <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex items-center gap-3 min-w-0 h-[120px] cursor-grab active:cursor-grabbing select-none">
+                            <button
+                              className="w-8 h-8 rounded-lg flex items-center justify-center"
+                              style={{background:project.color}}
+                              title="Статус проекта"
+                              onClick={function(){
+                                setProjects(function(prev){
+                                  return prev.map(function(p){
+                                    if(p.id!==project.id) return p;
+                                    var next = (p.status==="active"?"onhold": p.status==="onhold"?"done": p.status==="done"?"planned":"active");
+                                    var cp = Object.assign({}, p, {status:next});
+                                    return cp;
+                                  });
+                                });
+                              }}
+                            >
+                              <StatusIcon status={project.status}/>
+                            </button>
+                            <div className="font-medium truncate" title={project.name}>{project.name}</div>
 
-                          {/* Пипетка */}
-                          <button
-                            className="absolute top-2 right-10 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
-                            title="Изменить цвет"
-                            onClick={()=> document.getElementById(`color-${project.id}`)?.click()}
-                            type="button"
-                          >
-                            <EyedropperIcon/>
-                          </button>
-                          <input
-                            id={`color-${project.id}`]
-                            type="color"
-                            className="hidden"
-                            value={project.color}
-                            onChange={(e)=> setProjects(prev => prev.map(p => p.id===project.id ? {...p, color:e.target.value} : p))}
-                          />
+                            <button
+                              className="absolute top-2 right-10 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
+                              title="Изменить цвет"
+                              onClick={function(){ var el=document.getElementById("color-"+project.id); if(el) el.click(); }}
+                              type="button"
+                            >
+                              <EyedropperIcon/>
+                            </button>
+                            <input
+                              id={"color-"+project.id}
+                              type="color"
+                              className="hidden"
+                              value={project.color}
+                              onChange={function(e){
+                                const val=e.target.value;
+                                setProjects(function(prev){ return prev.map(function(p){ return p.id===project.id ? Object.assign({}, p, {color:val}) : p; }); });
+                              }}
+                            />
 
-                          {/* Удаление */}
-                          <button
-                            type="button"
-                            draggable={false}
-                            aria-label="Удалить проект"
-                            onMouseDown={(e)=>e.preventDefault()}
-                            onClick={()=> deleteProject(project.id)}
-                            title="Удалить проект"
-                            className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
-                          >
-                            <MinusIcon className="text-neutral-700"/>
-                          </button>
+                            <button
+                              type="button"
+                              draggable={false}
+                              aria-label="Удалить проект"
+                              onMouseDown={function(e){e.preventDefault();}}
+                              onClick={function(){ deleteProject(project.id); }}
+                              title="Удалить проект"
+                              className="absolute top-2 right-2 w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-600 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition"
+                            >
+                              <MinusIcon className="text-neutral-700"/>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="border border-neutral-200 p-3">
-                        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
-                          <ProjectTeamSelector
-                            project={project}
-                            people={peopleActiveAll}
-                            projectTeams={projectTeams}
-                            setProjectTeams={setProjectTeams}
-                          />
+                        <div className="border border-neutral-200 p-3">
+                          <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+                            <ProjectTeamSelector
+                              project={project}
+                              people={peopleActiveAll}
+                              projectTeams={projectTeams}
+                              setProjectTeams={setProjectTeams}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    </Fragment>
-                  ))}
+                      </Fragment>
+                    );
+                  })}
                 </div>
-              </>
+              </Fragment>
             ) : (
               // -------- Команда --------
               <EmployeesPage
@@ -654,15 +737,15 @@
 
           {selectedPersonId && (
             <PersonPage
-              person={people.find(p=>p.id===selectedPersonId)}
+              person={people.find(function(p){return p.id===selectedPersonId;})}
               projects={projects}
               assignments={assignments}
               teamByProject={projectTeams}
               vacations={vacations}
               setVacations={setVacations}
               order={personProjectOrder[selectedPersonId]}
-              setOrder={o=> setPersonProjectOrder(prev => ({...prev, [selectedPersonId]: o}))}
-              onClose={()=> setSelectedPersonId(null)}
+              setOrder={function(o){ setPersonProjectOrder(function(prev){ var c=Object.assign({}, prev); c[selectedPersonId]=o; return c; }); }}
+              onClose={function(){ setSelectedPersonId(null); }}
               onSave={setAssignments}
               setPeople={setPeople}
               weeksAll={weeks}
@@ -672,13 +755,13 @@
               goToday={goToday}
               roles={roles}
               view={view}
-              setView={(v)=>{ setView(v); setSelectedPersonId(null); }}
+              setView={function(v){ setView(v); setSelectedPersonId(null); }}
             />
           )}
 
           <CreatePersonModal
             open={createPersonOpen}
-            onClose={()=>setCreatePersonOpen(false)}
+            onClose={function(){setCreatePersonOpen(false);}}
             name={newPersonName} setName={setNewPersonName}
             role={newPersonRole} setRole={setNewPersonRole}
             external={newPersonExternal} setExternal={setNewPersonExternal}
@@ -686,7 +769,7 @@
           />
           <CreateProjectModal
             open={createProjectOpen}
-            onClose={()=>setCreateProjectOpen(false)}
+            onClose={function(){setCreateProjectOpen(false);}}
             name={newProjectName}
             setName={setNewProjectName}
             color={newProjectColor}
@@ -706,19 +789,19 @@
     }
 
     // Навигатор недель
-    function WeekNavigator({
-      onLeft,
-      onRight,
-      onToday,
-      showRoleFilter=false,
-      roleFilter="all",
-      setRoleFilter=()=>{},
-      roles=[],
-      stickyTopClass='top-[var(--app-header-h)]',
-      leftNode=null
-    }){
+    function WeekNavigator(props){
+      const onLeft = props.onLeft;
+      const onRight = props.onRight;
+      const onToday = props.onToday;
+      const showRoleFilter = !!props.showRoleFilter;
+      const roleFilter = props.roleFilter;
+      const setRoleFilter = props.setRoleFilter || function(){};
+      const roles = props.roles || [];
+      const stickyTopClass = props.stickyTopClass || 'top-[var(--app-header-h)]';
+      const leftNode = (typeof props.leftNode!=="undefined" ? props.leftNode : null);
+
       return (
-        <div className={`sticky ${stickyTopClass} z-50 bg-[#F7F8FA] py-2 mb-2`}>
+        <div className={"sticky "+stickyTopClass+" z-50 bg-[#F7F8FA] py-2 mb-2"}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-h-[32px]">
               {leftNode}
@@ -728,9 +811,9 @@
                 <div className="flex items-center gap-2 mr-1">
                   <label className="text-sm text-neutral-700">Фильтр роли</label>
                   <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm"
-                          value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
+                          value={roleFilter} onChange={function(e){ setRoleFilter(e.target.value); }}>
                     <option value="all">Все</option>
-                    {roles.map(r => (<option key={r} value={r}>{r}</option>))}
+                    {roles.map(function(r){ return (<option key={r} value={r}>{r}</option>); })}
                   </select>
                 </div>
               )}
@@ -746,62 +829,80 @@
     // ---------- Страница одного сотрудника ----------
     function PersonPage({ person, projects, assignments, teamByProject, vacations, setVacations, order, setOrder, onClose, onSave, setPeople, weeksAll, visibleWeeks, goLeft, goRight, goToday, roles, view, setView }){
       if(!person) return null;
-      const isVacation = (pid,w) => !!vacations[pid]?.has?.(w);
 
-      const unionIds = useMemo(()=>{
-        const ids=new Set();
-        assignments.forEach(a=>{ if(a.personId===person.id) ids.add(a.projectId); });
-        Object.entries(teamByProject).forEach(([pr,set])=>{ if(set.has(person.id)) ids.add(pr); });
-        return Array.from(ids);
+      const isVacation = function(pid,w){
+        const set = vacations[pid]; return !!(set && set.has && set.has(w));
+      };
+
+      const unionIds = useMemo(function(){
+        const ids={};
+        assignments.forEach(function(a){ if(a.personId===person.id){ ids[a.projectId]=true; } });
+        for(const pr in teamByProject){
+          if(Object.prototype.hasOwnProperty.call(teamByProject,pr)){
+            const s = teamByProject[pr];
+            if(s && s.has && s.has(person.id)){ ids[pr]=true; }
+          }
+        }
+        return Object.keys(ids);
       }, [assignments, person.id, teamByProject]);
-      const orderedIds = useMemo(()=> mergeOrder(order, unionIds), [order, unionIds]);
-      useEffect(()=>{ setOrder(orderedIds); }, [orderedIds, setOrder]);
 
-      // Редактирование план/факт
-      const [editKey, setEditKey] = useState(null); // `${pid}|${w}|plan|fact`
+      const orderedIds = useMemo(function(){ return mergeOrder(order, unionIds); }, [order, unionIds]);
+      useEffect(function(){ setOrder(orderedIds); }, [orderedIds, setOrder]);
+
+      const [editKey, setEditKey] = useState(null);
       const [editVal, setEditVal] = useState("");
 
       function beginEditPlan(pid, w, curFte){
         if(isVacation(person.id,w)) return;
         const curHours = Math.max(0, Math.round(fteToHours(curFte||0)));
-        setEditKey(`${pid}|${w}|plan`);
+        setEditKey(pid+"|"+w+"|plan");
         setEditVal(String(curHours));
       }
       function beginEditFact(pid, w, curFact){
         if(isVacation(person.id,w)) return;
         const curHours = (curFact==null || isNaN(curFact)) ? "" : String(Math.max(0, Math.round(Number(curFact)||0)));
-        setEditKey(`${pid}|${w}|fact`);
+        setEditKey(pid+"|"+w+"|fact");
         setEditVal(curHours);
       }
       function commitEdit(pid, w, mode){
-        const k = `${pid}|${w}|${mode}`; if(editKey!==k) return;
-        const nextHours = parseInt((editVal||"").replace(",", "."), 10);
+        const k = pid+"|"+w+"|"+mode; if(editKey!==k) return;
+        const normalized = (editVal||"").replace(",", ".");
+        const nextHours = parseInt(normalized, 10);
         setEditKey(null);
         if(isNaN(nextHours) || nextHours<0) return;
-        onSave(prev => {
-          const rest = prev.filter(a => !(a.personId===person.id && a.projectId===pid && a.weekStart===w));
-          const old = prev.find(a => a.personId===person.id && a.projectId===pid && a.weekStart===w);
+        onSave(function(prev){
+          const rest = prev.filter(function(a){ return !(a.personId===person.id && a.projectId===pid && a.weekStart===w); });
+          const old = (function(){
+            for(var i=0;i<prev.length;i++){
+              var a=prev[i];
+              if(a.personId===person.id && a.projectId===pid && a.weekStart===w) return a;
+            }
+            return null;
+          })();
           if(mode==="plan"){
             const nextFte = hoursToFte(nextHours);
-            return [...rest, { id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte:nextFte, factHours: old?.factHours }];
+            return rest.concat([{ id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte:nextFte, factHours: old ? old.factHours : undefined }]);
           }else{
-            return [...rest, { id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte: old?.fte ?? 0, factHours: Math.max(0, nextHours) }];
+            return rest.concat([{ id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte: old ? (old.fte||0) : 0, factHours: Math.max(0, nextHours) }]);
           }
         });
       }
 
       const dragIndex = useRef(null);
-      const onDragStart = (i)=>{ dragIndex.current=i; };
-      const onDrop = (i)=>{ const from=dragIndex.current; dragIndex.current=null; if(from==null || from===i) return; const arr=[...orderedIds]; const [moved]=arr.splice(from,1); arr.splice(i,0,moved); setOrder(arr); };
+      const onDragStart = function(i){ dragIndex.current=i; };
+      const onDrop = function(i){
+        const from=dragIndex.current; dragIndex.current=null; if(from==null || from===i) return;
+        const arr=orderedIds.slice(); const moved=arr.splice(from,1)[0]; arr.splice(i,0,moved); setOrder(arr);
+      };
 
       const [vacOpen, setVacOpen] = useState(false);
-      const [personVac, setPersonVac] = useState(()=> new Set(vacations[person.id] || []));
+      const [personVac, setPersonVac] = useState(function(){ return new Set(vacations[person.id] || []); });
       const [vacTab, setVacTab] = useState("range");
       const [vFrom, setVFrom] = useState("");
       const [vTo, setVTo] = useState("");
-      useEffect(()=>{ setPersonVac(new Set(vacations[person.id] || [])); }, [person.id, vacations]);
-      const saveVac = () => {
-        let setToSave = new Set(personVac);
+      useEffect(function(){ setPersonVac(new Set(vacations[person.id] || [])); }, [person.id, vacations]);
+      const saveVac = function(){
+        var setToSave = new Set(personVac);
         if(vFrom && vTo){
           const d1=new Date(vFrom), d2=new Date(vTo);
           if(!(isNaN(d1) || isNaN(d2) || d1>d2)){
@@ -809,24 +910,31 @@
             while(m1<=m2){ setToSave.add(fmtISO(m1)); m1=addDays(m1,7); }
           }
         }
-        setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=> (c[k]=new Set(v))); c[person.id]=setToSave; return c; });
-        onSave(prev => prev.filter(a => !(a.personId===person.id && setToSave.has(a.weekStart))));
+        setVacations(function(prev){
+          const c={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ c[k]=new Set(prev[k]); } }
+          c[person.id]=setToSave; return c;
+        });
+        onSave(function(prev){ return prev.filter(function(a){ return !(a.personId===person.id && setToSave.has(a.weekStart)); }); });
         setVacOpen(false);
       };
-      const clearVacationWeek = (week) => setVacations(prev => { const c={}; Object.entries(prev).forEach(([k,v])=> (c[k]=new Set(v))); const s=new Set(c[person.id]||[]); s.delete(week); c[person.id]=s; return c; });
+      const clearVacationWeek = function(week){
+        setVacations(function(prev){
+          const c={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ c[k]=new Set(prev[k]); } }
+          const s = new Set(c[person.id]||[]); s.delete(week); c[person.id]=s; return c;
+        });
+      };
 
       const visible = visibleWeeks;
 
-      // Итоги по неделям (план/факт)
-      const weekTotalsPlan = useMemo(()=>{
-        return visible.map(w => {
+      const weekTotalsPlan = useMemo(function(){
+        return visible.map(function(w){
           if(isVacation(person.id,w)) return 0;
-          const sumFte = assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
+          const sumFte = assignments.filter(function(a){return a.personId===person.id && a.weekStart===w;}).reduce(function(s,a){return s+a.fte;},0);
           return Math.max(0, Math.round(fteToHours(sumFte)));
         });
       }, [assignments, person.id, vacations, visible]);
-      const weekTotalsFact = useMemo(()=>{
-        return visible.map(w => {
+      const weekTotalsFact = useMemo(function(){
+        return visible.map(function(w){
           if(isVacation(person.id,w)) return 0;
           return personWeekFactTotal(assignments, person.id, w);
         });
@@ -839,9 +947,9 @@
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
               <div className="ml-4 segmented">
-                <button className={view==="team" ? "active" : "idle"} onClick={()=>{ setView("team"); onClose(); }}>Нагрузка</button>
-                <button className={view==="project" ? "active" : "idle"} onClick={()=>{ setView("project"); onClose(); }}>Проекты</button>
-                <button className={view==="employees" ? "active" : "idle"} onClick={()=>{ setView("employees"); onClose(); }}>Команда</button>
+                <button className={view==="team" ? "active" : "idle"} onClick={function(){ setView("team"); onClose(); }}>Нагрузка</button>
+                <button className={view==="project" ? "active" : "idle"} onClick={function(){ setView("project"); onClose(); }}>Проекты</button>
+                <button className={view==="employees" ? "active" : "idle"} onClick={function(){ setView("employees"); onClose(); }}>Команда</button>
               </div>
               <div className="ml-auto" />
             </div>
@@ -855,93 +963,97 @@
               showRoleFilter={false}
               stickyTopClass="top-[var(--app-header-h)]"
               leftNode={
-                <>
+                <Fragment>
                   <EditableName person={person} setPeople={setPeople}/>
                   <EditableRole person={person} setPeople={setPeople} roles={roles}/>
                   <button
-                    onClick={()=>setVacOpen(true)}
+                    onClick={function(){setVacOpen(true);}}
                     className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800"
                   >🏖 Добавить отпуск</button>
-                </>
+                </Fragment>
               }
             />
           </div>
 
           {/* Сетка недель / сумм */}
           <div className="max-w-screen-2xl mx-auto px-4">
-            <div className="grid" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
+            <div className="grid" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
               <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
-              {visible.map(w => (<div key={w}><WeekHeader iso={w}/></div>))}
+              {visible.map(function(w){ return (<div key={w}><WeekHeader iso={w}/></div>); })}
             </div>
 
-            <div className="grid mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
+            <div className="grid mb-1" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
               <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
-              {visible.map((w,i)=>(
-                <div key={w} className="h-8 flex items-center justify-center">
-                  <div className={`px-2 py-0.5 rounded-lg border ${weekTotalsPlan[i]>HOURS_PER_WEEK?"border-red-300 bg-red-50 text-red-800":"border-neutral-300 bg-white text-neutral-900"} text-[12px] font-medium shadow-sm text-center leading-tight`} title={`план: ${weekTotalsPlan[i]} ч, факт: ${weekTotalsFact[i]} ч`}>
-                    <div className="font-semibold">{fmtHours(weekTotalsPlan[i])}</div>
-                    <div className="text-[10px] font-normal text-neutral-500">{fmtHours(weekTotalsFact[i])}</div>
+              {visible.map(function(w,i){
+                const over = weekTotalsPlan[i]>HOURS_PER_WEEK;
+                return (
+                  <div key={w} className="h-8 flex items-center justify-center">
+                    <div className={"px-2 py-0.5 rounded-lg border "+(over?"border-red-300 bg-red-50 text-red-800":"border-neutral-300 bg-white text-neutral-900")+" text-[12px] font-medium shadow-sm text-center leading-tight"} title={"план: "+weekTotalsPlan[i]+" ч, факт: "+weekTotalsFact[i]+" ч"}>
+                      <div className="font-semibold">{fmtHours(weekTotalsPlan[i])}</div>
+                      <div className="text-[10px] font-normal text-neutral-500">{fmtHours(weekTotalsFact[i])}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            <div className="grid pb-4" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
-              {orderedIds.map((pid, idx) => {
-                const pr = projects.find(p=>p.id===pid); if(!pr) return null;
+            <div className="grid pb-4" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
+              {orderedIds.map(function(pid, idx){
+                const pr = projects.find(function(p){return p.id===pid;}); if(!pr) return null;
                 return (
                   <Fragment key={pid}>
-                    <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={(e)=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
+                    <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={function(){onDragStart(idx);}} onDragOver={function(e){e.preventDefault();}} onDrop={function(){onDrop(idx);}}>
                       <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none">
                         <span className="text-neutral-400">⋮⋮</span>
                         <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
                         <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
                       </div>
                     </div>
-                    {visible.map(week => {
+                    {visible.map(function(week){
                       const fte = fteFor(assignments, person.id, pid, week);
-                      const hoursPlan = Math.max(0, Math.round(fteToHours(fte))); // план
+                      const hoursPlan = Math.max(0, Math.round(fteToHours(fte)));
                       const ratio = fillRatio(hoursPlan);
                       const vac = isVacation(person.id, week);
                       const over = hoursPlan > HOURS_PER_WEEK;
 
-                      // текущая запись для определения factHours (при наличии дубликатов commit удалит остальные)
-                      const curAssign = assignments.find(a=>a.personId===person.id && a.projectId===pid && a.weekStart===week);
-                      const factRaw = curAssign?.factHours;
+                      var curAssign = null;
+                      for(var u=0;u<assignments.length;u++){
+                        var a=assignments[u];
+                        if(a.personId===person.id && a.projectId===pid && a.weekStart===week){ curAssign=a; break; }
+                      }
+                      const factRaw = curAssign ? curAssign.factHours : undefined;
                       const factEffective = (factRaw==null || isNaN(factRaw)) ? (isWeekEnded(week) ? Math.max(0, Math.round(fteToHours(fte))) : null) : Math.max(0, Math.round(Number(factRaw)||0));
 
-                      const editingPlan = editKey===`${pid}|${week}|plan`;
-                      const editingFact = editKey===`${pid}|${week}|fact`;
+                      const editingPlan = (editKey===(pid+"|"+week+"|plan"));
+                      const editingFact = (editKey===(pid+"|"+week+"|fact"));
 
                       return (
                         <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
-                          <div className={`bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative ${over ? "ring-2 ring-red-300" : ""}`}>
+                          <div className={"bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative "+(over ? "ring-2 ring-red-300" : "")}>
                             <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
-                              {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:pr.color}} title={`${pr.name}`}/>)}
+                              {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:(ratio*100)+"%", background:pr.color}} title={pr.name}/>)}
                             </div>
                             {!vac && (
                               <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="leading-tight text-center">
-                                  {/* план */}
                                   {!editingPlan ? (
-                                    <div className="text-sm font-semibold text-neutral-800 cursor-text" title={`план: ${hoursPlan} ч`} onClick={()=>beginEditPlan(pid, week, fte)}>{fmtHours(hoursPlan)}</div>
+                                    <div className="text-sm font-semibold text-neutral-800 cursor-text" title={"план: "+hoursPlan+" ч"} onClick={function(){beginEditPlan(pid, week, fte);}}>{fmtHours(hoursPlan)}</div>
                                   ) : (
                                     <input
                                       autoFocus
                                       inputMode="numeric"
                                       className="h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm"
                                       value={editVal}
-                                      onChange={e=>setEditVal(e.target.value)}
-                                      onBlur={()=>commitEdit(pid, week, "plan")}
-                                      onKeyDown={(e)=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
+                                      onChange={function(e){setEditVal(e.target.value);}}
+                                      onBlur={function(){commitEdit(pid, week, "plan");}}
+                                      onKeyDown={function(e){ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
                                     />
                                   )}
-                                  {/* факт */}
                                   {!editingFact ? (
                                     <div
                                       className="text-[11px] font-normal text-neutral-500 mt-0.5 cursor-text"
-                                      title={factEffective!=null ? `факт: ${factEffective} ч` : "факт не заполнен"}
-                                      onClick={()=>beginEditFact(pid, week, factRaw)}
+                                      title={factEffective!=null ? ("факт: "+factEffective+" ч") : "факт не заполнен"}
+                                      onClick={function(){beginEditFact(pid, week, factRaw);}}
                                     >
                                       {factEffective!=null ? fmtHours(factEffective) : "—"}
                                     </div>
@@ -951,15 +1063,15 @@
                                       inputMode="numeric"
                                       className="mt-0.5 h-7 w-16 text-center text-[11px] font-normal border border-neutral-300 rounded-md bg-white shadow-sm"
                                       value={editVal}
-                                      onChange={e=>setEditVal(e.target.value)}
-                                      onBlur={()=>commitEdit(pid, week, "fact")}
-                                      onKeyDown={(e)=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
+                                      onChange={function(e){setEditVal(e.target.value);}}
+                                      onBlur={function(){commitEdit(pid, week, "fact");}}
+                                      onKeyDown={function(e){ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
                                     />
                                   )}
                                 </div>
                               </div>
                             )}
-                            {vac && (<button className="absolute inset-0 flex items-center justify-center text-2xl" title="Снять отпуск" onClick={()=>clearVacationWeek(week)}>🏖</button>)}
+                            {vac && (<button className="absolute inset-0 flex items-center justify-center text-2xl" title="Снять отпуск" onClick={function(){clearVacationWeek(week);}}>🏖</button>)}
                           </div>
                         </div>
                       );
@@ -972,21 +1084,21 @@
 
           {/* Модал отпусков */}
           {vacOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={()=>setVacOpen(false)}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={function(){setVacOpen(false);}}>
               <div className="absolute inset-0 bg-black/40"/>
-              <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
+              <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max-h-[80vh] overflow-auto p-4" onClick={function(e){e.stopPropagation();}}>
                 <div className="text-base font-semibold mb-3">Отпуск — {person.name}</div>
                 <div className="mb-3 inline-flex items-center gap-1 rounded-xl border border-neutral-200 p-1">
-                  <button className={`px-3 py-1 rounded-lg text-sm ${vacTab==="range" ? "bg-neutral-100 shadow":""}`} onClick={()=>setVacTab("range")}>Диапазон дат</button>
-                  <button className={`px-3 py-1 rounded-lg text-sm ${vacTab==="weeks" ? "bg-neutral-100 shadow":""}`} onClick={()=>setVacTab("weeks")}>По неделям</button>
+                  <button className={"px-3 py-1 rounded-lg text-sm "+(vacTab==="range" ? "bg-neutral-100 shadow":"")} onClick={function(){setVacTab("range");}}>Диапазон дат</button>
+                  <button className={"px-3 py-1 rounded-lg text-sm "+(vacTab==="weeks" ? "bg-neutral-100 shadow":"")} onClick={function(){setVacTab("weeks");}}>По неделям</button>
                 </div>
                 {vacTab==="range" && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <label className="text-sm text-neutral-700">С</label>
-                      <input type="date" value={vFrom} onChange={e=>setVFrom(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/>
+                      <input type="date" value={vFrom} onChange={function(e){setVFrom(e.target.value);}} className="border border-neutral-300 rounded-lg px-2 py-1"/>
                       <label className="text-sm text-neutral-700">по</label>
-                      <input type="date" value={vTo} onChange={e=>setVTo(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/>
+                      <input type="date" value={vTo} onChange={function(e){setVTo(e.target.value);}} className="border border-neutral-300 rounded-lg px-2 py-1"/>
                     </div>
                     {(vFrom && vTo) && (<div className="text-xs text-neutral-600">Будут добавлены недели диапазона после сохранения.</div>)}
                   </div>
@@ -995,13 +1107,18 @@
                   <div className="space-y-3">
                     <div className="text-sm text-neutral-600">Отметьте недели (диапазон дат):</div>
                     <div className="grid grid-cols-3 gap-2">
-                      {yearWeekMondays(new Date().getFullYear()).map(m => (
-                        <label key={m} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl hover:bg-amber-50">
-                          <input type="checkbox" checked={personVac.has(m)} onChange={()=> setPersonVac(prev=>{ const s=new Set(prev); if(s.has(m)) s.delete(m); else s.add(m); return s; }) } />
-                          <span className="text-sm">{weekRangeLabel(m)}</span>
-                          {personVac.has(m) && (<button type="button" className="ml-auto text-amber-700" title="Убрать" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(m); return s; })}>−</button>)}
-                        </label>
-                      ))}
+                      {yearWeekMondays(new Date().getFullYear()).map(function(m){
+                        const checked = personVac.has(m);
+                        return (
+                          <label key={m} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl hover:bg-amber-50">
+                            <input type="checkbox" checked={checked} onChange={function(){
+                              setPersonVac(function(prev){ const s=new Set(prev); if(s.has(m)) s.delete(m); else s.add(m); return s; });
+                            }} />
+                            <span className="text-sm">{weekRangeLabel(m)}</span>
+                            {checked && (<button type="button" className="ml-auto text-amber-700" title="Убрать" onClick={function(){ setPersonVac(function(prev){ const s=new Set(prev); s.delete(m); return s; }); }}>−</button>)}
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1009,17 +1126,19 @@
                   <div className="mt-3">
                     <div className="text-sm mb-1">Выбрано недель:</div>
                     <div className="flex flex-wrap gap-2">
-                      {Array.from(personVac).map(w => (
-                        <span key={w} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                          {weekRangeLabel(w)}
-                          <button type="button" className="ml-1" title="Удалить" onClick={()=> setPersonVac(prev=>{ const s=new Set(prev); s.delete(w); return s; }) }>×</button>
-                        </span>
-                      ))}
+                      {Array.from(personVac).map(function(w){
+                        return (
+                          <span key={w} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
+                            {weekRangeLabel(w)}
+                            <button type="button" className="ml-1" title="Удалить" onClick={function(){ setPersonVac(function(prev){ const s=new Set(prev); s.delete(w); return s; }); }}>×</button>
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
                 <div className="mt-4 flex justify-end gap-2">
-                  <button type="button" className="btn" onClick={()=>setVacOpen(false)}>Отмена</button>
+                  <button type="button" className="btn" onClick={function(){setVacOpen(false);}}>Отмена</button>
                   <button type="button" className="rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-1" onClick={saveVac}>Сохранить</button>
                 </div>
               </div>
@@ -1033,57 +1152,56 @@
     function InlineNameEditor({person, setPeople}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(person.name);
-      useEffect(()=> setVal(person.name), [person.id, person.name]);
-      const commit = () => {
+      useEffect(function(){ setVal(person.name); }, [person.id, person.name]);
+      const commit = function(){
         const name=(val||"").trim(); setEditing(false);
         if(!name || name===person.name) return;
-        setPeople(prev => prev.map(p => p.id===person.id ? {...p, name} : p));
+        setPeople(function(prev){ return prev.map(function(p){ return p.id===person.id ? Object.assign({}, p, {name:name}) : p; }); });
       };
       return editing ? (
         <input
           autoFocus
           value={val}
-          onChange={e=>setVal(e.target.value)}
+          onChange={function(e){setVal(e.target.value);}}
           onBlur={commit}
-          onKeyDown={e=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
+          onKeyDown={function(e){ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
           className="px-2 py-1 text-sm border border-neutral-300 rounded-lg w-[70%]"
         />
       ) : (
-        <button className="font-medium truncate text-left hover:underline" onClick={()=>setEditing(true)} title="Редактировать имя">
+        <button className="font-medium truncate text-left hover:underline" onClick={function(){setEditing(true);}} title="Редактировать имя">
           {person.name}
         </button>
       );
     }
 
-    // ---------- Инлайновое редактирование (шапка страницы сотрудника) ----------
     function EditableName({person, setPeople}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(person.name);
-      useEffect(()=> setVal(person.name), [person.id, person.name]);
-      const commit = () => {
+      useEffect(function(){ setVal(person.name); }, [person.id, person.name]);
+      const commit = function(){
         const name=(val||"").trim(); setEditing(false);
         if(!name || name===person.name) return;
-        setPeople(prev => prev.map(p => p.id===person.id ? {...p, name} : p));
+        setPeople(function(prev){ return prev.map(function(p){ return p.id===person.id ? Object.assign({}, p, {name:name}) : p; }); });
       };
       return editing ? (
-        <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit}
-               onKeyDown={e=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
+        <input autoFocus value={val} onChange={function(e){setVal(e.target.value);}} onBlur={commit}
+               onKeyDown={function(e){ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape"){ setEditing(false); setVal(person.name);} }}
                className="text-lg font-semibold leading-tight border border-neutral-300 rounded-md px-2 py-0.5"/>
       ) : (
-        <button className="text-lg font-semibold leading-tight hover:underline" title="Редактировать имя" onClick={()=>setEditing(true)}>{person.name}</button>
+        <button className="text-lg font-semibold leading-tight hover:underline" title="Редактировать имя" onClick={function(){setEditing(true);}}>{person.name}</button>
       );
     }
     function EditableRole({person, setPeople, roles}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(person.role || "other");
-      useEffect(()=> setVal(person.role || "other"), [person.id, person.role]);
-      const commit = ()=>{ const role = val || "other"; setEditing(false); if(role===person.role) return; setPeople(prev => prev.map(p => p.id===person.id ? {...p, role} : p)); };
+      useEffect(function(){ setVal(person.role || "other"); }, [person.id, person.role]);
+      const commit = function(){ const role = val || "other"; setEditing(false); if(role===person.role) return; setPeople(function(prev){ return prev.map(function(p){ return p.id===person.id ? Object.assign({}, p, {role:role}) : p; }); }); };
       return editing ? (
-        <select autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
-          {roles.map(r => (<option key={r} value={r}>{r.toUpperCase()}</option>))}
+        <select autoFocus value={val} onChange={function(e){setVal(e.target.value);}} onBlur={commit} className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">
+          {roles.map(function(r){ return (<option key={r} value={r}>{r.toUpperCase()}</option>); })}
         </select>
       ) : (
-        <button className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={()=>setEditing(true)}>
+        <button className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={function(){setEditing(true);}}>
           <PencilIcon className="opacity-70"/> {(person.role||"OTHER").toUpperCase()}
         </button>
       );
@@ -1092,29 +1210,38 @@
     // ---------- Проекты → команда ----------
     function ProjectTeamSelector({project, people, projectTeams, setProjectTeams}){
       const [search, setSearch] = useState("");
-      const list = useMemo(()=> people.filter(p => !projectTeams[project.id]?.has(p.id) && p.name.toLowerCase().includes(search.toLowerCase())).slice(0,8), [people, project.id, projectTeams, search]);
+      const list = useMemo(function(){
+        const teamSet = projectTeams[project.id];
+        return people.filter(function(p){
+          const inTeam = !!(teamSet && teamSet.has && teamSet.has(p.id));
+          return !inTeam && p.name.toLowerCase().indexOf(search.toLowerCase())!==-1;
+        }).slice(0,8);
+      }, [people, project.id, projectTeams, search]);
 
-      const addToTeam = (pid) => {
-        setProjectTeams(prev => {
-          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
-          (copy[project.id]=copy[project.id]||new Set()).add(pid);
+      const addToTeam = function(pid){
+        setProjectTeams(function(prev){
+          const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=new Set(prev[k]); } }
+          if(!copy[project.id]) copy[project.id]=new Set();
+          copy[project.id].add(pid);
           return copy;
         });
       };
-      const removeFromTeam = (pid) => {
-        setProjectTeams(prev => {
-          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
-          copy[project.id]?.delete(pid);
+      const removeFromTeam = function(pid){
+        setProjectTeams(function(prev){
+          const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=new Set(prev[k]); } }
+          if(copy[project.id]) copy[project.id].delete(pid);
           return copy;
         });
       };
+
+      const currentTeam = Array.from(projectTeams[project.id] ? projectTeams[project.id] : new Set());
 
       return (
         <div>
           <div className="flex items-center gap-2">
             <input
               value={search}
-              onChange={e=>setSearch(e.target.value)}
+              onChange={function(e){setSearch(e.target.value);}}
               placeholder="Добавить сотрудника..."
               className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
             />
@@ -1122,11 +1249,13 @@
           {search && (
             <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
               {list.length>0 ? (
-                list.map(sug => (
-                  <button key={sug.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ addToTeam(sug.id); setSearch(""); }}>
-                    {sug.name} <span className="text-[10px] text-neutral-500">{String(sug.role).toUpperCase()}</span> {sug.external && <span className="ml-1 text-[10px] text-amber-700">внешн.</span>}
-                  </button>
-                ))
+                list.map(function(sug){
+                  return (
+                    <button key={sug.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={function(){ addToTeam(sug.id); setSearch(""); }}>
+                      {sug.name} <span className="text-[10px] text-neutral-500">{String(sug.role).toUpperCase()}</span> {sug.external ? (<span className="ml-1 text-[10px] text-amber-700">внешн.</span>) : null}
+                    </button>
+                  );
+                })
               ) : (
                 <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
               )}
@@ -1134,12 +1263,12 @@
           )}
 
           <div className="mt-3 flex flex-wrap gap-2">
-            {Array.from(projectTeams[project.id] || new Set()).map(pid => {
-              const p = people.find(x=>x.id===pid); if(!p) return null;
+            {currentTeam.map(function(pid){
+              const p = people.find(function(x){return x.id===pid;}); if(!p) return null;
               return (
                 <span key={pid} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                  {p.name}{p.external && <span className="ml-1 text-amber-700">(внешн.)</span>}
-                  <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>removeFromTeam(pid)}>×</button>
+                  {p.name}{p.external ? (<span className="ml-1 text-amber-700">(внешн.)</span>) : null}
+                  <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={function(){removeFromTeam(pid);}}>×</button>
                 </span>
               );
             })}
@@ -1151,94 +1280,103 @@
     // ---------- Команда (список) ----------
     function EmployeesPage({people, setPeople, projects, projectTeams, setProjectTeams, deletePerson}){
       const [search, setSearch] = useState("");
-      const list = useMemo(()=> people.filter(p => p.active && p.name.toLowerCase().includes(search.toLowerCase())), [people, search]);
+      const list = useMemo(function(){ return people.filter(function(p){ return p.active && p.name.toLowerCase().indexOf(search.toLowerCase())!==-1; }); }, [people, search]);
 
       return (
         <div className="space-y-3">
           <input
             value={search}
-            onChange={e=>setSearch(e.target.value)}
+            onChange={function(e){setSearch(e.target.value);}}
             placeholder="Найти сотрудника..."
             className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
           />
 
-          <div className="grid" style={{gridTemplateColumns:`300px 1fr`}}>
-            {list.map(p => (
-              <Fragment key={p.id}>
-                <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
-                  <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 min-w-0 h-[120px] flex flex-col justify-center">
-                    <div className="flex items-center gap-2">
-                      {/* имя теперь редактируемо по клику */}
-                      <InlineNameEditor person={p} setPeople={setPeople}/>
-                      <button
-                        className="text-neutral-500 hover:text-red-600 ml-auto"
-                        title="Удалить сотрудника"
-                        onClick={()=>deletePerson(p.id)}
-                      ><TrashIcon/></button>
+          <div className="grid" style={{gridTemplateColumns:"300px 1fr"}}>
+            {list.map(function(p){
+              return (
+                <Fragment key={p.id}>
+                  <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
+                    <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 min-w-0 h-[120px] flex flex-col justify-center">
+                      <div className="flex items-center gap-2">
+                        <InlineNameEditor person={p} setPeople={setPeople}/>
+                        <button
+                          className="text-neutral-500 hover:text-red-600 ml-auto"
+                          title="Удалить сотрудника"
+                          onClick={function(){deletePerson(p.id);}}
+                        ><TrashIcon/></button>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <select
+                          value={p.role||"other"}
+                          onChange={function(e){ setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({}, x, {role:e.target.value}) : x; }); }); }}
+                          className="text-[12px] px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200"
+                        >
+                          {["designer","dev","manager","pm","other"].map(function(r){ return (<option key={r} value={r}>{r.toUpperCase()}</option>); })}
+                        </select>
+                        <label className="text-xs flex items-center gap-1 ml-2">
+                          <input type="checkbox" checked={!!p.external} onChange={function(e){ setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({}, x, {external:e.target.checked}) : x; }); }); }}/>
+                          Внешний
+                        </label>
+                      </div>
+                      <div className="mt-1 text-[11px] text-neutral-500">ID: {p.id.slice(0,6)}…</div>
                     </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <select
-                        value={p.role||"other"}
-                        onChange={e=> setPeople(prev => prev.map(x => x.id===p.id ? {...x, role:e.target.value} : x))}
-                        className="text-[12px] px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200"
-                      >
-                        {["designer","dev","manager","pm","other"].map(r => (<option key={r} value={r}>{r.toUpperCase()}</option>))}
-                      </select>
-                      <label className="text-xs flex items-center gap-1 ml-2">
-                        <input type="checkbox" checked={!!p.external} onChange={e=> setPeople(prev => prev.map(x => x.id===p.id ? {...x, external:e.target.checked} : x))}/>
-                        Внешний
-                      </label>
-                    </div>
-                    <div className="mt-1 text-[11px] text-neutral-500">ID: {p.id.slice(0,6)}…</div>
                   </div>
-                </div>
 
-                <div className="border border-neutral-200 p-3">
-                  <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
-                    <PersonProjectsEditor person={p} projects={projects} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/>
+                  <div className="border border-neutral-200 p-3">
+                    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+                      <PersonProjectsEditor person={p} projects={projects} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/>
+                    </div>
                   </div>
-                </div>
-              </Fragment>
-            ))}
+                </Fragment>
+              );
+            })}
           </div>
         </div>
       );
     }
 
-    // Инвертированный селектор: проекты конкретного сотрудника
     function PersonProjectsEditor({person, projects, projectTeams, setProjectTeams}){
       const [search, setSearch] = useState("");
-      const memberOf = useMemo(()=>{
+      const memberOf = useMemo(function(){
         const ids = [];
-        for(const pr of projects){
-          if(projectTeams[pr.id]?.has(person.id)) ids.push(pr.id);
+        for(var i=0;i<projects.length;i++){
+          var pr=projects[i];
+          const set = projectTeams[pr.id];
+          if(set && set.has && set.has(person.id)) ids.push(pr.id);
         }
         return new Set(ids);
       }, [projects, projectTeams, person.id]);
 
-      const pool = useMemo(()=> projects.filter(pr => !memberOf.has(pr.id) && pr.name.toLowerCase().includes(search.toLowerCase())).slice(0,8), [projects, memberOf, search]);
+      const pool = useMemo(function(){
+        return projects.filter(function(pr){
+          return !memberOf.has(pr.id) && pr.name.toLowerCase().indexOf(search.toLowerCase())!==-1;
+        }).slice(0,8);
+      }, [projects, memberOf, search]);
 
-      const add = (prid) => {
-        setProjectTeams(prev => {
-          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
-          (copy[prid]=copy[prid]||new Set()).add(person.id);
+      const add = function(prid){
+        setProjectTeams(function(prev){
+          const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=new Set(prev[k]); } }
+          if(!copy[prid]) copy[prid]=new Set();
+          copy[prid].add(person.id);
           return copy;
         });
       };
-      const remove = (prid) => {
-        setProjectTeams(prev => {
-          const copy={}; Object.entries(prev).forEach(([k,v])=> (copy[k]=new Set(v)));
-          copy[prid]?.delete(person.id);
+      const remove = function(prid){
+        setProjectTeams(function(prev){
+          const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=new Set(prev[k]); } }
+          if(copy[prid]) copy[prid].delete(person.id);
           return copy;
         });
       };
+
+      const current = Array.from(memberOf);
 
       return (
         <div>
           <div className="flex items-center gap-2">
             <input
               value={search}
-              onChange={e=>setSearch(e.target.value)}
+              onChange={function(e){setSearch(e.target.value);}}
               placeholder="Добавить проект..."
               className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
             />
@@ -1246,14 +1384,16 @@
           {search && (
             <div className="mt-2 border border-neutral-200 rounded-xl overflow-hidden">
               {pool.length>0 ? (
-                pool.map(pr => (
-                  <button key={pr.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ add(pr.id); setSearch(""); }}>
-                    <span className="inline-flex items-center gap-2">
-                      <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
-                      {pr.name}
-                    </span>
-                  </button>
-                ))
+                pool.map(function(pr){
+                  return (
+                    <button key={pr.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={function(){ add(pr.id); setSearch(""); }}>
+                      <span className="inline-flex items-center gap-2">
+                        <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
+                        {pr.name}
+                      </span>
+                    </button>
+                  );
+                })
               ) : (
                 <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
               )}
@@ -1261,13 +1401,13 @@
           )}
 
           <div className="mt-3 flex flex-wrap gap-2">
-            {Array.from(memberOf).map(prid => {
-              const pr = projects.find(p=>p.id===prid); if(!pr) return null;
+            {current.map(function(prid){
+              const pr = projects.find(function(p){return p.id===prid;}); if(!pr) return null;
               return (
                 <span key={prid} className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
                   <span className="w-3 h-3 rounded" style={{background:pr.color}}></span>
                   {pr.name}
-                  <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>remove(prid)}>×</button>
+                  <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={function(){remove(prid);}}>×</button>
                 </span>
               );
             })}
@@ -1277,44 +1417,52 @@
     }
 
     // ---------- Менеджер ролей ----------
-    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass='top-[calc(var(--app-header-h)+48px)]'}){
+    function RoleManager({roles, setRoles, setRoleFilter, people, setPeople, stickyTopClass}){
+      stickyTopClass = stickyTopClass || 'top-[calc(var(--app-header-h)+48px)]';
       const [adding, setAdding] = useState("");
       const [editing, setEditing] = useState(null);
       const [val, setVal] = useState("");
 
-      const add = ()=>{ const x=adding.trim(); if(!x || roles.includes(x)) return; setRoles([...roles, x]); setAdding(""); };
-      const startEdit = (r)=>{ setEditing(r); setVal(r); };
-      const commit = ()=>{ if(!editing) return; const x=val.trim(); if(!x){ setEditing(null); return; } setRoles(roles.map(r => r===editing ? x : r)); setEditing(null); if(x) setRoleFilter(x); };
-      const remove = (r)=>{
-        if(!confirm(`Удалить роль «${r}»? Людям с этой ролью будет проставлено OTHER.`)) return;
-        setRoles(roles.filter(x=>x!==r));
-        setPeople(prev => prev.map(p => p.role===r ? {...p, role:"other"} : p));
+      const add = function(){ const x=(adding||"").trim(); if(!x || roles.indexOf(x)!==-1) return; setRoles(roles.concat([x])); setAdding(""); };
+      const startEdit = function(r){ setEditing(r); setVal(r); };
+      const commit = function(){
+        if(!editing) return;
+        const x=(val||"").trim(); setEditing(null);
+        if(!x) return;
+        setRoles(roles.map(function(r){ return r===editing ? x : r; })); setRoleFilter(x);
+      };
+      const remove = function(r){
+        if(!confirm("Удалить роль «"+r+"»? Людям с этой ролью будет проставлено OTHER.")) return;
+        setRoles(roles.filter(function(x){return x!==r;}));
+        setPeople(function(prev){ return prev.map(function(p){ return p.role===r ? Object.assign({}, p, {role:"other"}) : p; }); });
         setRoleFilter("all");
       };
 
       return (
-        <div className={`bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky ${stickyTopClass} z-50`}>
+        <div className={"bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky "+stickyTopClass+" z-50"}>
           <div className="text-sm font-medium">Роли</div>
           <div className="mt-2 flex flex-wrap gap-2">
-            {roles.map(r => (
-              <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
-                {editing===r ? (
-                  <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape') setEditing(null); }} className="px-1 py-0.5 border border-neutral-300 rounded"/>
-                ) : (
-                  <>
-                    <button className="hover:underline" onClick={()=>setRoleFilter(r)}>{r}</button>
-                    <button className="text-neutral-500 hover:text-neutral-800" title="Переименовать роль" onClick={()=>startEdit(r)}>
-                      <PencilIcon/>
-                    </button>
-                    <button className="text-neutral-500 hover:text-red-600" title="Удалить роль" onClick={()=>remove(r)}>
-                      <TrashIcon/>
-                    </button>
-                  </>
-                )}
-              </span>
-            ))}
+            {roles.map(function(r){
+              return (
+                <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
+                  {editing===r ? (
+                    <input autoFocus value={val} onChange={function(e){setVal(e.target.value);}} onBlur={commit} onKeyDown={function(e){ if(e.key==='Enter') e.currentTarget.blur(); if(e.key==='Escape') setEditing(null); }} className="px-1 py-0.5 border border-neutral-300 rounded"/>
+                  ) : (
+                    <Fragment>
+                      <button className="hover:underline" onClick={function(){setRoleFilter(r);}}>{r}</button>
+                      <button className="text-neutral-500 hover:text-neutral-800" title="Переименовать роль" onClick={function(){startEdit(r);}}>
+                        <PencilIcon/>
+                      </button>
+                      <button className="text-neutral-500 hover:text-red-600" title="Удалить роль" onClick={function(){remove(r);}}>
+                        <TrashIcon/>
+                      </button>
+                    </Fragment>
+                  )}
+                </span>
+              );
+            })}
             <span className="inline-flex items-center gap-1">
-              <input value={adding} onChange={e=>setAdding(e.target.value)} placeholder="Добавить роль" className="px-2 py-1 text-sm border border-neutral-300 rounded-lg"/>
+              <input value={adding} onChange={function(e){setAdding(e.target.value);}} placeholder="Добавить роль" className="px-2 py-1 text-sm border border-neutral-300 rounded-lg"/>
               <button className="btn" onClick={add}>Сохранить</button>
             </span>
           </div>
@@ -1328,21 +1476,21 @@
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[460px] p-4" onClick={(e)=>e.stopPropagation()}>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[460px] p-4" onClick={function(e){e.stopPropagation();}}>
             <div className="text-base font-semibold mb-3">Новый сотрудник</div>
             <div className="space-y-3">
               <div>
                 <label className="block text-sm mb-1">Имя</label>
-                <input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
+                <input value={name} onChange={function(e){setName(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
               </div>
               <div>
                 <label className="block text-sm mb-1">Роль</label>
-                <select value={role} onChange={e=>setRole(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
-                  {roles.map(r => (<option key={r} value={r}>{r}</option>))}
+                <select value={role} onChange={function(e){setRole(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
+                  {roles.map(function(r){ return (<option key={r} value={r}>{r}</option>); })}
                 </select>
               </div>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={!!external} onChange={e=>setExternal(e.target.checked)} />
+                <input type="checkbox" checked={!!external} onChange={function(e){setExternal(e.target.checked);}} />
                 Внешний сотрудник (не показывать во «Нагрузка»)
               </label>
             </div>
@@ -1360,16 +1508,16 @@
       return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
           <div className="absolute inset-0 bg-black/40"/>
-          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-h-[80vh] overflow-auto p-4" onClick={(e)=>e.stopPropagation()}>
+          <div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-h-[80vh] overflow-auto p-4" onClick={function(e){e.stopPropagation();}}>
             <div className="text-base font-semibold mb-3">Новый проект</div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm mb-1">Название</label>
-                <input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
+                <input value={name} onChange={function(e){setName(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
               </div>
               <div>
                 <label className="block text-sm mb-1">Статус</label>
-                <select value={status} onChange={e=>setStatus(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
+                <select value={status} onChange={function(e){setStatus(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2">
                   <option value="active">active</option>
                   <option value="onhold">onhold</option>
                   <option value="done">done</option>
@@ -1378,33 +1526,40 @@
               </div>
               <div>
                 <label className="block text-sm mb-1">Цвет</label>
-                <input type="color" value={color} onChange={e=>setColor(e.target.value)} className="w-16 h-10 p-0 border border-neutral-300 rounded-lg"/>
+                <input type="color" value={color} onChange={function(e){setColor(e.target.value);}} className="w-16 h-10 p-0 border border-neutral-300 rounded-lg"/>
               </div>
             </div>
 
             <div className="mt-4">
               <div className="text-sm font-medium mb-2">Команда</div>
               <div className="flex items-center gap-2 mb-2">
-                <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Добавить сотрудника..." className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"/>
+                <input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Добавить сотрудника..." className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"/>
               </div>
               {search && (
                 <div className="mb-2 border border-neutral-200 rounded-xl overflow-hidden">
-                  {suggestions.length>0 ? suggestions.map(s => (
-                    <button key={s.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={()=>{ const c=new Set(teamSel); c.add(s.id); setTeamSel(c); setSearch(""); }}>
-                      {s.name} <span className="text-[10px] text-neutral-500">{String(s.role).toUpperCase()}</span> {s.external && <span className="ml-1 text-[10px] text-amber-700">внешн.</span>}
-                    </button>
-                  )) : (
+                  {suggestions.length>0 ? suggestions.map(function(s){
+                    return (
+                      <button key={s.id} className="w-full text-left px-3 py-2 hover:bg-blue-50" onClick={function(){
+                        const c=new Set(teamSel); c.add(s.id); setTeamSel(c); setSearch("");
+                      }}>
+                        {s.name} <span className="text-[10px] text-neutral-500">{String(s.role).toUpperCase()}</span> {s.external ? (<span className="ml-1 text-[10px] text-amber-700">внешн.</span>) : null}
+                      </button>
+                    );
+                  }) : (
                     <div className="px-3 py-2 text-xs text-neutral-500">Не найдено</div>
                   )}
                 </div>
               )}
               <div className="flex flex-wrap gap-2">
-                {Array.from(teamSel).map(pid => { const p = people.find(x=>x.id===pid); if(!p) return null; return (
-                  <span key={pid} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
-                    {p.name}{p.external && <span className="ml-1 text-amber-700">(внешн.)</span>}
-                    <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>{ const c=new Set(teamSel); c.delete(pid); setTeamSel(c); }}>×</button>
-                  </span>
-                );})}
+                {Array.from(teamSel).map(function(pid){
+                  const p = people.find(function(x){return x.id===pid;}); if(!p) return null;
+                  return (
+                    <span key={pid} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">
+                      {p.name}{p.external ? (<span className="ml-1 text-amber-700">(внешн.)</span>) : null}
+                      <button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={function(){ const c=new Set(teamSel); c.delete(pid); setTeamSel(c); }}>×</button>
+                    </span>
+                  );
+                })}
               </div>
             </div>
 
@@ -1422,19 +1577,22 @@
       const [login, setLogin] = useState("");
       const [pass, setPass] = useState("");
       const [remember, setRemember] = useState(false);
-      const submit = (e)=>{ e.preventDefault(); if(login.trim().toLowerCase()==="панквеб" && pass==="123455"){ onSuccess(remember); } else { alert("Неверные данные"); } };
+      const submit = function(e){
+        e.preventDefault();
+        if((login||"").trim().toLowerCase()==="панквеб" && pass==="123455"){ onSuccess(remember); } else { alert("Неверные данные"); }
+      };
       return (
         <form onSubmit={submit} className="space-y-3">
           <div>
             <label className="block text-sm mb-1">Логин</label>
-            <input value={login} onChange={e=>setLogin(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
+            <input value={login} onChange={function(e){setLogin(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
           </div>
           <div>
             <label className="block text-sm mb-1">Пароль</label>
-            <input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
+            <input type="password" value={pass} onChange={function(e){setPass(e.target.value);}} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/>
           </div>
           <label className="flex items-center gap-2 text-sm select-none">
-            <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} />
+            <input type="checkbox" checked={!!remember} onChange={function(e){setRemember(e.target.checked);}} />
             Запомнить данные
           </label>
           <button className="w-full rounded-xl border border-green-300 bg-green-50 text-green-800 py-2">Войти</button>
@@ -1447,7 +1605,7 @@
       try{
         console.assert(fmtFTE1(1.16)==="1.2","fmtFTE1 rounds to 1 decimal");
         console.assert(scaleRatio(1.2)===1,"scaleRatio clamps to 1");
-      }catch{}
+      }catch(e){}
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(<App />);
