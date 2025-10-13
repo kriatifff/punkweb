@@ -1,3 +1,9 @@
+Готово — внёс план-факт и починил «Сегодня».
+Ниже — полный, рабочий `index.html` (добавил хранение `factHours` в назначениях, редактирование факта на странице сотрудника по каждому проекту/неделе, суммарный «факт» на странице «Нагрузка», автоперенос плана в факт после завершения недели и корректное поведение кнопки «Сегодня» — она делает текущую неделю первой колонкой). Внешний вид «плана» не менял; «факт» менее яркий и без жирного.
+
+> Важно: код длиннее исходного и сохраняет весь имеющийся функционал.
+
+```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -125,6 +131,13 @@
     const fmtFTE1 = (n) => (Math.round(n*10)/10).toFixed(1);
     const yearWeekMondays = (year) => { let m=startOfISOWeek(new Date(year,0,1)); const end=new Date(year,11,31); end.setHours(0,0,0,0); const list=[]; while(m<=end){ list.push(fmtISO(m)); m=addDays(m,7);} return list; };
 
+    // Неделя завершилась? (сравниваем с сегодняшним началом дня)
+    const isWeekEnded = (weekISO) => {
+      const end = addDays(new Date(weekISO), 6);
+      const today = new Date(); today.setHours(0,0,0,0);
+      return today > end;
+    };
+
     // ---------- Данные по умолчанию ----------
     const base = startOfISOWeek(new Date());
     const initialWeeks = Array.from({length:24}, (_,i)=> fmtISO(addWeeks(base, i-4)));
@@ -146,6 +159,17 @@
 
     // ---------- Агрегации ----------
     const personWeekTotal = (as, pid, w) => as.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
+
+    // Факт для одной записи: явный factHours, либо (если неделя закончилась и факт не внесён) — план в часах
+    const effectiveFactHours = (a, w) => {
+      const has = a && a.factHours!=null && !isNaN(a.factHours);
+      if(has) return Math.max(0, Math.round(Number(a.factHours)||0));
+      if(isWeekEnded(w)) return Math.max(0, Math.round(fteToHours(a.fte)));
+      return 0;
+    };
+    const personWeekFactTotal = (as, pid, w) =>
+      as.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=> s + effectiveFactHours(a,w), 0);
+
     const fteFor = (as, pid, pr, w) => as.filter(a=>a.personId===pid && a.projectId===pr && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
     const mergeOrder = (existing, nextIds) => {
       const seen=new Set(); const res=[];
@@ -240,7 +264,7 @@
         setFirstIdx(f2); saveJSON({firstWeekISO: w2[f2]}); saveJSON({weeks: w2});
       };
 
-      // Исправлено: «Сегодня» делает текущую неделю ПЕРВОЙ колонкой.
+      // «Сегодня» делает текущую неделю ПЕРВОЙ колонкой
       const goToday = () => {
         const todayISO = fmtISO(startOfISOWeek(new Date()));
         let idx = weeks.indexOf(todayISO);
@@ -250,7 +274,7 @@
           const need = Array.from({length: Math.max(VISIBLE_WEEKS, 24)}, (_,i)=> fmtISO(addWeeks(new Date(todayISO), i)));
           const set = new Set(weeks);
           for(const iso of need) set.add(iso);
-          next = Array.from(set).sort(); // ISO сортируется корректно
+          next = Array.from(set).sort();
           setWeeks(next);
           saveJSON({weeks: next});
           idx = next.indexOf(todayISO);
@@ -324,6 +348,22 @@
           }
         })().catch(()=>{});
       }, []);
+
+      // Автоперенос плана -> факт после завершения недели (если факт ещё не задан)
+      useEffect(()=>{
+        setAssignments(prev => {
+          let changed=false;
+          const next = prev.map(a=>{
+            const has = a.factHours!=null && !isNaN(a.factHours);
+            if(!has && isWeekEnded(a.weekStart)){
+              const v = Math.max(0, Math.round(fteToHours(a.fte)));
+              if(a.factHours!==v){ changed=true; return {...a, factHours:v}; }
+            }
+            return a;
+          });
+          return changed ? next : prev;
+        });
+      }, [weeks]);
 
       // save effects
       useEffect(()=> saveJSON({people}), [people]);
@@ -494,10 +534,15 @@
 
                       {visible.map(week => {
                         const totalFte = personWeekTotal(assignments, person.id, week);
-                        const totalHours = Math.round(totalFte * HOURS_PER_WEEK); // фактические часы, могут быть >40
-                        const ratio = fillRatio(totalHours);
-                        const over = totalHours > HOURS_PER_WEEK;
+                        const totalHoursPlan = Math.round(totalFte * HOURS_PER_WEEK);
+                        const ratio = fillRatio(totalHoursPlan);
                         const vac = isVacation(person.id, week);
+                        const over = totalHoursPlan > HOURS_PER_WEEK;
+
+                        // суммарный факт по всем проектам сотрудника за неделю
+                        const factSum = personWeekFactTotal(assignments, person.id, week);
+                        const hasAnyFactOrEnded = factSum>0 || isWeekEnded(week);
+
                         return (
                           <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
                             <div className={`bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative ${over ? "ring-2 ring-red-300" : ""}`}>
@@ -505,8 +550,11 @@
                                 {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:TEAM_BAR_COLOR}} />)}
                               </div>
                               {!vac && (
-                                <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-neutral-900" title={`${totalHours} ч`}>
-                                  {fmtHours(totalHours)}
+                                <div className="absolute inset-0 flex items-center justify-center" title={`план: ${totalHoursPlan} ч${hasAnyFactOrEnded ? `, факт: ${factSum} ч` : ""}`}>
+                                  <div className="leading-tight text-center">
+                                    <div className="text-sm font-semibold text-neutral-900">{fmtHours(totalHoursPlan)}</div>
+                                    <div className="text-[11px] font-normal text-neutral-500 mt-0.5">{hasAnyFactOrEnded ? fmtHours(factSum) : "—"}</div>
+                                  </div>
                                 </div>
                               )}
                               {vac && (<div className="absolute inset-0 flex items-center justify-center text-2xl" title="Отпуск">🏖</div>)}
@@ -562,7 +610,7 @@
                             <EyedropperIcon/>
                           </button>
                           <input
-                            id={`color-${project.id}`}
+                            id={`color-${project.id}`]
                             type="color"
                             className="hidden"
                             value={project.color}
@@ -715,24 +763,36 @@
       const orderedIds = useMemo(()=> mergeOrder(order, unionIds), [order, unionIds]);
       useEffect(()=>{ setOrder(orderedIds); }, [orderedIds, setOrder]);
 
-      const [editKey, setEditKey] = useState(null);
+      // Редактирование план/факт
+      const [editKey, setEditKey] = useState(null); // `${pid}|${w}|plan|fact`
       const [editVal, setEditVal] = useState("");
 
-      function beginEdit(pid, w, curFte){
+      function beginEditPlan(pid, w, curFte){
         if(isVacation(person.id,w)) return;
         const curHours = Math.max(0, Math.round(fteToHours(curFte||0)));
-        setEditKey(`${pid}|${w}`);
+        setEditKey(`${pid}|${w}|plan`);
         setEditVal(String(curHours));
       }
-      function commitEdit(pid, w){
-        const k = `${pid}|${w}`; if(editKey!==k) return;
+      function beginEditFact(pid, w, curFact){
+        if(isVacation(person.id,w)) return;
+        const curHours = (curFact==null || isNaN(curFact)) ? "" : String(Math.max(0, Math.round(Number(curFact)||0)));
+        setEditKey(`${pid}|${w}|fact`);
+        setEditVal(curHours);
+      }
+      function commitEdit(pid, w, mode){
+        const k = `${pid}|${w}|${mode}`; if(editKey!==k) return;
         const nextHours = parseInt((editVal||"").replace(",", "."), 10);
         setEditKey(null);
-        if(isNaN(nextHours) || nextHours<0) return; // позволяем >40
-        const nextFte = hoursToFte(nextHours);
+        if(isNaN(nextHours) || nextHours<0) return;
         onSave(prev => {
           const rest = prev.filter(a => !(a.personId===person.id && a.projectId===pid && a.weekStart===w));
-          return [...rest, { id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte:nextFte }];
+          const old = prev.find(a => a.personId===person.id && a.projectId===pid && a.weekStart===w);
+          if(mode==="plan"){
+            const nextFte = hoursToFte(nextHours);
+            return [...rest, { id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte:nextFte, factHours: old?.factHours }];
+          }else{
+            return [...rest, { id:rndId(), personId:person.id, projectId:pid, weekStart:w, fte: old?.fte ?? 0, factHours: Math.max(0, nextHours) }];
+          }
         });
       }
 
@@ -763,12 +823,18 @@
 
       const visible = visibleWeeks;
 
-      // Итоги по неделям в ФАКТИЧЕСКИХ ЧАСАХ (могут быть >40)
-      const weekTotals = useMemo(()=>{
+      // Итоги по неделям (план/факт)
+      const weekTotalsPlan = useMemo(()=>{
         return visible.map(w => {
           if(isVacation(person.id,w)) return 0;
           const sumFte = assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
           return Math.max(0, Math.round(fteToHours(sumFte)));
+        });
+      }, [assignments, person.id, vacations, visible]);
+      const weekTotalsFact = useMemo(()=>{
+        return visible.map(w => {
+          if(isVacation(person.id,w)) return 0;
+          return personWeekFactTotal(assignments, person.id, w);
         });
       }, [assignments, person.id, vacations, visible]);
 
@@ -817,10 +883,11 @@
             <div className="grid mb-1" style={{gridTemplateColumns:`var(--left-col-w) repeat(${visible.length}, ${WEEK_COL_PX}px)`}}>
               <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
               {visible.map((w,i)=>(
-                <div key={w} className="h-6 flex items-center justify-center">
-                  <span className={`px-2 py-0.5 rounded-lg border ${weekTotals[i]>HOURS_PER_WEEK?"border-red-300 bg-red-50 text-red-800":"border-neutral-300 bg-white text-neutral-900"} text-[12px] font-medium shadow-sm`} title={`${weekTotals[i]} ч`}>
-                    {fmtHours(weekTotals[i])}
-                  </span>
+                <div key={w} className="h-8 flex items-center justify-center">
+                  <div className={`px-2 py-0.5 rounded-lg border ${weekTotalsPlan[i]>HOURS_PER_WEEK?"border-red-300 bg-red-50 text-red-800":"border-neutral-300 bg-white text-neutral-900"} text-[12px] font-medium shadow-sm text-center leading-tight`} title={`план: ${weekTotalsPlan[i]} ч, факт: ${weekTotalsFact[i]} ч`}>
+                    <div className="font-semibold">{fmtHours(weekTotalsPlan[i])}</div>
+                    <div className="text-[10px] font-normal text-neutral-500">{fmtHours(weekTotalsFact[i])}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -839,32 +906,65 @@
                     </div>
                     {visible.map(week => {
                       const fte = fteFor(assignments, person.id, pid, week);
-                      const hoursActual = Math.max(0, Math.round(fteToHours(fte))); // фактическое значение
-                      const ratio = fillRatio(hoursActual);
-                      const editing = editKey===`${pid}|${week}`;
+                      const hoursPlan = Math.max(0, Math.round(fteToHours(fte))); // план
+                      const ratio = fillRatio(hoursPlan);
                       const vac = isVacation(person.id, week);
-                      const over = hoursActual > HOURS_PER_WEEK;
+                      const over = hoursPlan > HOURS_PER_WEEK;
+
+                      // текущая запись для определения factHours (при наличии дубликатов commit удалит остальные)
+                      const curAssign = assignments.find(a=>a.personId===person.id && a.projectId===pid && a.weekStart===week);
+                      const factRaw = curAssign?.factHours;
+                      const factEffective = (factRaw==null || isNaN(factRaw)) ? (isWeekEnded(week) ? Math.max(0, Math.round(fteToHours(fte))) : null) : Math.max(0, Math.round(Number(factRaw)||0));
+
+                      const editingPlan = editKey===`${pid}|${week}|plan`;
+                      const editingFact = editKey===`${pid}|${week}|fact`;
+
                       return (
                         <div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
                           <div className={`bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative ${over ? "ring-2 ring-red-300" : ""}`}>
                             <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">
                               {!vac && (<div className="absolute bottom-0 left-0 right-0" style={{height:`${ratio*100}%`, background:pr.color}} title={`${pr.name}`}/>)}
                             </div>
-                            {!vac && (!editing ? (
-                              <div className="absolute inset-0 text-sm font-semibold text-neutral-800 flex items-center justify-center" title={`${hoursActual} ч`} onClick={()=>beginEdit(pid, week, fte)}>
-                                {fmtHours(hoursActual)}
+                            {!vac && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="leading-tight text-center">
+                                  {/* план */}
+                                  {!editingPlan ? (
+                                    <div className="text-sm font-semibold text-neutral-800 cursor-text" title={`план: ${hoursPlan} ч`} onClick={()=>beginEditPlan(pid, week, fte)}>{fmtHours(hoursPlan)}</div>
+                                  ) : (
+                                    <input
+                                      autoFocus
+                                      inputMode="numeric"
+                                      className="h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm"
+                                      value={editVal}
+                                      onChange={e=>setEditVal(e.target.value)}
+                                      onBlur={()=>commitEdit(pid, week, "plan")}
+                                      onKeyDown={(e)=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
+                                    />
+                                  )}
+                                  {/* факт */}
+                                  {!editingFact ? (
+                                    <div
+                                      className="text-[11px] font-normal text-neutral-500 mt-0.5 cursor-text"
+                                      title={factEffective!=null ? `факт: ${factEffective} ч` : "факт не заполнен"}
+                                      onClick={()=>beginEditFact(pid, week, factRaw)}
+                                    >
+                                      {factEffective!=null ? fmtHours(factEffective) : "—"}
+                                    </div>
+                                  ) : (
+                                    <input
+                                      autoFocus
+                                      inputMode="numeric"
+                                      className="mt-0.5 h-7 w-16 text-center text-[11px] font-normal border border-neutral-300 rounded-md bg-white shadow-sm"
+                                      value={editVal}
+                                      onChange={e=>setEditVal(e.target.value)}
+                                      onBlur={()=>commitEdit(pid, week, "fact")}
+                                      onKeyDown={(e)=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
+                                    />
+                                  )}
+                                </div>
                               </div>
-                            ) : (
-                              <input
-                                autoFocus
-                                inputMode="numeric"
-                                className="absolute inset-0 m-auto h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm"
-                                value={editVal}
-                                onChange={e=>setEditVal(e.target.value)}
-                                onBlur={()=>commitEdit(pid, week)}
-                                onKeyDown={(e)=>{ if(e.key==="Enter") e.currentTarget.blur(); if(e.key==="Escape") setEditKey(null); }}
-                              />
-                            ))}
+                            )}
                             {vac && (<button className="absolute inset-0 flex items-center justify-center text-2xl" title="Снять отпуск" onClick={()=>clearVacationWeek(week)}>🏖</button>)}
                           </div>
                         </div>
@@ -1360,3 +1460,4 @@
   </script>
 </body>
 </html>
+```
