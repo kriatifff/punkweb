@@ -18,12 +18,8 @@
       --left-col-w: 220px;
       --grid-gap: 12px;
     }
-
-    /* скрыть системный скролл для чистоты UI */
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
     .no-scrollbar::-webkit-scrollbar{ display:none; }
-
-    /* общая кнопка */
     .btn{
       border-radius: 0.75rem;
       border: 1px solid rgb(212 212 216);
@@ -35,8 +31,6 @@
     }
     .btn:hover{ box-shadow: 0 2px 6px rgba(0,0,0,.08); }
     .btn:active{ transform: translateY(1px); }
-
-    /* сегмент-кнопки (вкладки) */
     .segmented{
       display:flex; align-items:center; gap:0.75rem;
       background:#f5f5f5;
@@ -57,12 +51,8 @@
     .segmented > button.idle:hover{
       background: rgba(255,255,255,.7);
     }
-
-    /* мелкие утилиты */
     .pressable { cursor: pointer; user-select: none; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; }
-
-    /* печать: скрыть лишнее, сохранить таблицы */
     @media print {
       header, .segmented, .no-print { display:none !important; }
       body { background: #fff !important; }
@@ -84,33 +74,27 @@
     const { useState, useEffect, useMemo, useRef, Fragment } = React;
 
     // бизнес-константы
-    const HOURS_PER_WEEK = 40;        // норма часов/неделя
-    const BAR_MAX_HOURS  = 40;        // максимум шкалы ячейки
-    const MAX_FTE        = 1.2;       // верхний порог FTE (для подсветки)
+    const HOURS_PER_WEEK = 40;
+    const BAR_MAX_HOURS  = 40;
+    const MAX_FTE        = 1.2;
 
     // размеры интерфейса
-    const VISIBLE_WEEKS = 16;         // сколько недель показываем в окне
-    const WEEK_COL_PX   = 72;         // ширина одной колонки недели
+    const VISIBLE_WEEKS = 16;
+    const WEEK_COL_PX   = 72;
 
-    // цвета для графиков/подсветки
+    // цвета
     const TEAM_BAR_COLOR = "#22c55e"; // зелёный (план-часы)
     const FACT_LINE_COLOR= "#ef4444"; // красный (факт-часы)
-    const COLOR_50  = "#FFF7ED";      // мягкий оранжевый (≥50%)
-    const COLOR_70  = "#FFE4E6";      // розовый (≥70%)
-    const COLOR_100 = "#FECDD3";      // красноватый (>100%)
+    const COLOR_50  = "#FFF7ED";
+    const COLOR_70  = "#FFE4E6";
+    const COLOR_100 = "#FECDD3";
 
     // форматирование
     const fmtMoney = (n) => "₽ " + (Math.round(Number(n)||0)).toLocaleString("ru-RU");
     const fmtHours = (h) => String(Math.max(0, Math.round(Number(h)||0)));
     const fteToHours = (fte) => Math.round((Number(fte)||0) * HOURS_PER_WEEK);
-    const hoursToFte = (hours) => {
-      const h = Math.max(0, Math.round(Number(hours)||0));
-      return h / HOURS_PER_WEEK;
-    };
-    const fillRatio = (h) => {
-      const v = Math.min(Math.max(0, Math.round(Number(h)||0)), BAR_MAX_HOURS);
-      return v / BAR_MAX_HOURS;
-    };
+    const hoursToFte = (hours) => { const h = Math.max(0, Math.round(Number(hours)||0)); return h / HOURS_PER_WEEK; };
+    const fillRatio = (h) => { const v = Math.min(Math.max(0, Math.round(Number(h)||0)), BAR_MAX_HOURS); return v / BAR_MAX_HOURS; };
     const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
     const scaleRatio = (v, max=MAX_FTE) => clamp(v/max, 0, 1);
     const fmtFTE1 = (n) => (Math.round(n*10)/10).toFixed(1);
@@ -131,20 +115,12 @@
     };
     const weekLabelParts = (iso) => { const d=new Date(iso); const w=1+Math.floor((d.getDate()-1)/7); return { top:`${w} нед`, bot:ruMonthShort(d.getMonth()) }; };
 
-    // вероятность бага с случайными id — исключаем
     const rndId = () => {
       try{ if(window && window.crypto && typeof window.crypto.randomUUID==="function"){ return window.crypto.randomUUID(); } }catch(e){}
       return Math.random().toString(36).slice(2)+"_"+Date.now();
     };
+    const isWeekEnded = (weekISO) => { const end = addDays(new Date(weekISO), 6); const today = new Date(); today.setHours(0,0,0,0); return today > end; };
 
-    // определение, закончилась ли неделя
-    const isWeekEnded = (weekISO) => {
-      const end = addDays(new Date(weekISO), 6);
-      const today = new Date(); today.setHours(0,0,0,0);
-      return today > end;
-    };
-
-    // небольшой набор «защитных» утилит
     function deepClone(obj){
       if(obj==null || typeof obj!=="object") return obj;
       if(Array.isArray(obj)) return obj.map(deepClone);
@@ -168,7 +144,6 @@
      * PERSISTENCE (localStorage + дебаунс sync)
      ******************************************************************/
     const LS_KEY = "fteplanner.v1";
-
     function loadAll(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch(e){ return {}; } }
     function loadJSON(key, fallback){
       const all = loadAll();
@@ -182,11 +157,8 @@
         debouncedSaveAllRemote(merged);
       }catch(e){}
     }
-
-    // Заглушки для реального API — при необходимости подменяются файлами api:load.js / api:save.js
     async function loadAllRemote(){ return null; }
     async function saveAllRemote(_state){}
-
     let saveTimer=null;
     function debouncedSaveAllRemote(state){
       if(saveTimer) clearTimeout(saveTimer);
@@ -196,26 +168,19 @@
     /******************************************************************
      * ДАННЫЕ ПО УМОЛЧАНИЮ
      ******************************************************************/
-    // базовое окно недель
     const baseMonday = startOfISOWeek(new Date());
     const initialWeeks = Array.from({length:28}, (_,i)=> fmtISO(addWeeks(baseMonday, i-6)));
-
-    // стартовые сотрудники
     const seedPeople = [
       { id:"p1", name:"Саша",   role:"manager",  capacityPerWeek:1, active:true, external:false, rateInternal:1500, rateExternal:2500 },
       { id:"p2", name:"Катя К.", role:"designer", capacityPerWeek:1, active:true, external:false, rateInternal:1400, rateExternal:2600 },
       { id:"p3", name:"Игорь",  role:"dev",      capacityPerWeek:1, active:true, external:false, rateInternal:1800, rateExternal:3200 },
     ];
-
-    // стартовые проекты
     const seedProjects = [
       { id:"pr1", name:"HR Подкасты",   status:"active",  color:"#3b82f6", budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false },
       { id:"pr2", name:"Арктика Медиа", status:"active",  color:"#f43f5e", budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false },
       { id:"pr3", name:"Падел-теннис",  status:"planned", color:"#06b6d4", budgetWithVAT:0, projectType:"internal", costEditable:0, costEditableTouched:false },
       { id:"pr4", name:"Сайт.Бета",     status:"active",  color:"#10b981", budgetWithVAT:0, projectType:"external", costEditable:0, costEditableTouched:false },
     ];
-
-    // стартовые назначения (план/факт по неделям)
     const seedAssignments = [
       { id:"a1", personId:"p1", projectId:"pr1", weekStart: initialWeeks[6],  fte:0.3 },
       { id:"a2", personId:"p1", projectId:"pr2", weekStart: initialWeeks[7],  fte:0.2 },
@@ -223,32 +188,24 @@
       { id:"a4", personId:"p3", projectId:"pr4", weekStart: initialWeeks[8],  fte:0.5 },
       { id:"a5", personId:"p3", projectId:"pr1", weekStart: initialWeeks[10], fte:0.2 },
     ];
-
-    // роли
     const seedRoles = ["designer","dev","manager","pm","other"];
 
     /******************************************************************
      * АГРЕГАТОРЫ / РАСЧЁТЫ
      ******************************************************************/
     const personWeekTotal = (as, pid, w) => as.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
-
-    // факт-часов: если поле не заполнено и неделя завершена — считаем фактом плановые часы
     const effectiveFactHours = (a, w) => {
       const has = (a && a.factHours!=null && !isNaN(a.factHours));
       if(has) return Math.max(0, Math.round(Number(a.factHours)||0));
       if(isWeekEnded(w)) return Math.max(0, Math.round(fteToHours(a.fte)));
       return 0;
     };
-
     const personWeekFactTotal = (as, pid, w) =>
       as.filter(a=>a.personId===pid && a.weekStart===w).reduce((s,a)=> s + effectiveFactHours(a,w), 0);
-
     const fteFor = (as, pid, pr, w) =>
       as.filter(a=>a.personId===pid && a.projectId===pr && a.weekStart===w).reduce((s,a)=>s+a.fte,0);
-
     const personProjectWeekFact = (as, pid, pr, w) =>
       as.filter(a=>a.personId===pid && a.projectId===pr && a.weekStart===w).reduce((sum,a)=> sum + effectiveFactHours(a,w), 0);
-
     function sumFactForPersonProject(as, pid, pr, weeks){
       return weeks.reduce((acc, w)=> acc + personProjectWeekFact(as, pid, pr, w), 0);
     }
@@ -296,7 +253,6 @@
       </svg>
     );
 
-    // Заголовок колонки недели
     function WeekHeader({iso}){
       const d = weekLabelParts(iso);
       return (
@@ -310,7 +266,7 @@
     }
 
     /******************************************************************
-     * CHARTS — Линейный график (две линии) + мини-барчарт (деньги)
+     * CHARTS
      ******************************************************************/
     function ChartLineDual({ plan=[], fact=[], width=400, height=120, padX=12, padY=10, yTicks=[0,20,40,60,80], green=TEAM_BAR_COLOR, red=FACT_LINE_COLOR, title="" }){
       const n = Math.max(plan.length, fact.length);
@@ -348,7 +304,7 @@
       );
     }
 
-    function ChartBarsMoney({ plan=0, fact=0, width=300, height=130, title="", badge="" }){
+    function ChartBarsMoney({ plan=0, fact=0, width=300, height=130, title="", badge="", planLabel="Сумма (ред.)", factLabel="По часам (факт)" }){
       const w = Math.max(width, 220), h = Math.max(height, 120);
       const padX=18, padY=22;
       const innerW = w - padX*2, innerH = h - padY*2;
@@ -357,9 +313,7 @@
       const barW = innerW/3.2;
       const xPlan = padX + innerW*0.5 - barW*1.2;
       const xFact = padX + innerW*0.5 + barW*0.2;
-      const grid = [0,0.25,0.5,0.75,1].map((r,i)=>(
-        <line key={i} x1={padX} y1={padY+innerH*r} x2={w-padX} y2={padY+innerH*r} stroke="#f1f5f9" />
-      ));
+      const grid = [0,0.25,0.5,0.75,1].map((r,i)=>(<line key={i} x1={padX} y1={padY+innerH*r} x2={w-padX} y2={padY+innerH*r} stroke="#f1f5f9" />));
       return (
         <svg width={w} height={h} role="img" aria-label={title}>
           <rect x="0" y="0" width={w} height={h} rx="14" ry="14" fill="#ffffff" stroke="#e5e7eb"/>
@@ -370,8 +324,8 @@
           <text x={xPlan+barW/2} y={yFor(plan)-6} fontSize="10" fill="#14532d" textAnchor="middle">{fmtMoney(plan)}</text>
           <text x={xFact+barW/2} y={yFor(fact)-6} fontSize="10" fill="#7f1d1d" textAnchor="middle">{fmtMoney(fact)}</text>
           {badge ? (<g><rect x={w-128} y={6} width="122" height="18" rx="9" fill="#f8fafc" stroke="#e2e8f0"/><text x={w-67} y={19} fontSize="10" fill="#334155" textAnchor="middle">{badge}</text></g>) : null}
-          <text x={xPlan+barW/2} y={padY+innerH+14} fontSize="10" fill="#0f172a" textAnchor="middle">Сумма (ред.)</text>
-          <text x={xFact+barW/2} y={padY+innerH+14} fontSize="10" fill="#0f172a" textAnchor="middle">По часам (факт)</text>
+          <text x={xPlan+barW/2} y={padY+innerH+14} fontSize="10" fill="#0f172a" textAnchor="middle">{planLabel}</text>
+          <text x={xFact+barW/2} y={padY+innerH+14} fontSize="10" fill="#0f172a" textAnchor="middle">{factLabel}</text>
         </svg>
       );
     }
@@ -443,6 +397,48 @@
     }
 
     /******************************************************************
+     * СТРАНИЦА ЛОГИНА
+     ******************************************************************/
+    function LoginPage({ onLogin }){
+      const [login, setLogin] = useState("");
+      const [pass, setPass] = useState("");
+      const [err, setErr] = useState("");
+      const submit = (e)=> {
+        e && e.preventDefault();
+        if(!login.trim() || !pass.trim()){
+          setErr("Введите логин и пароль");
+          return;
+        }
+        saveJSON({ authed:true, currentUser:login.trim() });
+        onLogin && onLogin(login.trim());
+      };
+      return (
+        <div className="min-h-screen grid place-items-center bg-[#F7F8FA]">
+          <div className="bg-white w-[380px] rounded-2xl shadow-lg border border-neutral-200 p-6">
+            <div className="text-center mb-4">
+              <div className="text-2xl font-semibold text-green-600">Панквеб FTE Planner</div>
+              <div className="text-sm text-neutral-500 mt-1">Авторизация</div>
+            </div>
+            <form onSubmit={submit} className="space-y-3">
+              <div>
+                <label className="block text-sm mb-1">Логин</label>
+                <input value={login} onChange={e=>setLogin(e.target.value)} className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm" autoFocus/>
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Пароль</label>
+                <input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm"/>
+              </div>
+              {err ? (<div className="text-xs text-red-600">{err}</div>) : null}
+              <div className="pt-1 text-right">
+                <button type="submit" className="btn">Войти</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    /******************************************************************
      * ПРИЛОЖЕНИЕ
      ******************************************************************/
     function App(){
@@ -467,16 +463,16 @@
       });
       const [personProjectOrder, setPersonProjectOrder] = useState(loadJSON("personProjectOrder", {}));
       const [teamOrder, setTeamOrder] = useState(loadJSON("teamOrder", seedPeople.map(p=>p.id)));
-      const [authed, setAuthed] = useState(loadJSON("authed", true)); // true, чтобы не мешать проверкам
+      const [authed, setAuthed] = useState(loadJSON("authed", false)); // ← возврат страницы авторизации
 
-      // view: team | project | employees | analyticsTeam | analyticsProjects
+      // view
       const [view, setView] = useState(loadJSON("view","team"));
       useEffect(()=>{ saveJSON({view}); }, [view]);
 
       const [selectedPersonId, setSelectedPersonId] = useState(null);
       const {weeks, setWeeks, visible, goLeft, goRight, goToday} = useWeeksWindow();
 
-      // на старте — подтянуть удалённое состояние (если появится реализация в api:load.js)
+      // загрузка удалённого состояния (заглушка)
       useEffect(function(){
         (async function(){
           try{
@@ -504,7 +500,7 @@
         })();
       }, []);
 
-      // Автозаполнение factHours по завершённым неделям (если не введены)
+      // автофакт для завершённых недель
       useEffect(()=>{
         setAssignments(prev=>{
           let changed=false;
@@ -520,7 +516,7 @@
         });
       }, [weeks]);
 
-      // Синхронизация в localStorage
+      // sync в LS
       useEffect(()=>{ saveJSON({people}); }, [people]);
       useEffect(()=>{ saveJSON({projects}); }, [projects]);
       useEffect(()=>{ saveJSON({assignments}); }, [assignments]);
@@ -537,11 +533,11 @@
       useEffect(()=>{ saveJSON({personProjectOrder}); }, [personProjectOrder]);
       useEffect(()=>{ saveJSON({teamOrder}); }, [teamOrder]);
 
-      // Фильтрация «Нагрузка» по ролям
+      // фильтр ролей
       const [roleFilter, setRoleFilter] = useState(loadJSON("roleFilter","all"));
       useEffect(()=>{ saveJSON({roleFilter}); }, [roleFilter]);
 
-      // список в «Нагрузка»: только активные и вн. сотрудники
+      // список в «Нагрузка»: только активные и НЕ внешние
       const peopleForTeam = useMemo(()=> people.filter(p=>p.active && !p.external), [people]);
       const peopleActiveAll = useMemo(()=> people.filter(p=>p.active), [people]);
 
@@ -575,7 +571,7 @@
         return Math.round(sum);
       };
 
-      // автообновление «Себестоимость (ред.)» если пользователь ещё не правил её вручную
+      // автообновление скрытой «costEditable» (оставлено для совместимости, в UI не показываем)
       useEffect(()=>{
         setProjects(prev=>{
           let changed = false;
@@ -592,7 +588,7 @@
         });
       }, [projectMemberHours, projectTeams, people, weeks]);
 
-      // Удаления
+      // удаление сущностей
       function deletePerson(pid){
         if(!confirm("Удалить сотрудника?")) return;
         setPeople(prev=> prev.filter(p=>p.id!==pid));
@@ -607,11 +603,7 @@
           for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ const s=new Set(prev[k]); s.delete(pid); c[k]=s; } }
           return c;
         });
-        setProjectMemberHours(prev=>{
-          const c={...prev};
-          for(const pr in c){ if(Object.prototype.hasOwnProperty.call(c,pr)){ const inner={...c[pr]}; delete inner[pid]; c[pr]=inner; } }
-          return c;
-        });
+        setProjectMemberHours(prev=>{ const c={...prev}; for(const pr in c){ if(Object.prototype.hasOwnProperty.call(c,pr)){ const inner={...c[pr]}; delete inner[pid]; c[pr]=inner; } } return c; });
         setTeamOrder(prev=> prev.filter(id=>id!==pid));
         if(selectedPersonId===pid) setSelectedPersonId(null);
       }
@@ -636,7 +628,7 @@
         });
       }
 
-      // dnd для проектов
+      // dnd проекты
       const dragProjectIndex = useRef(null);
       const onProjectDragStart = (i)=>{ dragProjectIndex.current = i; };
       const onProjectDrop = (i)=>{
@@ -692,7 +684,7 @@
         setCreateProjectOpen(false); setNewProjectName(""); setProjSearch(""); setProjTeamSel(new Set()); setNewProjectStatus("active"); setView("project");
       }
 
-      // Небольшая легенда для страницы «Нагрузка»
+      // легенда (используем только в аналитике команды)
       const Legend = () => (
         <div className="text-[11px] text-neutral-600">
           <span className="inline-flex items-center gap-1 mr-3"><span className="w-3 h-3 inline-block rounded" style={{background:TEAM_BAR_COLOR}}></span> план (ч)</span>
@@ -700,24 +692,12 @@
         </div>
       );
 
-      /***************** RENDER *****************/
+      /***************** AUTH GATE *****************/
       if(!authed){
-        return (
-          <div className="min-h-screen grid place-items-center bg-[#F7F8FA]">
-            <div className="bg-white w-[360px] rounded-2xl shadow-lg border border-neutral-200 p-5">
-              <div className="text-center mb-4">
-                <div className="text-2xl font-semibold">Вход</div>
-              </div>
-              {/* форму входа опускаем, чтобы не мешала чекерам размеров — автологин выше по умолчанию */}
-              <div className="text-sm text-neutral-600">Автовход включён для предпросмотра.</div>
-              <div className="mt-4 text-right">
-                <button className="btn" onClick={()=>{ saveJSON({authed:true}); location.reload(); }}>Продолжить</button>
-              </div>
-            </div>
-          </div>
-        );
+        return <LoginPage onLogin={()=>{ setAuthed(true); setView("team"); }}/>;
       }
 
+      /***************** RENDER *****************/
       return (
         <div className="min-h-screen bg-[#F7F8FA] text-neutral-900 font-sans">
           {/* Шапка */}
@@ -725,7 +705,6 @@
             <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
               <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб FTE Planner</div>
 
-              {/* Плашка с вкладками (добавлены «Аналитика (команда)» и «Аналитика (проекты)» как 4-я и 5-я) */}
               <div className="ml-4 segmented" role="tablist" aria-label="Основная навигация">
                 <button className={view==="team" ? "active" : "idle" } onClick={()=>setView("team")} role="tab" aria-selected={view==="team"}>Нагрузка</button>
                 <button className={view==="project" ? "active" : "idle"} onClick={()=>setView("project")} role="tab" aria-selected={view==="project"}>Проекты</button>
@@ -737,6 +716,11 @@
               <div className="ml-auto flex items-center gap-2">
                 <button onClick={()=>setCreateProjectOpen(true)} className="btn">+ Проект</button>
                 <button onClick={()=>setCreatePersonOpen(true)} className="btn">+ Сотрудник</button>
+                <button
+                  className="btn"
+                  title="Выйти"
+                  onClick={()=>{ saveJSON({authed:false}); setAuthed(false); }}
+                >Выйти</button>
               </div>
             </div>
           </header>
@@ -752,7 +736,8 @@
                 roleFilter={roleFilter}
                 setRoleFilter={setRoleFilter}
                 roles={roles}
-                leftNode={<Legend/>}
+                /* Легенду показываем только в аналитике команды */
+                leftNode={view==="analyticsTeam" ? <Legend/> : null}
               />
             )}
 
@@ -835,7 +820,7 @@
                     const factCost = sumFactCostForProject(project.id);
                     return (
                       <Fragment key={project.id}>
-                        {/* левая карточка проекта с денежными полями и переименованием */}
+                        {/* левая карточка проекта */}
                         <div
                           className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
                           draggable
@@ -861,10 +846,8 @@
                                 <StatusIcon status={project.status}/>
                               </button>
 
-                              {/* Редактирование имени проекта по клику */}
                               <InlineProjectNameEditor project={project} setProjects={setProjects} />
 
-                              {/* Пипетка */}
                               <button
                                 className="ml-auto w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50"
                                 title="Изменить цвет"
@@ -913,43 +896,20 @@
                                 </select>
                               </div>
 
+                              {/* Убрали редактируемую «Себестоимость (ред.)» и кнопку автоподстановки */}
                               <div className="grid gap-1">
-                                <label className="text-xs text-neutral-600">Себестоимость (ред.)</label>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    inputMode="numeric"
-                                    value={project.costEditable||0}
-                                    onChange={e=>{
-                                      const v = Math.max(0, parseInt(e.target.value||"0", 10)||0);
-                                      setProjects(prev=> prev.map(p=> p.id===project.id ? Object.assign({}, p, {costEditable:v, costEditableTouched:true}) : p));
-                                    }}
-                                    className="border border-neutral-300 rounded-xl px-3 py-2 text-sm w-full"
-                                  />
-                                  <button
-                                    title="Автоподстановка (часы по проекту × ставки)"
-                                    className="btn"
-                                    onClick={()=>{
-                                      const auto = sumPlanCostForProject(project.id);
-                                      setProjects(prev=> prev.map(p=> p.id===project.id ? Object.assign({}, p, {costEditable:auto, costEditableTouched:false}) : p));
-                                    }}
-                                  >↻</button>
-                                </div>
-                              </div>
-
-                              <div className="grid gap-1">
-                                <label className="text-xs text-neutral-600">Себестоимость (факт, авто)</label>
+                                <label className="text-xs text-neutral-600">Себестоимость (факт)</label>
                                 <div className="px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50 text-sm">{fmtMoney(factCost)}</div>
                               </div>
                             </div>
 
-                            {/* Удаление проекта */}
                             <div className="pt-1 text-right">
                               <button className="text-neutral-500 hover:text-red-600 text-sm" onClick={()=>deleteProject(project.id)} title="Удалить проект"><TrashIcon/></button>
                             </div>
                           </div>
                         </div>
 
-                        {/* правая часть — команда проекта со ввода часов по проекту (сумма) и подсветкой 50/70/100 */}
+                        {/* правая часть — команда проекта */}
                         <div className="border border-neutral-200 p-3">
                           <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
                             <ProjectTeamEditor
@@ -1053,17 +1013,18 @@
             {view==="analyticsProjects" && (
               <div className="grid grid-cols-2 gap-3">
                 {projects.map(pr=>{
-                  const planMoney = pr.costEditable||0;
+                  const budget = pr.budgetWithVAT||0;
                   const factMoney = sumFactCostForProject(pr.id);
                   return (
                     <div key={pr.id} className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-2">
                       <ChartBarsMoney
-                        plan={planMoney}
+                        plan={budget}
                         fact={factMoney}
                         width={520}
                         height={160}
                         title={pr.name}
-                        badge={"Бюджет: "+fmtMoney(pr.budgetWithVAT||0)}
+                        planLabel="Бюджет с НДС"
+                        factLabel="Себестоимость (факт)"
                       />
                     </div>
                   );
@@ -1072,7 +1033,7 @@
             )}
           </main>
 
-          {/* Страница одного сотрудника (с барами и с аналитикой по проектам) */}
+          {/* Страница одного сотрудника */}
           {selectedPersonId && (
             <PersonPage
               person={people.find(p=>p.id===selectedPersonId)}
@@ -1203,7 +1164,7 @@
         });
       }
 
-      // dnd по проектам внутри карточки
+      // dnd по проектам в карточке
       const dragIndex = useRef(null);
       const onDragStart = (i)=>{ dragIndex.current=i; };
       const onDrop = (i)=>{
@@ -1244,11 +1205,10 @@
 
       const visible = visibleWeeks;
 
-      // Суммарные план/факт по неделям
       const weekTotalsPlan = useMemo(()=> visible.map(w=> isVacation(person.id,w) ? 0 : Math.max(0, Math.round(fteToHours(assignments.filter(a=>a.personId===person.id && a.weekStart===w).reduce((s,a)=>s+a.fte,0))))), [assignments, person.id, vacations, visible]);
       const weekTotalsFact = useMemo(()=> visible.map(w=> isVacation(person.id,w) ? 0 : personWeekFactTotal(assignments, person.id, w)), [assignments, person.id, vacations, visible]);
 
-      // Ставки
+      // ставки
       const [ri, setRi] = useState(person.rateInternal||0);
       const [re, setRe] = useState(person.rateExternal||0);
       useEffect(()=>{ setRi(person.rateInternal||0); setRe(person.rateExternal||0); }, [person.id]);
@@ -1299,7 +1259,7 @@
             />
           </div>
 
-          {/* Контент: либо обычные бары по проектам, либо аналитика по проектам */}
+          {/* Контент: бары по проектам или аналитика по проектам */}
           {view!=="analyticsTeam" ? (
             <div className="max-w-screen-2xl mx-auto px-4">
               {/* заголовки недель */}
@@ -1329,7 +1289,6 @@
                 {orderedIds.map((pid, idx)=>{
                   const pr = projects.find(p=>p.id===pid); if(!pr) return null;
 
-                  // подсветка прогресса по сумме часов (факт/план)
                   const plannedH = Number((projectMemberHours?.[pr.id]||{})[person.id]||0);
                   const factH = sumFactForPersonProject(assignments, person.id, pr.id, weeksAll);
                   const ratio = plannedH>0 ? (factH/plannedH) : 0;
@@ -1344,12 +1303,15 @@
 
                   return (
                     <Fragment key={pid}>
+                      {/* ЛЕВАЯ ПЛАШКА: название сверху, «Факт» ₽ под названием */}
                       <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={e=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
                         <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none" style={{background: tint || "#fff"}}>
                           <span className="text-neutral-400">⋮⋮</span>
                           <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
-                          <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
-                          <div className="ml-auto text-[11px] text-neutral-600">Факт: {fmtMoney(factMoney)}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
+                            <div className="text-[11px] text-neutral-600 mt-0.5">Факт: {fmtMoney(factMoney)}</div>
+                          </div>
                         </div>
                       </div>
 
@@ -1503,7 +1465,7 @@
       );
     }
 
-    // Инлайновое редактирование имени сотрудника (в списке «Команда»)
+    // Инлайн-редакторы
     function InlineNameEditor({person, setPeople}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(person.name);
@@ -1523,8 +1485,6 @@
         </button>
       );
     }
-
-    // Редактирование имени проекта (на «Проекты»)
     function InlineProjectNameEditor({project, setProjects}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(project.name);
@@ -1546,8 +1506,6 @@
         </button>
       );
     }
-
-    // Инлайн-редактор заголовка в карточке сотрудника
     function EditableName({person, setPeople}){
       const [editing, setEditing] = useState(false);
       const [val, setVal] = useState(person.name);
@@ -1698,11 +1656,11 @@
       return (
         <div className="space-y-3">
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Найти сотрудника..." className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"/>
-          <div className="grid" style={{gridTemplateColumns:"300px 1fr"}}>
+          <div className="grid" style={{gridTemplateColumns:"360px 1fr"}}>
             {list.map(p=>(
               <Fragment key={p.id}>
                 <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
-                  <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 min-w-0 h-[120px] flex flex-col justify-center">
+                  <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 min-w-0 h-[140px] flex flex-col justify-center">
                     <div className="flex items-center gap-2">
                       <InlineNameEditor person={p} setPeople={setPeople}/>
                       <button className="text-neutral-500 hover:text-red-600 ml-auto" title="Удалить сотрудника" onClick={()=>deletePerson(p.id)}><TrashIcon/></button>
@@ -1719,11 +1677,24 @@
                         <input type="checkbox" checked={!!p.external} onChange={e=> setPeople(prev=> prev.map(x=> x.id===p.id ? Object.assign({}, x, {external:e.target.checked}) : x))}/>
                         Внешний
                       </label>
-                      <div className="ml-auto flex items-center gap-2 text-[11px]">
-                        внутр. ₽/ч <input value={p.rateInternal||0} inputMode="numeric" onChange={e=> setPeople(prev=> prev.map(x=> x.id===p.id ? Object.assign({}, x, {rateInternal: Math.max(0,parseInt(e.target.value||"0",10)||0)}) : x))} className="w-20 border border-neutral-300 rounded-md px-2 py-0.5"/>
-                        внеш. ₽/ч <input value={p.rateExternal||0} inputMode="numeric" onChange={e=> setPeople(prev=> prev.map(x=> x.id===p.id ? Object.assign({}, x, {rateExternal: Math.max(0,parseInt(e.target.value||"0",10)||0)}) : x))} className="w-20 border border-neutral-300 rounded-md px-2 py-0.5"/>
-                      </div>
                     </div>
+
+                    {/* Ставки перенесены под роль */}
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] items-center">
+                      <label className="inline-flex items-center gap-2">
+                        внутр. ₽/ч
+                        <input value={p.rateInternal||0} inputMode="numeric"
+                               onChange={e=> setPeople(prev=> prev.map(x=> x.id===p.id ? Object.assign({}, x, {rateInternal: Math.max(0,parseInt(e.target.value||"0",10)||0)}) : x))}
+                               className="w-24 border border-neutral-300 rounded-md px-2 py-0.5"/>
+                      </label>
+                      <label className="inline-flex items-center gap-2">
+                        внеш. ₽/ч
+                        <input value={p.rateExternal||0} inputMode="numeric"
+                               onChange={e=> setPeople(prev=> prev.map(x=> x.id===p.id ? Object.assign({}, x, {rateExternal: Math.max(0,parseInt(e.target.value||"0",10)||0)}) : x))}
+                               className="w-24 border border-neutral-300 rounded-md px-2 py-0.5"/>
+                      </label>
+                    </div>
+
                     <div className="mt-1 text-[11px] text-neutral-500">ID: {p.id.slice(0,6)}…</div>
                   </div>
                 </div>
@@ -1839,7 +1810,7 @@
       );
     }
 
-    // Модал: новый сотрудник
+    // Модалки
     function CreatePersonModal({open, onClose, name, setName, role, setRole, external, setExternal, onSubmit, roles}){
       if(!open) return null;
       return (
@@ -1864,8 +1835,6 @@
         </div>
       );
     }
-
-    // Модал: новый проект
     function CreateProjectModal({open, onClose, name, setName, color, setColor, status, setStatus, search, setSearch, teamSel, setTeamSel, people, suggestions, onSubmit}){
       if(!open) return null;
       return (
@@ -1927,11 +1896,8 @@
         console.assert(fillRatio(40)===1,"fillRatio 40h = 100%");
       }catch(e){}
     }
-
-    // DND вспомог. ссылка
     const dragRow = { current:null };
 
-    // Монтируем приложение
     ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
