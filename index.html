@@ -67,7 +67,7 @@ const toSetMap=obj=>{const out={}; for(const k in (obj||{})){ if(Object.prototyp
 const baseMonday=startOfISOWeek(new Date());
 const initialWeeks=Array.from({length:28},(_,i)=>fmtISO(addWeeks(baseMonday,i-6)));
 const seedPeople=[{id:"p1",name:"Саша",role:"manager",capacityPerWeek:1,active:true,external:false,rateInternal:1500,rateExternal:2500},{id:"p2",name:"Катя К.",role:"designer",capacityPerWeek:1,active:true,external:false,rateInternal:1400,rateExternal:2600},{id:"p3",name:"Игорь",role:"dev",capacityPerWeek:1,active:true,external:false,rateInternal:1800,rateExternal:3200}];
-const seedProjects=[{id:"pr1",name:"HR Подкасты",status:"active",color:"#3b82f6",budgetWithVAT:0,budgetWithoutVAT:0,projectType:"external",costEditable:0,costEditableTouched:false,startDate:"",endDate:"",contracts:[]},{id:"pr2",name:"Арктика Медиа",status:"onhold",color:"#f43f5e",budgetWithVAT:0,budgetWithoutVAT:0,projectType:"external",costEditable:0,costEditableTouched:false,startDate:"",endDate:"",contracts:[]},{id:"pr3",name:"Падел-теннис",status:"planned",color:"#06b6d4",budgetWithVAT:0,budgetWithoutVAT:0,projectType:"internal",costEditable:0,costEditableTouched:false,startDate:"",endDate:"",contracts:[]},{id:"pr4",name:"Сайт.Бета",status:"active",color:"#10b981",budgetWithVAT:0,budgetWithoutVAT:0,projectType:"external",costEditable:0,costEditableTouched:false,startDate:"",endDate:"",contracts:[]},];
+const seedProjects=[{id:"pr1",name:"HR Подкасты",status:"active",color:"#3b82f6",budgetWithVAT:0,budgetWithoutVAT:0,projectType:"external",costEditable:0,costEditableTouched:false,startDate:"",endDate:"",contracts:[]},{id:"pr2",name:"Арктика Медиа",status:"onhold",color:"#f43f5e",budgetWithVAT:0,budgetWithoutVAT:0,projectType:"external",costEditable:0,costEditableTouched:false,startDate:"",endDate:"",contracts:[]},{id:"pr3",name:"Падел-теннис",status:"planned",color:"#06b6d4",budgetWithVAT:0,budgetWithoutVAT:0,projectType:"internal",costEditable:0,costEditableTouched:false,startDate:"",endDate:"",contracts[]},{id:"pr4",name:"Сайт.Бета",status:"active",color:"#10b981",budgetWithVAT:0,budgetWithoutVAT:0,projectType:"external",costEditable:0,costEditableTouched:false,startDate:"",endDate:"",contracts:[]},];
 const seedAssignments=[{id:"a1",personId:"p1",projectId:"pr1",weekStart:initialWeeks[6],fte:.3},{id:"a2",personId:"p1",projectId:"pr2",weekStart:initialWeeks[7],fte:.2},{id:"a3",personId:"p2",projectId:"pr2",weekStart:initialWeeks[7],fte:.4},{id:"a4",personId:"p3",projectId:"pr4",weekStart:initialWeeks[8],fte:.5},{id:"a5",personId:"p3",projectId:"pr1",weekStart:initialWeeks[10],fte:.2},];
 const seedRoles=["designer","dev","manager","pm","other"];
 
@@ -136,7 +136,6 @@ function LoginPage({onLogin}){
 
 /* ===== App ===== */
 function normalizeContracts(projects){
-  // Миграция старых полей contracts: {amountNet} -> {amount, vatMode:'net'}
   return projects.map(p=>{
     const list=(p.contracts||[]).map(c=>{
       if(c.amount!=null && c.vatMode) return c;
@@ -294,9 +293,12 @@ function App(){
                 {visible.map(week=>{
                   const totalFte=personWeekTotal(assignments,person.id,week),totalHoursPlan=Math.round(totalFte*HOURS_PER_WEEK),ratio=fillRatio(totalHoursPlan),vac=!!(vacations[person.id]?.has?.(week)),over=totalHoursPlan>HOURS_PER_WEEK,factSum=personWeekFactTotal(assignments,person.id,week),hasFactOrEnded=(factSum>0||isWeekEnded(week));
                   return(<div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
-                    <div className={"bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative "+(over?"ring-2 ring-red-300":"")}>
+                    <div className={"bg-white rounded-2xl shadow-sm h-full flex items_end justify-center relative "+(over?"ring-2 ring-red-300":"")}>
                       <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">{!vac&&(<div className="absolute bottom-0 left-0 right-0" style={{height:(ratio*100)+"%",background:TEAM_BAR_COLOR}}/>)}</div>
-                      {!vac?(<div className="absolute inset-0 flex items-center justify-center" title={"план: "+totalHoursPlan+" ч"+(hasFactOrEnded?(", факт: "+factSum+" ч"):"")}><div className="leading-tight text-center"><div className="text-sm font-semibold">{fmtHours(totalHoursPlan)}</div><div className="text-[11px] text-neutral-500 mt-0.5">{hasFactOrEnded?fmtHours(factSum):"—"}</div></div></div>):(<div className="absolute inset-0 grid place-items-center text-2xl" title="Отпуск">🏖</div>)}
+                      {!vac?(<div className="absolute inset-0 flex items-center justify-center" title={"план: "+totalHoursPlan+" ч"+(hasFactOrEnded?(", факт: "+factSum+" ч"):"")}><div className="leading-tight text-center">
+                        <div className="text-sm font-semibold text-black">{fmtHours(totalHoursPlan)}</div>
+                        <div className="text-[11px] text-neutral-800 mt-0.5 font-normal">{hasFactOrEnded?fmtHours(factSum):"—"}</div>
+                      </div></div>):(<div className="absolute inset-0 grid place-items-center text-2xl" title="Отпуск">🏖</div>)}
                     </div>
                   </div>);
                 })}
@@ -552,7 +554,7 @@ function PersonPage({person,projects,assignments,teamByProject,projectMemberHour
             return(
               <Fragment key={pid}>
                 <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={e=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
-                  <div className="bg_white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none" style={{background:tint||"#fff"}}>
+                  <div className="bg_white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor_grab active:cursor-grabbing select-none" style={{background:tint||"#fff"}}>
                     <span className="text-neutral-400">⋮⋮</span>
                     <button className="w-6 h-6 rounded-lg flex items-center justify_center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
                     <div className="flex-1 min-w-0">
@@ -587,13 +589,9 @@ function CellEditor({hoursPlan,factEffective,pr,pid,week,person,assignments,onSa
   const beginEditFact=()=>{let factRaw=null; for(let u=0;u<assignments.length;u++){const a=assignments[u]; if(a.personId===person.id&&a.projectId===pid&&a.weekStart===week){factRaw=a.factHours; break;}} const cur=(factRaw==null||isNaN(factRaw))?"":String(Math.max(0,Math.round(Number(factRaw)||0))); setEditKey("fact"); setEditVal(cur);}
   const commitEdit=()=>{const mode=editKey; if(!mode) return; const normalized=(editVal||"").replace(",","."),nextHours=parseInt(normalized,10); setEditKey(null); if(isNaN(nextHours)||nextHours<0) return; onSave(prev=>{const rest=prev.filter(a=>!(a.personId===person.id&&a.projectId===pid&&a.weekStart===week)); const old=prev.find(a=>a.personId===person.id&&a.projectId===pid&&a.weekStart===week)||null; if(mode==="plan"){const nextFte=hoursToFte(nextHours); return rest.concat([{id:rndId(),personId:person.id,projectId:pid,weekStart:week,fte:nextFte,factHours:old?old.factHours:undefined}]);} else {return rest.concat([{id:rndId(),personId:person.id,projectId:pid,weekStart:week,fte:old?(old.fte||0):0,factHours:Math.max(0,nextHours)}]);}});}
   return (<div className="absolute inset-0 flex items-center justify-center"><div className="leading-tight text-center">
-    {editKey!=="plan"?(
-      <div className="text-sm font-semibold cursor-text" title={"план: "+hoursPlan+" ч"} onClick={beginEditPlan}>{fmtHours(hoursPlan)}</div>
-    ):(
-      <input autoFocus inputMode="numeric" className="h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm" value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={commitEdit} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur(); if(e.key==="Escape")setEditKey(null);}}/>
-    )}
+    <div className="text-sm font-semibold text-black cursor-text" title={"план: "+hoursPlan+" ч"} onClick={beginEditPlan}>{fmtHours(hoursPlan)}</div>
     {editKey!=="fact"?(
-      <div className="text-[11px] text-neutral-500 mt-0.5 cursor-text" title={factEffective!=null?("факт: "+factEffective+" ч"):"факт не заполнен"} onClick={beginEditFact}>{factEffective!=null?fmtHours(factEffective):"—"}</div>
+      <div className="text-[11px] text-neutral-800 mt-0.5 font-normal cursor-text" title={factEffective!=null?("факт: "+factEffective+" ч"):"факт не заполнен"} onClick={beginEditFact}>{factEffective!=null?fmtHours(factEffective):"—"}</div>
     ):(
       <input autoFocus inputMode="numeric" className="mt-0.5 h-7 w-16 text-center text-[11px] border border-neutral-300 rounded-md bg-white shadow-sm" value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={commitEdit} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur(); if(e.key==="Escape")setEditKey(null);}}/>
     )}
@@ -612,7 +610,7 @@ function VacationModal({vFrom,vTo,setVFrom,setVTo,vacTab,setVacTab,personVac,set
     <div className="mt-4 flex justify-end gap-2"><button type="button" className="btn btn-sm" onClick={onClose}>Отмена</button><button type="button" className="rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-1" onClick={saveVac}>Сохранить</button></div>
   </div></div>);
 }
-function InlineNameEditor({person,setPeople}){const [editing,setEditing]=useState(false),[val,setVal]=useState(person.name); useEffect(()=>setVal(person.name),[person.id,person.name]); const commit=()=>{const name=(val||"").trim(); setEditing(false); if(!name||name===person.name) return; setPeople(prev=>prev.map(p=>p.id===person.id?Object.assign({},p,{name}):p));}; return editing?(<input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur(); if(e.key==="Escape"){setEditing(false); setVal(person.name);}}} className="px-2 py-1 text-sm border border-neutral-300 rounded-lg w-[70%]"/>):(<button className="font-medium truncate text-left hover:underline" onClick={()=>setEditing(true)} title="Редактировать имя">{person.name}</button>);}
+function InlineNameEditor({person,setPeople}){const [editing,setEditing]=useState(false),[val,setVal]=useState(person.name); useEffect(()=>setVal(person.name),[person.id,person.name]); const commit=()=>{const name=(val||"").trim(); setEditing(false); if(!name||name===person.name) return; setPeople(prev=>prev.map(p=>p.id===person.id?Object.assign({},p,{name}):p));}; return editing?(<input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur(); if(e.key==="Escape"){setEditing(false); setVal(person.name);}}} className="px-2 py-1 text-sm border border-neutral-300 rounded-lg w-[70%]"/>):(<button className="font-medium truncate text_left hover:underline" onClick={()=>setEditing(true)} title="Редактировать имя">{person.name}</button>);}
 function InlineProjectNameEditor({project,setProjects}){const [editing,setEditing]=useState(false),[val,setVal]=useState(project.name); useEffect(()=>setVal(project.name),[project.id,project.name]); const commit=()=>{const name=(val||"").trim(); setEditing(false); if(!name||name===project.name) return; setProjects(prev=>prev.map(p=>p.id===project.id?Object.assign({},p,{name}):p));}; return editing?(<input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur(); if(e.key==="Escape"){setEditing(false); setVal(project.name);}}} className="flex-1 min-w-0 px-2 py-1 text-sm border border-neutral-300 rounded-lg"/>):(<button className="flex-1 min-w-0 font-medium truncate text-left hover:underline" title="Переименовать проект" onClick={()=>setEditing(true)}>{project.name}</button>);}
 function EditableName({person,setPeople}){const [editing,setEditing]=useState(false),[val,setVal]=useState(person.name); useEffect(()=>setVal(person.name),[person.id,person.name]); const commit=()=>{const name=(val||"").trim(); setEditing(false); if(!name||name===person.name) return; setPeople(prev=>prev.map(p=>p.id===person.id?Object.assign({},p,{name}):p));}; return editing?(<input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur(); if(e.key==="Escape"){setEditing(false); setVal(person.name);}}} className="text-lg font-semibold leading-tight border border-neutral-300 rounded-md px-2 py-0.5"/>):(<button className="text-lg font-semibold leading-tight hover:underline" title="Редактировать имя" onClick={()=>setEditing(true)}>{person.name}</button>);}
 function EditableRole({person,setPeople,roles}){const [editing,setEditing]=useState(false),[val,setVal]=useState(person.role||"other"); useEffect(()=>setVal(person.role||"other"),[person.id,person.role]); const commit=()=>{const role=val||"other"; setEditing(false); if(role===person.role) return; setPeople(prev=>prev.map(p=>p.id===person.id?Object.assign({},p,{role}):p));}; return editing?(<select autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">{roles.map(r=>(<option key={r} value={r}>{r.toUpperCase()}</option>))}</select>):(<button className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={()=>setEditing(true)}><PencilIcon className="opacity-70"/> {(person.role||"OTHER").toUpperCase()}</button>);}
@@ -653,7 +651,7 @@ function EmployeesPage({people,setPeople,projects,projectTeams,setProjectTeams,d
   return(<div className="space-y-3"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Найти сотрудника..." className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"/>
     <div className="grid" style={{gridTemplateColumns:"360px 1fr"}}>{list.map(p=>(<Fragment key={p.id}>
       <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
-        <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 min-w-0 h-[170px] flex flex-col justify-center">
+        <div className="relative bg-white rounded-2xl border border-neutral-200 shadow_sm p-3 min-w-0 h-[170px] flex flex-col justify-center">
           <div className="flex items-center gap-2"><InlineNameEditor person={p} setPeople={setPeople}/>
             <button className="ml-auto w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50" title="Удалить сотрудника" onClick={()=>deletePerson(p.id)}><CrossIcon/></button></div>
           <div className="mt-1 flex items-center gap-2">
@@ -735,7 +733,6 @@ function AnalyticsProjectsView({projects,assignments,weeksAll,sumFactCostForProj
   const projectIncluded=p=>{ if(!projectOverlapsPeriod(p)) return false; if(!personMatches(p)) return false; return mode==="month" ? (p.status==="active" && activeAnyWeekInPeriod(p)) : true; };
   const consideredProjects=useMemo(()=>projects.filter(projectIncluded),[projects,projectIncluded]);
 
-  // Контракты: учитываем ввод как "с НДС"/"без НДС"
   const contractsIncomeForPeriod=useMemo(()=>{let net=0, vat=0;
     consideredProjects.forEach(p=>{(p.contracts||[]).forEach(c=>{const d=parseDate(c.date),amount=Math.max(0,Number(c.amount)||0),mode=c.vatMode||"gross"; if(d&&d>=period.start&&d<=period.end){if(mode==="gross"){const netPart=Math.round(amount/(1+VAT_RATE)); net+=netPart; vat+=(amount-netPart);} else {net+=amount; vat+=Math.round(amount*VAT_RATE);} } });});
     return {net:Math.round(net), vat:Math.round(vat)};
@@ -848,7 +845,6 @@ function AnalyticsMonthlyView({projects,assignments,weeksAll,rateFor,projectTeam
           <div className="text-sm text-neutral-600 -mt-0.5">Воронка Панквеб</div>
         </div>
         <div className="flex items-center gap-2">
-          {/* порядок: Год → Специалист → чекбокс */}
           <select value={year} onChange={e=>setYear(parseInt(e.target.value,10))} className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">{yearsRange.map(y=>(<option key={y} value={y}>{y}</option>))}</select>
           <select value={personFilter} onChange={e=>setPersonFilter(e.target.value)} className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">{peopleOptions.map(o=>(<option key={o.value} value={o.value}>{o.label}</option>))}</select>
           <label className="inline-flex items-center gap-2 text-sm text-neutral-700"><input type="checkbox" checked={includeVatAsExpense} onChange={e=>setIncludeVatAsExpense(e.target.checked)}/>Включать НДС как расход</label>
@@ -859,8 +855,14 @@ function AnalyticsMonthlyView({projects,assignments,weeksAll,rateFor,projectTeam
         <ChartBarsMonthlyDual income={monthlyStats.inc} expense={monthlyStats.exp} widthPerGroup={wp} height={280} yearLabel={String(year)}/>
       </div>
 
-      <div className="mt-3 flex items-center justify-start">
-        <div className="text-sm text-neutral-700">Итоги за {year}: доход {fmtMoney(incomeYear)}, расходы {fmtMoney(expenseYear)}, прибыль <span className={profit>=0?"text-green-700 font-semibold":"text-red-700 font-semibold"}>{fmtMoney(profit)}</span></div>
+      {/* Итоги — как на «Воронке»: жирные значения, цвет прибыли */}
+      <div className="mt-4">
+        <div className="text-lg font-semibold">Итоги за {year}</div>
+        <div className="mt-2 space-y-2 w-full max-w-xs">
+          <div className="flex items-center justify-between"><span className="text-neutral-700">Доход</span><span className="font-semibold">{fmtMoney(incomeYear)}</span></div>
+          <div className="flex items-center justify-between"><span className="text-neutral-700">Расходы</span><span className="font-semibold">{fmtMoney(expenseYear)}</span></div>
+          <div className="flex items-center justify-between"><span className="text-neutral-700">Прибыль</span><span className={"font-semibold "+(profit>=0?"text-green-700":"text-red-700")}>{fmtMoney(profit)}</span></div>
+        </div>
       </div>
     </div>
   </div>);
@@ -870,7 +872,7 @@ function AnalyticsMonthlyView({projects,assignments,weeksAll,rateFor,projectTeam
 function CreatePersonModal({open,onClose,name,setName,role,setRole,external,setExternal,onSubmit,roles}){
   if(!open) return null;
   return(<div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}><div className="absolute inset-0 bg-black/40"/><div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[460px] p-4" onClick={e=>e.stopPropagation()}>
-    <div className="text-base font-semibold mb-3">Новый сотрудник</div>
+    <div className="text_base font-semibold mb-3">Новый сотрудник</div>
     <div className="space-y-3">
       <div><label className="block text-sm mb-1">Имя</label><input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/></div>
       <div><label className="block text-sm mb-1">Роль</label><select value={role} onChange={e=>setRole(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2">{roles.map(r=>(<option key={r} value={r}>{r}</option>))}</select></div>
