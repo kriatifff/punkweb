@@ -54,26 +54,7 @@ const isWeekEnded=weekISO=>{const end=addDays(new Date(weekISO),6);const today=n
 const parseDate=s=>{if(!s)return null;const d=new Date(s);if(isNaN(d))return null;d.setHours(0,0,0,0);return d;};
 const overlap=(a1,a2,b1,b2)=>a1<=b2 && b1<=a2;
 
-/* --- helpers for contracts: support gross (with VAT) or net (without VAT) --- */
-function contractToNetVat(c){
-  // Back-compat: if legacy field amountNet exists, treat it as net; else amount is gross when amountIsGross=true
-  if(c && (c.amountNet!=null) && (c.amountNet!==undefined)){
-    const net=Math.round(Math.max(0,Number(c.amountNet)||0));
-    const vat=Math.round(net*VAT_RATE);
-    return {net,vat,gross:net+vat};
-  }
-  const gross=Math.round(Math.max(0,Number(c.amount)||0));
-  if(c && c.amountIsGross===false){
-    const net=Math.round(Math.max(0,Number(c.amount)||0));
-    const vat=Math.round(net*VAT_RATE);
-    return {net,vat,gross:net+vat};
-  }
-  const net=Math.round(Math.floor(gross/(1+VAT_RATE))); // convert gross -> net
-  const vat=gross-net;
-  return {net,vat,gross};
-}
-
-/* ===== Storage ===== */
+/* ===== Storage (with normalization) ===== */
 const LS_KEY="fteplanner.v1";
 const loadAll=()=>{try{return JSON.parse(localStorage.getItem(LS_KEY)||"{}");}catch{return {};}}
 const saveAll=data=>{try{localStorage.setItem(LS_KEY,JSON.stringify(data));}catch{}}
@@ -122,7 +103,7 @@ function ChartBarsTriple({a=0,b=0,c=0,width=820,height=260,labels=["Бюджет
   const w=Math.max(width,640),h=Math.max(height,220),padX=28,padY=30,innerW=w-padX*2,innerH=h-padY*2,maxVal=Math.max(10,a,b,c),yFor=v=>padY+(innerH*(1-(Math.max(0,Number(v)||0)/maxVal))),colW=innerW/5,xs=[padX+innerW*.17-colW/2,padX+innerW*.5-colW/2,padX+innerW*.83-colW/2],colors=["#16a34a","#2563eb","#ef4444"],vals=[a,b,c],baselineY=padY+innerH,grid=[0,.25,.5,.75,1].map((r,i)=>(<line key={i} x1={padX} y1={padY+innerH*r} x2={w-padX} y2={padY+innerH*r} stroke="#eef2f7"/>));
   return(<svg width={w} height={h} role="img" aria-label="Воронка Панквеб — суммарные показатели"><rect x="0" y="0" width={w} height={h} rx="16" ry="16" fill="#fff" stroke="#e5e7eb"/>{grid}<line x1={padX} y1={baselineY} x2={w-padX} y2={baselineY} stroke="#cbd5e1" strokeWidth="3"/>{vals.map((v,i)=>(<g key={i}><rect x={xs[i]} y={yFor(v)} width={colW} height={baselineY-yFor(v)} fill={colors[i]} opacity=".88"/><text x={xs[i]+colW/2} y={yFor(v)-8} fontSize="12" fill="#111827" textAnchor="middle" fontWeight="600">{fmtMoney(v)}</text></g>))}{labels.map((t,i)=>(<text key={t} x={xs[i]+colW/2} y={baselineY+18} fontSize="12" fill="#0f172a" textAnchor="middle">{t}</text>))}</svg>);
 }
-function ChartBarsMonthlyDual({income=[],expense=[],widthPerGroup=68,height=280,yearLabel=""}){
+function ChartBarsMonthlyDual({income=[],expense=[],widthPerGroup=56,height=260,yearLabel=""}){
   const groups=Math.max(income.length,expense.length,12),padX=28,padY=30,groupGap=16,colW=Math.max(10,Math.floor((widthPerGroup-8)/2)),w=padX*2+groups*widthPerGroup+(groups-1)*groupGap,h=Math.max(height,220),innerH=h-padY*2,vals=Array.from({length:groups},(_,i)=>Math.max(0,income[i]||0,expense[i]||0)),maxVal=Math.max(10,...vals),yFor=v=>padY+(innerH*(1-(Math.max(0,Number(v)||0)/maxVal))),baselineY=padY+innerH,xGroup=i=>padX+i*(widthPerGroup+groupGap),grid=[0,.25,.5,.75,1].map((r,i)=>(<line key={i} x1={padX} y1={padY+innerH*r} x2={w-padX} y2={padY+innerH*r} stroke="#eef2f7"/>));
   return(<svg width={w} height={h} role="img" aria-label={"Воронка Панквеб — статистика по месяцам "+yearLabel}><rect x="0" y="0" width={w} height={h} rx="16" ry="16" fill="#fff" stroke="#e5e7eb"/>{grid}<line x1={padX} y1={baselineY} x2={w-padX} y2={baselineY} stroke="#cbd5e1" strokeWidth="2"/>{Array.from({length:groups}).map((_,i)=>{const x=xGroup(i),inc=Math.max(0,income[i]||0),exp=Math.max(0,expense[i]||0),yi=yFor(inc),ye=yFor(exp);return(<g key={i}><rect x={x} y={yi} width={colW} height={baselineY-yi} fill="#16a34a" opacity=".9"/><rect x={x+colW+8} y={ye} width={colW} height={baselineY-ye} fill="#ef4444" opacity=".9"/><text x={x+colW/2} y={yi-6} fontSize="10" textAnchor="middle" fill="#14532d">{inc>0?fmtMoney(inc):""}</text><text x={x+colW+8+colW/2} y={ye-6} fontSize="10" textAnchor="middle" fill="#7f1d1d">{exp>0?fmtMoney(exp):""}</text><text x={x+colW} y={baselineY+14} fontSize="11" textAnchor="middle" fill="#0f172a">{ruMonthShort(i)}</text></g>);})}<g><rect x={w-190} y={8} width="170" height="22" rx="6" ry="6" fill="white" stroke="#e5e7eb"/><rect x={w-182} y={12} width="12" height="12" fill="#16a34a"/><text x={w-166} y={21} fontSize="11" fill="#111827">Доходы</text><rect x={w-110} y={12} width="12" height="12" fill="#ef4444"/><text x={w-94} y={21} fontSize="11" fill="#111827">Расходы</text></g></svg>);
 }
@@ -261,7 +242,7 @@ function App(){
           <button className={view==="team"?"active":"idle"} onClick={()=>setView("team")} role="tab" aria-selected={view==="team"}>Нагрузка</button>
           <button className={view==="project"?"active":"idle"} onClick={()=>setView("project")} role="tab" aria-selected={view==="project"}>Проекты</button>
           <button className={view==="employees"?"active":"idle"} onClick={()=>setView("employees")} role="tab" aria-selected={view==="employees"}>Команда</button>
-          <button className={view==="analyticsTeam"?"active":"idle"} onClick={()=>setView("analyticsTeam")} role="tab" aria-selected={view==="analyticsTeam"}>Аналитика</button>
+          <button className={view==="analyticsTeam"?"active":"idle"} onClick={()=>setView("analyticsTeam")} role="tab" aria-selected={view==="analyticsTeam"}>Аналитика (команда)</button>
           <button className={view==="analyticsProjects"?"active":"idle"} onClick={()=>setView("analyticsProjects")} role="tab" aria-selected={view==="analyticsProjects"}>Воронка</button>
           <button className={view==="analyticsMonthly"?"active":"idle"} onClick={()=>setView("analyticsMonthly")} role="tab" aria-selected={view==="analyticsMonthly"}>Статистика по месяцам</button>
         </div>
@@ -302,4 +283,574 @@ function App(){
                 {visible.map(week=>{
                   const totalFte=personWeekTotal(assignments,person.id,week),totalHoursPlan=Math.round(totalFte*HOURS_PER_WEEK),ratio=fillRatio(totalHoursPlan),vac=!!(vacations[person.id]?.has?.(week)),over=totalHoursPlan>HOURS_PER_WEEK,factSum=personWeekFactTotal(assignments,person.id,week),hasFactOrEnded=(factSum>0||isWeekEnded(week));
                   return(<div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
-                    <div className={"bg-white rounded-2xl shadow-sm h-full flex items-end
+                    <div className={"bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative "+(over?"ring-2 ring-red-300":"")}>
+                      <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">{!vac&&(<div className="absolute bottom-0 left-0 right-0" style={{height:(ratio*100)+"%",background:TEAM_BAR_COLOR}}/>)}</div>
+                      {!vac?(<div className="absolute inset-0 flex items-center justify-center" title={"план: "+totalHoursPlan+" ч"+(hasFactOrEnded?(", факт: "+factSum+" ч"):"")}><div className="leading-tight text-center"><div className="text-sm font-semibold">{fmtHours(totalHoursPlan)}</div><div className="text-[11px] text-neutral-500 mt-0.5">{hasFactOrEnded?fmtHours(factSum):"—"}</div></div></div>):(<div className="absolute inset-0 grid place-items-center text-2xl" title="Отпуск">🏖</div>)}
+                    </div>
+                  </div>);
+                })}
+              </Fragment>
+            );
+          })}
+        </div>
+      )}
+
+      {/* PROJECTS */}
+      {view==="project"&&(
+        <Fragment>
+          <RoleManager roles={roles} setRoles={setRoles} setRoleFilter={setRoleFilter} people={people} setPeople={setPeople}
+            stickyTopClass='top-[var(--app-header-h)]'
+            rightNode={
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-neutral-700">Специалист</label>
+                <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm" value={projectPersonFilter} onChange={e=>setProjectPersonFilter(e.target.value)}>
+                  <option value="all">Все</option>
+                  {people.filter(p=>p.active).map(p=>(<option key={p.id} value={p.id}>{p.name}</option>))}
+                </select>
+              </div>
+            }/>
+          <div className="grid" style={{gridTemplateColumns:"300px 1fr"}}>
+            {projects
+              .filter(pr=>projectPersonFilter==="all" ? true : !!(projectTeams[pr.id]?.has?.(projectPersonFilter)))
+              .map((project,idx)=>{
+              const factCost=sumFactCostForProject(project.id);
+              return(
+                <Fragment key={project.id}>
+                  <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                    draggable onDragStart={()=>onProjectDragStart(idx)} onDragOver={e=>e.preventDefault()} onDrop={()=>onProjectDrop(idx)} title="Перетащите, чтобы изменить порядок">
+                    <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 flex flex-col gap-2 min-w-0">
+                      <div className="flex items-center">
+                        <button className="w-8 h-8 rounded-lg flex items-center justify-center mr-3" style={{background:project.color}}
+                          title="Статус проекта" onClick={()=>{setProjects(prev=>prev.map(p=>p.id!==project.id?p:Object.assign({},p,{status:p.status==="active"?"onhold":p.status==="onhold"?"done":p.status==="done"?"planned":"active"})));}}>
+                          <StatusIcon status={project.status}/>
+                        </button>
+                        <InlineProjectNameEditor project={project} setProjects={setProjects}/>
+                        <div className="ml-auto flex items-center gap-1">
+                          <button className="w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50" title="Изменить цвет" onClick={()=>document.getElementById("color-"+project.id)?.click()} type="button"><EyedropperIcon/></button>
+                          <input id={"color-"+project.id} type="color" className="hidden" value={project.color} onChange={e=>setProjects(prev=>prev.map(p=>p.id===project.id?Object.assign({},p,{color:e.target.value}):p))}/>
+                          <button className="w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50" title="Удалить проект" onClick={()=>deleteProject(project.id)} type="button"><CrossIcon/></button>
+                        </div>
+                      </div>
+
+                      {/* Тип проекта */}
+                      <div className="flex items-center gap-2 text-sm">
+                        <label className="text-xs text-neutral-600">Тип проекта:</label>
+                        <select value={project.projectType||"external"} onChange={e=>setProjects(prev=>prev.map(p=>p.id===project.id?Object.assign({},p,{projectType:e.target.value,costEditableTouched:p.costEditableTouched||false}):p))} className="border border-neutral-300 rounded-xl px-2 py-1">
+                          <option value="internal">Внутренний</option><option value="external">Внешний</option>
+                        </select>
+                      </div>
+
+                      {/* Бюджеты */}
+                      <div className="mt-1 grid gap-2">
+                        <label className="text-xs text-neutral-600">Бюджет с НДС</label>
+                        <input inputMode="numeric" value={project.budgetWithVAT||0} onChange={e=>{const v=Math.max(0,parseInt(e.target.value||"0",10)||0); setProjects(prev=>prev.map(p=>p.id===project.id?Object.assign({},p,{budgetWithVAT:v}):p));}} className="border border-neutral-300 rounded-xl px-3 py-2 text-sm"/>
+                        <label className="text-xs text-neutral-600 -mb-1">Бюджет без НДС</label>
+                        <input inputMode="numeric" value={project.budgetWithoutVAT||0} onChange={e=>{const v=Math.max(0,parseInt(e.target.value||"0",10)||0); setProjects(prev=>prev.map(p=>p.id===project.id?Object.assign({},p,{budgetWithoutVAT:v}):p));}} className="border border-neutral-300 rounded-xl px-3 py-2 text-sm"/>
+                      </div>
+
+                      <div className="grid gap-1">
+                        <label className="text-xs text-neutral-600">Себестоимость (факт)</label>
+                        <div className="px-3 py-2 rounded-xl border border-neutral-200 bg-neutral-50 text-sm">{fmtMoney(factCost)}</div>
+                      </div>
+
+                      {/* Сроки */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div><label className="block text-xs text-neutral-600 mb-1">Начало проекта</label><input type="date" value={project.startDate||""} onChange={e=>setProjects(prev=>prev.map(p=>p.id===project.id?Object.assign({},p,{startDate:e.target.value}):p))} className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm"/></div>
+                        <div><label className="block text-xs text-neutral-600 mb-1">Конец проекта</label><input type="date" value={project.endDate||""} onChange={e=>setProjects(prev=>prev.map(p=>p.id===project.id?Object.assign({},p,{endDate:e.target.value}):p))} className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm"/></div>
+                      </div>
+
+                      {/* Даты контрактования */}
+                      <div className="mt-2">
+                        <div className="text-xs text-neutral-600 mb-1">Даты контрактования</div>
+                        <div className="space-y-2">
+                          {(project.contracts||[]).map((c,i)=>(
+                            <div key={c.id||i} className="grid grid-cols-[1fr_140px_36px] gap-2 items-center">
+                              <input type="date" value={c.date||""} onChange={e=>setProjects(prev=>prev.map(p=>{if(p.id!==project.id)return p; const list=(p.contracts||[]).map((x,idx)=>idx===i?Object.assign({},x,{date:e.target.value}):x); return Object.assign({},p,{contracts:list});}))} className="border border-neutral-300 rounded-xl px-3 py-2 text-sm"/>
+                              <input inputMode="numeric" placeholder="Сумма, без НДС" value={Math.max(0,parseInt(c.amountNet||0,10)||0)} onChange={e=>{const v=Math.max(0,parseInt(e.target.value||"0",10)||0); setProjects(prev=>prev.map(p=>{if(p.id!==project.id)return p; const list=(p.contracts||[]).map((x,idx)=>idx===i?Object.assign({},x,{amountNet:v}):x); return Object.assign({},p,{contracts:list});}))}} className="border border-neutral-300 rounded-xl px-3 py-2 text-sm text-right"/>
+                              <button type="button" className="w-9 h-9 rounded-lg grid place-items-center text-neutral-700 hover:text-red-700 hover:bg-red-50 border border-neutral-300 hover:border-red-200" title="Удалить" onClick={()=>setProjects(prev=>prev.map(p=>{if(p.id!==project.id)return p; return Object.assign({},p,{contracts:(p.contracts||[]).filter((_,idx)=>idx!==i)});} ))}><MinusIcon/></button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-2"><button type="button" className="btn btn-sm" onClick={()=>setProjects(prev=>prev.map(p=>p.id!==project.id?p:Object.assign({},p,{contracts:(p.contracts||[]).concat([{id:rndId(),date:"",amountNet:0}])})))}>
+                          + Дата контрактования
+                        </button></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border border-neutral-200 p-3">
+                    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3">
+                      <ProjectTeamEditor project={project} people={peopleActiveAll} projectTeams={projectTeams} setProjectTeams={setProjectTeams} projectMemberHours={projectMemberHours} setProjectMemberHours={setProjectMemberHours} assignments={assignments} allWeeks={weeks} rateFor={person=>rateFor(person,project.projectType||"external")}/>
+                    </div>
+                  </div>
+                </Fragment>
+              )
+            })}
+          </div>
+        </Fragment>
+      )}
+
+      {/* EMPLOYEES */}
+      {view==="employees"&&(<EmployeesPage people={people} setPeople={setPeople} projects={projects} projectTeams={projectTeams} setProjectTeams={setProjectTeams} deletePerson={deletePerson}/>)}
+
+      {/* ANALYTICS TEAM */}
+      {view==="analyticsTeam"&&(
+        <div className="grid" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visible.length+", "+WEEK_COL_PX+"px)"}}>
+          <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-2 text-sm font-medium" />
+          {visible.map(w=>(<div key={w} className="border-b border-neutral-200"><WeekHeader iso={w}/></div>))}
+          {filteredTeamIds.map((pid,rowIdx)=>{
+            const person=people.find(p=>p.id===pid);
+            const planArr=visible.map(w=>vacations[person.id]?.has?.(w)?0:Math.max(0,Math.round(fteToHours(personWeekTotal(assignments,person.id,w)))));
+            const factArr=visible.map(w=>vacations[person.id]?.has?.(w)?0:personWeekFactTotal(assignments,person.id,w));
+            const chartWidth=visible.length*WEEK_COL_PX, chartHeight=120;
+            return(
+              <Fragment key={pid}>
+                <div className="sticky left-0 z-50 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1"
+                  draggable onDragStart={()=>{dragRow.current=rowIdx;}} onDragOver={e=>e.preventDefault()}
+                  onDrop={()=>{const from=dragRow.current; dragRow.current=null; if(from==null||from===rowIdx) return;
+                    const arr=filteredTeamIds.slice(); const id=arr.splice(from,1)[0]; arr.splice(rowIdx,0,id);
+                    const inactive=teamOrder.filter(x=>!filteredTeamIds.includes(x)); setTeamOrder(arr.concat(inactive));}}>
+                  <div role="button" tabIndex={0} onClick={()=>setSelectedPersonId(person.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){setSelectedPersonId(person.id)}}} className="w-full text-left">
+                    <div className="relative bg-white rounded-2xl shadow-sm h-[120px] flex flex-col justify-center pl-5 pr-8 hover:shadow-md hover:bg-blue-50/70 transition">
+                      <div className="font-medium truncate" title="Открыть графики по проектам">{person.name}</div>
+                      <div className="mt-1 text-[11px] text-neutral-600">{String(person.role||"").toUpperCase()}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-1" style={{gridColumn:"span "+visible.length}}>
+                  <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                    <ChartLineDual plan={planArr} fact={factArr} width={chartWidth} height={chartHeight} title={"План/Факт — "+person.name}/>
+                  </div>
+                </div>
+              </Fragment>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ANALYTICS PROJECTS — ВОРОНКА */}
+      {view==="analyticsProjects"&&(
+        <AnalyticsProjectsView projects={projects} assignments={assignments} weeksAll={weeks} sumFactCostForProjectWeeks={sumFactCostForProjectWeeks} rateFor={rateFor} projectTeams={projectTeams} people={people} setView={setView}/>
+      )}
+
+      {/* ANALYTICS MONTHLY — СТРАНИЦА */}
+      {view==="analyticsMonthly"&&(
+        <AnalyticsMonthlyView projects={projects} assignments={assignments} weeksAll={weeks} rateFor={rateFor} projectTeams={projectTeams} people={people}/>
+      )}
+    </main>
+
+    {selectedPersonId&&(
+      <PersonPage person={people.find(p=>p.id===selectedPersonId)} projects={projects} assignments={assignments} teamByProject={projectTeams} projectMemberHours={projectMemberHours} setProjectMemberHours={setProjectMemberHours} vacations={vacations} setVacations={setVacations} order={personProjectOrder[selectedPersonId]} setOrder={o=>setPersonProjectOrder(prev=>Object.assign({},prev,{[selectedPersonId]:o}))} onClose={()=>setSelectedPersonId(null)} onSave={setAssignments} setPeople={setPeople} weeksAll={weeks} visibleWeeks={visible} goLeft={goLeft} goRight={goRight} goToday={goToday} roles={roles} view={view} setView={v=>{setView(v); setSelectedPersonId(null);}}/>
+    )}
+
+    <CreatePersonModal open={createPersonOpen} onClose={()=>setCreatePersonOpen(false)} name={newPersonName} setName={setNewPersonName} role={newPersonRole} setRole={setNewPersonRole} external={newPersonExternal} setExternal={setNewPersonExternal} onSubmit={submitNewPerson} roles={roles}/>
+    <CreateProjectModal open={createProjectOpen} onClose={()=>setCreateProjectOpen(false)} name={newProjectName} setName={setNewProjectName} color={newProjectColor} setColor={setNewProjectColor} status={newProjectStatus} setStatus={setNewProjectStatus} onSubmit={submitNewProject}/>
+  </div>);
+}
+
+/* ===== Helpers Components ===== */
+function WeekNavigator({onLeft,onRight,onToday,showRoleFilter,roleFilter,setRoleFilter,roles,stickyTopClass='top-[var(--app-header-h)]',leftNode=null}){
+  return(<div className={"sticky "+stickyTopClass+" z-50 bg-[#F7F8FA] py-2 mb-2"}><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-3 min-h-[32px]">{leftNode}</div><div className="flex items-center gap-2">{showRoleFilter&&(<div className="flex items-center gap-2 mr-1"><label className="text-sm text-neutral-700">Фильтр роли</label><select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm" value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}><option value="all">Все</option>{roles.map(r=>(<option key={r} value={r}>{r}</option>))}</select></div>)}<button onClick={onLeft} className="btn btn-sm" title="Назад на неделю">‹</button><button onClick={onToday} className="btn btn-sm" title="К текущей неделе">Сегодня</button><button onClick={onRight} className="btn btn-sm" title="Вперёд на неделю">›</button></div></div></div>);
+}
+function PersonPage({person,projects,assignments,teamByProject,projectMemberHours,setProjectMemberHours,vacations,setVacations,order,setOrder,onClose,onSave,setPeople,weeksAll,visibleWeeks,goLeft,goRight,goToday,roles,view,setView}){
+  if(!person) return null;
+  const isVacation=(pid,w)=>!!(vacations[pid]?.has?.(w));
+  const unionIds=useMemo(()=>{const ids={}; assignments.forEach(a=>{if(a.personId===person.id){ids[a.projectId]=true;}}); for(const pr in teamByProject){ if(Object.prototype.hasOwnProperty.call(teamByProject,pr)){ const s=teamByProject[pr]; if(s?.has?.(person.id)) ids[pr]=true; } } return Object.keys(ids);},[assignments,person.id,teamByProject]);
+  const orderedIds=useMemo(()=>{const base=order||[];const merged=[];const seen={}; base.forEach(id=>{if(unionIds.includes(id)&&!seen[id]){merged.push(id);seen[id]=true;}}); unionIds.forEach(id=>{if(!seen[id]) merged.push(id);}); return merged;},[order,unionIds]);
+  useEffect(()=>setOrder(orderedIds),[orderedIds,setOrder]);
+  const visibleProjectIds=useMemo(()=>orderedIds.filter(pid=>{const pr=projects.find(p=>p.id===pid); return pr && pr.status!=="onhold";}),[orderedIds,projects]);
+
+  const [editKey,setEditKey]=useState(null),[editVal,setEditVal]=useState("");
+  const beginEditPlan=(pid,w,curFte)=>{if(isVacation(person.id,w)) return; const curHours=Math.max(0,Math.round(fteToHours(curFte||0))); setEditKey(pid+"|"+w+"|plan"); setEditVal(String(curHours));}
+  const beginEditFact=(pid,w,curFact)=>{if(isVacation(person.id,w)) return; const curHours=(curFact==null||isNaN(curFact))?"":String(Math.max(0,Math.round(Number(curFact)||0))); setEditKey(pid+"|"+w+"|fact"); setEditVal(curHours);}
+  const commitEdit=(pid,w,mode)=>{const k=pid+"|"+w+"|"+mode; if(editKey!==k) return; const normalized=(editVal||"").replace(",","."),nextHours=parseInt(normalized,10); setEditKey(null); if(isNaN(nextHours)||nextHours<0) return; onSave(prev=>{const rest=prev.filter(a=>!(a.personId===person.id&&a.projectId===pid&&a.weekStart===w)); const old=prev.find(a=>a.personId===person.id&&a.projectId===pid&&a.weekStart===w)||null; if(mode==="plan"){const nextFte=hoursToFte(nextHours); return rest.concat([{id:rndId(),personId:person.id,projectId:pid,weekStart:w,fte:nextFte,factHours:old?old.factHours:undefined}]);} else {return rest.concat([{id:rndId(),personId:person.id,projectId:pid,weekStart:w,fte:old?(old.fte||0):0,factHours:Math.max(0,nextHours)}]);}});}
+
+  const dragIndex=useRef(null); const onDragStart=i=>dragIndex.current=i; const onDrop=i=>{const from=dragIndex.current; dragIndex.current=null; if(from==null||from===i) return; const arr=visibleProjectIds.slice(); const moved=arr.splice(from,1)[0]; arr.splice(i,0,moved); setOrder(arr);}
+
+  const [vacOpen,setVacOpen]=useState(false);
+  const [personVac,setPersonVac]=useState(new Set(vacations[person.id]||[]));
+  const [vacTab,setVacTab]=useState("range");
+  const [vFrom,setVFrom]=useState(""),[vTo,setVTo]=useState("");
+  useEffect(()=>setPersonVac(new Set(vacations[person.id]||[])),[person.id,vacations]);
+  const saveVac=()=>{let setToSave=new Set(personVac); if(vFrom&&vTo){const d1=new Date(vFrom),d2=new Date(vTo); if(!(isNaN(d1)||isNaN(d2)||d1>d2)){let m1=startOfISOWeek(d1),m2=startOfISOWeek(d2); while(m1<=m2){setToSave.add(fmtISO(m1)); m1=addDays(m1,7);} } } setVacations(prev=>{const c={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ c[k]=toSet(prev[k]); } } c[person.id]=setToSave; return c;}); onSave(prev=>prev.filter(a=>!(a.personId===person.id && setToSave.has(a.weekStart)))); setVacOpen(false);}
+  const clearVacationWeek=week=>setVacations(prev=>{const c={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ c[k]=toSet(prev[k]); } } const s=new Set(c[person.id]||[]); s.delete(week); c[person.id]=s; return c;});
+
+  const visible=visibleWeeks;
+  const weekTotalsPlan=useMemo(()=>visible.map(w=>isVacation(person.id,w)?0:Math.max(0,Math.round(fteToHours(assignments.filter(a=>a.personId===person.id&&a.weekStart===w).reduce((s,a)=>s+a.fte,0))))),[assignments,person.id,vacations,visible]);
+  const weekTotalsFact=useMemo(()=>visible.map(w=>isVacation(person.id,w)?0:personWeekFactTotal(assignments,person.id,w)),[assignments,person.id,vacations,visible]);
+
+  const [ri,setRi]=useState(person.rateInternal||0),[re,setRe]=useState(person.rateExternal||0);
+  useEffect(()=>{setRi(person.rateInternal||0); setRe(person.rateExternal||0);},[person.id]);
+  const commitRates=()=>setPeople(prev=>prev.map(p=>p.id===person.id?Object.assign({},p,{rateInternal:Math.max(0,parseInt(ri||0,10)||0),rateExternal:Math.max(0,parseInt(re||0,10)||0)}):p));
+
+  return(
+    <div className="fixed inset-0 z-50 bg-[#F7F8FA] overflow-auto no-scrollbar">
+      <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur" style={{height:'var(--app-header-h)'}}>
+        <div className="max-w-screen-2xl mx-auto px-4 h-full flex items-center gap-3">
+          <div className="text-lg font-semibold tracking-tight text-green-600">Панквеб Planner</div>
+          <div className="ml-4 segmented">
+            <button className={view==="team"?"active":"idle"} onClick={()=>{setView("team"); onClose();}}>Нагрузка</button>
+            <button className={view==="project"?"active":"idle"} onClick={()=>{setView("project"); onClose();}}>Проекты</button>
+            <button className={view==="employees"?"active":"idle"} onClick={()=>{setView("employees"); onClose();}}>Команда</button>
+            <button className={view==="analyticsTeam"?"active":"idle"} onClick={()=>{setView("analyticsTeam"); onClose();}}>Аналитика (команда)</button>
+            <button className={view==="analyticsProjects"?"active":"idle"} onClick={()=>{setView("analyticsProjects"); onClose();}}>Воронка</button>
+            <button className={view==="analyticsMonthly"?"active":"idle"} onClick={()=>{setView("analyticsMonthly"); onClose();}}>Статистика по месяцам</button>
+          </div>
+          <div className="ml-auto"><button className="btn btn-sm" onClick={onClose}>Закрыть</button></div>
+        </div>
+      </div>
+
+      <div className="max-w-screen-2xl mx-auto px-4">
+        <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} showRoleFilter={false} stickyTopClass="top-[var(--app-header-h)]"
+          leftNode={<Fragment>
+            <EditableName person={person} setPeople={setPeople}/>
+            <EditableRole person={person} setPeople={setPeople} roles={roles}/>
+            <div className="ml-2 inline-flex items-center gap-2 text-sm"><span className="text-xs text-neutral-600">Ставка внутр., ₽/ч</span><input value={ri} inputMode="numeric" onChange={e=>setRi(e.target.value)} onBlur={commitRates} className="w-24 px-2 py-1 border border-neutral-300 rounded-lg"/><span className="text-xs text-neutral-600">Ставка внеш., ₽/ч</span><input value={re} inputMode="numeric" onChange={e=>setRe(e.target.value)} onBlur={commitRates} className="w-24 px-2 py-1 border border-neutral-300 rounded-lg"/></div>
+            <button onClick={()=>setVacOpen(true)} className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800">🏖 Добавить отпуск</button>
+          </Fragment>}
+        />
+      </div>
+
+      <div className="max-w-screen-2xl mx-auto px-4">
+        <div className="grid" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visibleWeeks.length+", "+WEEK_COL_PX+"px)"}}>
+          <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
+          {visibleWeeks.map(w=>(<div key={w}><WeekHeader iso={w}/></div>))}
+        </div>
+
+        <div className="grid mb-1" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visibleWeeks.length+", "+WEEK_COL_PX+"px)"}}>
+          <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200" />
+          {visibleWeeks.map((w,i)=>{const over=weekTotalsPlan[i]>HOURS_PER_WEEK; return(<div key={w} className="h-8 flex items-center justify-center"><div className={"px-2 py-0.5 rounded-lg border "+(over?"border-red-300 bg-red-50 text-red-800":"border-neutral-300 bg-white")+" text-[12px] font-medium shadow-sm text-center leading-tight"} title={"план: "+weekTotalsPlan[i]+" ч, факт: "+weekTotalsFact[i]+" ч"}><div className="font-semibold">{fmtHours(weekTotalsPlan[i])}</div><div className="text-[10px] text-neutral-500">{fmtHours(weekTotalsFact[i])}</div></div></div>);})}
+        </div>
+
+        <div className="grid pb-4" style={{gridTemplateColumns:"var(--left-col-w) repeat("+visibleWeeks.length+", "+WEEK_COL_PX+"px)"}}>
+          {visibleProjectIds.map((pid,idx)=>{
+            const pr=projects.find(p=>p.id===pid); if(!pr) return null;
+            const plannedH=Number((projectMemberHours?.[pr.id]||{})[person.id]||0),factH=sumFactForPersonProject(assignments,person.id,pr.id,weeksAll),ratio=plannedH>0?(factH/plannedH):0;
+            let tint=null; if(plannedH>0){ if(ratio>1)tint=COLOR_100; else if(ratio>=.7)tint=COLOR_70; else if(ratio>=.5)tint=COLOR_50;}
+            const personRate=(pr.projectType==="internal"?(person.rateInternal||0):(person.rateExternal||0)),factMoney=Math.round(factH*personRate);
+            return(
+              <Fragment key={pid}>
+                <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={e=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
+                  <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none" style={{background:tint||"#fff"}}>
+                    <span className="text-neutral-400">⋮⋮</span>
+                    <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
+                      <div className="text-[11px] text-neutral-600 mt-0.5">Факт: {fmtMoney(factMoney)}</div>
+                    </div>
+                  </div>
+                </div>
+                {visibleWeeks.map(week=>{
+                  const fte=fteFor(assignments,person.id,pid,week),hoursPlan=Math.max(0,Math.round(fteToHours(fte))),ratioFill=fillRatio(hoursPlan),vac=isVacation(person.id,week),over=hoursPlan>HOURS_PER_WEEK;
+                  let curAssign=null; for(let u=0;u<assignments.length;u++){const a=assignments[u]; if(a.personId===person.id&&a.projectId===pid&&a.weekStart===week){curAssign=a; break;}}
+                  const factRaw=curAssign?curAssign.factHours:undefined,factEffective=(factRaw==null||isNaN(factRaw))?(isWeekEnded(week)?Math.max(0,Math.round(fteToHours(fte))):null):Math.max(0,Math.round(Number(factRaw)||0));
+                  const editingPlan=(editKey===(pid+"|"+week+"|plan")),editingFact=(editKey===(pid+"|"+week+"|fact"));
+                  return(<div key={week+pid} className="p-1 bg-transparent h-[120px] relative">
+                    <div className={"bg-white rounded-2xl shadow-sm h-full flex items-end justify-center relative "+(over?"ring-2 ring-red-300":"")}>
+                      <div className="relative w-14 h-[92%] rounded-lg bg-neutral-200 overflow-hidden">{!vac&&(<div className="absolute bottom-0 left-0 right-0" style={{height:(ratioFill*100)+"%",background:pr.color}} title={pr.name}/>)}</div>
+                      {!vac?(<div className="absolute inset-0 flex items-center justify-center"><div className="leading-tight text-center">
+                        {!editingPlan?(<div className="text-sm font-semibold cursor-text" title={"план: "+hoursPlan+" ч"} onClick={()=>beginEditPlan(pid,week,fte)}>{fmtHours(hoursPlan)}</div>):(<input autoFocus inputMode="numeric" className="h-8 w-16 text-center text-sm font-semibold border border-neutral-300 rounded-md bg-white shadow-sm" value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(pid,week,"plan")} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur(); if(e.key==="Escape")setEditKey(null);}}/>)}
+                        {!editingFact?(<div className="text-[11px] text-neutral-500 mt-0.5 cursor-text" title={factEffective!=null?("факт: "+factEffective+" ч"):"факт не заполнен"} onClick={()=>beginEditFact(pid,week,factRaw)}>{factEffective!=null?fmtHours(factEffective):"—"}</div>):(<input autoFocus inputMode="numeric" className="mt-0.5 h-7 w-16 text-center text-[11px] border border-neutral-300 rounded-md bg-white shadow-sm" value={editVal} onChange={e=>setEditVal(e.target.value)} onBlur={()=>commitEdit(pid,week,"fact")} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur(); if(e.key==="Escape")setEditKey(null);}}/>)}
+                      </div></div>):(<button className="absolute inset-0 grid place-items-center text-2xl" title="Снять отпуск" onClick={()=>clearVacationWeek(week)}>🏖</button>)}
+                    </div>
+                  </div>);
+                })}
+              </Fragment>
+            )})}
+        </div>
+      </div>
+
+      {vacOpen&&(<div className="fixed inset-0 z-50 flex items-center justify-center" onClick={()=>setVacOpen(false)}><div className="absolute inset-0 bg-black/40"/><div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max-h-[80vh] overflow-auto p-4" onClick={e=>e.stopPropagation()}>
+        <div className="text-base font-semibold mb-3">Отпуск — {person.name}</div>
+        <div className="mb-3 inline-flex items-center gap-1 rounded-xl border border-neutral-200 p-1">
+          <button className={"px-3 py-1 rounded-lg text-sm "+("range"==="range"?"bg-neutral-100 shadow":"")} onClick={()=>setVacTab("range")}>Диапазон дат</button>
+          <button className={"px-3 py-1 rounded-lg text-sm "+(vacTab==="weeks"?"bg-neutral-100 shadow":"")} onClick={()=>setVacTab("weeks")}>По неделям</button>
+        </div>
+        {vacTab==="range"&&(<div className="space-y-3"><div className="flex items-center gap-2"><label className="text-sm">С</label><input type="date" value={vFrom} onChange={e=>setVFrom(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/><label className="text-sm">по</label><input type="date" value={vTo} onChange={e=>setVTo(e.target.value)} className="border border-neutral-300 rounded-lg px-2 py-1"/></div>{(vFrom&&vTo)&&(<div className="text-xs text-neutral-600">Недели диапазона добавятся после сохранения.</div>)}</div>)}
+        {vacTab==="weeks"&&(<div className="space-y-3"><div className="text-sm text-neutral-600">Отметьте недели:</div><div className="grid grid-cols-3 gap-2">{yearWeekMondays(new Date().getFullYear()).map(m=>{const checked=personVac.has(m);return(<label key={m} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl hover:bg-amber-50"><input type="checkbox" checked={checked} onChange={()=>setPersonVac(prev=>{const s=new Set(prev); if(s.has(m)) s.delete(m); else s.add(m); return s;})}/><span className="text-sm">{weekRangeLabel(m)}</span>{checked&&(<button type="button" className="ml-auto text-amber-700" title="Убрать" onClick={()=>setPersonVac(prev=>{const s=new Set(prev); s.delete(m); return s;})}>−</button>)}</label>);})}</div></div>)}
+        {Array.from(personVac).length>0&&(<div className="mt-3"><div className="text-sm mb-1">Выбрано недель:</div><div className="flex flex-wrap gap-2">{Array.from(personVac).map(w=>(<span key={w} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200">{weekRangeLabel(w)}<button type="button" className="ml-1" title="Удалить" onClick={()=>setPersonVac(prev=>{const s=new Set(prev); s.delete(w); return s;})}>×</button></span>))}</div></div>)}
+        <div className="mt-4 flex justify-end gap-2"><button type="button" className="btn btn-sm" onClick={()=>setVacOpen(false)}>Отмена</button><button type="button" className="rounded-xl border border-amber-300 bg-amber-50 text-amber-800 px-3 py-1" onClick={saveVac}>Сохранить</button></div>
+      </div></div>)}
+    </div>
+  );
+}
+function InlineNameEditor({person,setPeople}){const [editing,setEditing]=useState(false),[val,setVal]=useState(person.name); useEffect(()=>setVal(person.name),[person.id,person.name]); const commit=()=>{const name=(val||"").trim(); setEditing(false); if(!name||name===person.name) return; setPeople(prev=>prev.map(p=>p.id===person.id?Object.assign({},p,{name}):p));}; return editing?(<input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur(); if(e.key==="Escape"){setEditing(false); setVal(person.name);}}} className="px-2 py-1 text-sm border border-neutral-300 rounded-lg w-[70%]"/>):(<button className="font-medium truncate text-left hover:underline" onClick={()=>setEditing(true)} title="Редактировать имя">{person.name}</button>);}
+function InlineProjectNameEditor({project,setProjects}){const [editing,setEditing]=useState(false),[val,setVal]=useState(project.name); useEffect(()=>setVal(project.name),[project.id,project.name]); const commit=()=>{const name=(val||"").trim(); setEditing(false); if(!name||name===project.name) return; setProjects(prev=>prev.map(p=>p.id===project.id?Object.assign({},p,{name}):p));}; return editing?(<input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur(); if(e.key==="Escape"){setEditing(false); setVal(project.name);}}} className="flex-1 min-w-0 px-2 py-1 text-sm border border-neutral-300 rounded-lg"/>):(<button className="flex-1 min-w-0 font-medium truncate text-left hover:underline" title="Переименовать проект" onClick={()=>setEditing(true)}>{project.name}</button>);}
+function EditableName({person,setPeople}){const [editing,setEditing]=useState(false),[val,setVal]=useState(person.name); useEffect(()=>setVal(person.name),[person.id,person.name]); const commit=()=>{const name=(val||"").trim(); setEditing(false); if(!name||name===person.name) return; setPeople(prev=>prev.map(p=>p.id===person.id?Object.assign({},p,{name}):p));}; return editing?(<input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur(); if(e.key==="Escape"){setEditing(false); setVal(person.name);}}} className="text-lg font-semibold leading-tight border border-neutral-300 rounded-md px-2 py-0.5"/>):(<button className="text-lg font-semibold leading-tight hover:underline" title="Редактировать имя" onClick={()=>setEditing(true)}>{person.name}</button>);}
+function EditableRole({person,setPeople,roles}){const [editing,setEditing]=useState(false),[val,setVal]=useState(person.role||"other"); useEffect(()=>setVal(person.role||"other"),[person.id,person.role]); const commit=()=>{const role=val||"other"; setEditing(false); if(role===person.role) return; setPeople(prev=>prev.map(p=>p.id===person.id?Object.assign({},p,{role}):p));}; return editing?(<select autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200">{roles.map(r=>(<option key={r} value={r}>{r.toUpperCase()}</option>))}</select>):(<button className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 hover:bg-neutral-200" title="Редактировать должность" onClick={()=>setEditing(true)}><PencilIcon className="opacity-70"/> {(person.role||"OTHER").toUpperCase()}</button>);}
+function ColorDropdown({options,value,onChange,placeholder="Выбрать...",widthClass="w-[260px]"}){
+  const [open,setOpen]=useState(false),selected=options.find(o=>o.value===value)||null;
+  useEffect(()=>{function onDoc(e){if(!e.target.closest) return; if(!e.target.closest(".color-dropdown")) setOpen(false);} document.addEventListener("click",onDoc); return()=>document.removeEventListener("click",onDoc);},[]);
+  return(<div className={"color-dropdown relative "+widthClass}><button type="button" className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm bg-white flex items-center justify-between" onClick={()=>setOpen(v=>!v)}><span className="flex items-center gap-2 min-w-0">{selected?(<span className="w-4 h-4 rounded-md border" style={{background:selected.color,borderColor:selected.color}}/>):(<span className="w-4 h-4 rounded-md border border-neutral-300 bg-neutral-100"/>)}
+    <span className="truncate">{selected?selected.label:placeholder}</span></span><span className="ml-2 text-xs text-neutral-500">▾</span></button>
+    {open&&(<div className="absolute z-50 mt-1 w-full bg-white border border-neutral-200 rounded-xl shadow-lg max-h-64 overflow-auto">{options.map(o=>(
+      <button key={o.value} className="w-full px-3 py-2 text-left hover:bg-neutral-50 flex items-center gap-2" onClick={()=>{onChange(o.value); setOpen(false);}}>
+        <span className="w-4 h-4 rounded-md border" style={{background:o.color,borderColor:o.color}}/><span className="truncate">{o.label}</span>
+      </button>))}{options.length===0&&(<div className="px-3 py-2 text-xs text-neutral-500">Нет доступных проектов</div>)}</div>)}
+  </div>);
+}
+function ProjectTeamEditor({project,people,projectTeams,setProjectTeams,projectMemberHours,setProjectMemberHours,assignments,allWeeks,rateFor}){
+  const teamSet=projectTeams[project.id]||new Set(), available=useMemo(()=>people.filter(p=>!teamSet.has(p.id)),[people,teamSet]);
+  const [selPersonId,setSelPersonId]=useState("");
+  const addToTeam=()=>{if(!selPersonId) return; setProjectTeams(prev=>{const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=toSet(prev[k]); } } (copy[project.id]??=new Set()).add(selPersonId); return copy;}); setProjectMemberHours(prev=>{const c={...prev}; const inner={...(c[project.id]||{})}; if(!inner[selPersonId]) inner[selPersonId]=0; c[project.id]=inner; return c;}); setSelPersonId("");}
+  const removeFromTeam=pid=>{setProjectTeams(prev=>{const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=toSet(prev[k]); } } copy[project.id]?.delete(pid); return copy;}); setProjectMemberHours(prev=>{const c={...prev}; const inner={...(c[project.id]||{})}; delete inner[pid]; c[project.id]=inner; return c;});}
+  const currentTeam=Array.from(teamSet);
+  return(<div>
+    <div className="flex items-center gap-2"><select value={selPersonId} onChange={e=>setSelPersonId(e.target.value)} className="border border-neutral-300 rounded-xl px-2 py-2 text-sm"><option value="">Добавить сотрудника…</option>{available.map(p=>(<option key={p.id} value={p.id}>{p.name} — {String(p.role).toUpperCase()} {p.external?"(внешн.)":""}</option>))}</select><button className="btn btn-sm" onClick={addToTeam}>Добавить</button></div>
+    <div className="mt-3 space-y-2">{currentTeam.map(pid=>{const p=people.find(x=>x.id===pid); if(!p) return null; const hPlan=Number((projectMemberHours?.[project.id]||{})[pid]||0),hFact=sumFactForPersonProject(assignments,pid,project.id,allWeeks),ratio=hPlan>0?(hFact/hPlan):0; let tint="transparent"; if(hPlan>0){ if(ratio>1)tint=COLOR_100; else if(ratio>=.7)tint=COLOR_70; else if(ratio>=.5)tint=COLOR_50;} const personRate=rateFor(p),costPlan=Math.round(hPlan*personRate),costFact=Math.round(hFact*personRate);
+      return(<div key={pid} className="flex items-center gap-2 p-2 border border-neutral-200 rounded-xl" style={{background:tint}}>
+        <div className="flex-1 min-w-0"><div className="font-medium truncate">{p.name} <span className="text-[10px] text-neutral-500">{String(p.role).toUpperCase()}</span></div>
+          <div className="text-[11px] text-neutral-500 mt-0.5">план: {fmtHours(hPlan)} ч · факт: {fmtHours(hFact)} ч · ставка: {fmtMoney(personRate)} /ч</div>
+        </div>
+        <div className="text-xs text-neutral-600 w-10 text-right">{hPlan>0?Math.floor(ratio*100):0}%</div>
+        <input title="Часы по проекту (суммарно)" inputMode="numeric" className="w-24 text-sm border border-neutral-300 rounded-lg px-2 py-1 text-right" value={hPlan}
+          onChange={e=>{const v=Math.max(0,parseInt(e.target.value||"0",10)||0); setProjectMemberHours(prev=>{const c={...prev}; const inner={...(c[project.id]||{})}; inner[pid]=v; c[project.id]=inner; return c;});}}/>
+        <div className="text-[11px] text-neutral-500 w-40 text-right">план ₽: {fmtMoney(costPlan)}<br/>факт ₽: {fmtMoney(costFact)}</div>
+        <button className="w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:text-red-700 hover:bg-red-50 border border-neutral-300 hover:border-red-200 transition" title="Убрать из проекта" onClick={()=>removeFromTeam(pid)}><MinusIcon/></button>
+      </div>);})}{currentTeam.length===0&&(<div className="text-xs text-neutral-500">Пока никого нет</div>)}</div>
+  </div>);
+}
+function EmployeesPage({people,setPeople,projects,projectTeams,setProjectTeams,deletePerson}){
+  const [search,setSearch]=useState(""),list=useMemo(()=>people.filter(p=>p.active&&p.name.toLowerCase().includes(search.toLowerCase())),[people,search]);
+  return(<div className="space-y-3"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Найти сотрудника..." className="w-full border border-neutral-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"/>
+    <div className="grid" style={{gridTemplateColumns:"360px 1fr"}}>{list.map(p=>(<Fragment key={p.id}>
+      <div className="sticky left-0 z-40 bg-[#F7F8FA] backdrop-blur border-r border-neutral-200 p-1">
+        <div className="relative bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 min-w-0 h-[170px] flex flex-col justify-center">
+          <div className="flex items-center gap-2"><InlineNameEditor person={p} setPeople={setPeople}/>
+            <button className="ml-auto w-7 h-7 rounded-lg grid place-items-center text-neutral-700 hover:bg-neutral-50" title="Удалить сотрудника" onClick={()=>deletePerson(p.id)}><CrossIcon/></button></div>
+          <div className="mt-1 flex items-center gap-2">
+            <select value={p.role||"other"} onChange={e=>setPeople(prev=>prev.map(x=>x.id===p.id?Object.assign({},x,{role:e.target.value}):x))} className="text-[12px] px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200">
+              {["designer","dev","manager","pm","other"].map(r=>(<option key={r} value={r}>{r.toUpperCase()}</option>))}
+            </select>
+            <label className="text-xs flex items-center gap-1 ml-2"><input type="checkbox" checked={!!p.external} onChange={e=>setPeople(prev=>prev.map(x=>x.id===p.id?Object.assign({},x,{external:e.target.checked}):x))}/>Внешний</label>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] items-center">
+            <label className="inline-flex items-center gap-2">внутр. ₽/ч
+              <input value={p.rateInternal||0} inputMode="numeric" onChange={e=>setPeople(prev=>prev.map(x=>x.id===p.id?Object.assign({},x,{rateInternal:Math.max(0,parseInt(e.target.value||"0",10)||0)}):x))} className="w-24 border border-neutral-300 rounded-md px-2 py-0.5"/>
+            </label>
+            <label className="inline-flex items-center gap-2">внеш. ₽/ч
+              <input value={p.rateExternal||0} inputMode="numeric" onChange={e=>setPeople(prev=>prev.map(x=>x.id===p.id?Object.assign({},x,{rateExternal:Math.max(0,parseInt(e.target.value||"0",10)||0)}):x))} className="w-24 border border-neutral-300 rounded-md px-2 py-0.5"/>
+            </label>
+          </div>
+          <div className="mt-1 text-[11px] text-neutral-500">ID: {p.id.slice(0,6)}…</div>
+        </div>
+      </div>
+      <div className="border border-neutral-200 p-3"><div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-3"><PersonProjectsEditor person={p} projects={projects} projectTeams={projectTeams} setProjectTeams={setProjectTeams}/></div></div>
+    </Fragment>))}</div></div>);
+}
+function PersonProjectsEditor({person,projects,projectTeams,setProjectTeams}){
+  const memberOf=useMemo(()=>{const ids=[]; for(let i=0;i<projects.length;i++){const pr=projects[i],set=projectTeams[pr.id]; if(set?.has?.(person.id)) ids.push(pr.id);} return new Set(ids);},[projects,projectTeams,person.id]);
+  const available=useMemo(()=>projects.filter(pr=>!memberOf.has(pr.id)),[projects,memberOf]);
+  const [selProjectId,setSelProjectId]=useState("");
+  const add=()=>{if(!selProjectId) return; setProjectTeams(prev=>{const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=toSet(prev[k]); } } (copy[selProjectId]??=new Set()).add(person.id); return copy;}); setSelProjectId("");}
+  const remove=prid=>setProjectTeams(prev=>{const copy={}; for(const k in prev){ if(Object.prototype.hasOwnProperty.call(prev,k)){ copy[k]=toSet(prev[k]); } } copy[prid]?.delete(person.id); return copy;});
+  const current=Array.from(memberOf);
+  const options=available.map(pr=>({value:pr.id,label:pr.name,color:pr.color}));
+  return(<div>
+    <div className="flex items-center gap-2 mb-2"><ColorDropdown options={options} value={selProjectId} onChange={setSelProjectId} placeholder="Добавить проект…"/><button className="btn btn-sm" onClick={add}>Добавить</button></div>
+    <div className="mt-1 flex flex-wrap gap-2">{current.map(prid=>{const pr=projects.find(p=>p.id===prid); if(!pr) return null; return(<span key={prid} className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs bg-blue-50 text-blue-800 border border-blue-200"><span className="w-3 h-3 rounded" style={{background:pr.color}}></span>{pr.name}<button className="ml-1 text-blue-700/70 hover:text-blue-900" onClick={()=>remove(prid)}>×</button></span>);})}</div>
+  </div>);
+}
+
+/* ===== Roles ===== */
+function RoleManager({roles,setRoles,setRoleFilter,people,setPeople,stickyTopClass='top-[calc(var(--app-header-h)+48px)]',rightNode=null}){
+  const [adding,setAdding]=useState(""),[editing,setEditing]=useState(null),[val,setVal]=useState("");
+  const add=()=>{const x=(adding||"").trim(); if(!x||roles.includes(x)) return; setRoles(roles.concat([x])); setAdding("");};
+  const startEdit=r=>{setEditing(r); setVal(r);};
+  const commit=()=>{if(!editing) return; const x=(val||"").trim(); setEditing(null); if(!x) return; setRoles(roles.map(r=>r===editing?x:r)); setRoleFilter(x);};
+  const remove=r=>{if(!confirm("Удалить роль «"+r+"»? Людям с этой ролью будет проставлено OTHER.")) return; setRoles(roles.filter(x=>x!==r)); setPeople(prev=>prev.map(p=>p.role===r?Object.assign({},p,{role:"other"}):p)); setRoleFilter("all");};
+  return(<div className={"bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky "+stickyTopClass+" z-50"}>
+    <div className="flex items-center justify-between gap-2">
+      <div className="text-sm font-medium">Роли</div>
+      {rightNode}
+    </div>
+    <div className="mt-2 flex flex-wrap gap-2">
+      {roles.map(r=>(
+        <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
+          {editing===r?(<input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur(); if(e.key==='Escape')setEditing(null);}} className="px-1 py-0.5 border border-neutral-300 rounded"/>):(
+            <Fragment>
+              <button className="hover:underline" onClick={()=>setRoleFilter(r)}>{r}</button>
+              <button className="text-neutral-500 hover:text-neutral-800" title="Переименовать роль" onClick={()=>startEdit(r)}><PencilIcon/></button>
+              <button className="text-neutral-500 hover:text-red-600" title="Удалить роль" onClick={()=>remove(r)}><CrossIcon/></button>
+            </Fragment>
+          )}
+        </span>
+      ))}
+      <span className="inline-flex items-center gap-1"><input value={adding} onChange={e=>setAdding(e.target.value)} placeholder="Добавить роль" className="px-2 py-1 text-sm border border-neutral-300 rounded-lg"/><button className="btn btn-sm" onClick={add}>Сохранить</button></span>
+    </div>
+  </div>);
+}
+
+/* ===== Analytics (projects) — Funnel ===== */
+function AnalyticsProjectsView({projects,assignments,weeksAll,sumFactCostForProjectWeeks,rateFor,projectTeams,people,setView}){
+  const [mode,setMode]=useState("year"), now=new Date(), [year,setYear]=useState(now.getFullYear()), [month,setMonth]=useState(now.getMonth()+1);
+  const [personFilter,setPersonFilter]=useState("all"), [includeVatAsExpense,setIncludeVatAsExpense]=useState(true);
+  const yearsRange=useMemo(()=>{const years=new Set(); for(let y=now.getFullYear()-5;y<=now.getFullYear()+10;y++) years.add(y);
+    projects.forEach(p=>{const s=parseDate(p.startDate),e=parseDate(p.endDate); if(s) years.add(s.getFullYear()); if(e) years.add(e.getFullYear()); (p.contracts||[]).forEach(c=>{const d=parseDate(c.date); if(d) years.add(d.getFullYear());});}); return Array.from(years).sort((a,b)=>a-b);},[projects]);
+
+  const period=useMemo(()=>{if(mode==="year"){const start=new Date(year,0,1);start.setHours(0,0,0,0); const end=new Date(year,11,31); end.setHours(23,59,59,999); return {start,end};} else {const start=new Date(year,(month-1),1);start.setHours(0,0,0,0); const end=new Date(year,(month),0); end.setHours(23,59,59,999); return {start,end};}},[mode,year,month]);
+  const periodMondays=useMemo(()=>{const ms=startOfISOWeek(period.start),me=startOfISOWeek(period.end); return weeksAll.filter(w=>{const d=new Date(w); return d>=ms&&d<=me;});},[weeksAll,period]);
+
+  const projectOverlapsPeriod=p=>{const s=parseDate(p.startDate)||new Date(1970,0,1),e=parseDate(p.endDate)||new Date(2999,11,31); return overlap(s,e,period.start,period.end);};
+  const activeAnyWeekInPeriod=p=>{const s=parseDate(p.startDate)||new Date(1970,0,1),e=parseDate(p.endDate)||new Date(2999,11,31); return periodMondays.some(m=>{const d=new Date(m),wEnd=addDays(d,6); return overlap(s,e,d,wEnd);});};
+  const personMatches=p=> personFilter==="all" ? true : !!(projectTeams[p.id]?.has?.(personFilter));
+  const projectIncluded=p=>{ if(!projectOverlapsPeriod(p)) return false; if(!personMatches(p)) return false; return mode==="month" ? (p.status==="active" && activeAnyWeekInPeriod(p)) : true; };
+  const consideredProjects=useMemo(()=>projects.filter(projectIncluded),[projects,projectIncluded]);
+
+  const totalsBudget=useMemo(()=>{let sumBudgetVat=0,sumBudgetNet=0,sumFact=0; consideredProjects.forEach(p=>{sumBudgetVat+=Math.max(0,Number(p.budgetWithVAT)||0); sumBudgetNet+=Math.max(0,Number(p.budgetWithoutVAT)||0); sumFact+=sumFactCostForProjectWeeks(p.id,periodMondays);}); return {sumBudgetVat:Math.round(sumBudgetVat),sumBudgetNet:Math.round(sumBudgetNet),sumFact:Math.round(sumFact)};},[consideredProjects,sumFactCostForProjectWeeks,periodMondays]);
+
+  const contractsIncomeForPeriod=useMemo(()=>{let sum=0,vatSum=0; consideredProjects.forEach(p=>{(p.contracts||[]).forEach(c=>{const d=parseDate(c.date),val=Math.max(0,Number(c.amountNet)||0); if(d&&d>=period.start&&d<=period.end){sum+=val; vatSum+=val*VAT_RATE;}});}); return {net:Math.round(sum),vat:Math.round(vatSum)};},[consideredProjects,period]);
+
+  const expensesFact=totalsBudget.sumFact, expensesPlusVat=expensesFact+(includeVatAsExpense?contractsIncomeForPeriod.vat:0);
+  const income=contractsIncomeForPeriod.net, expenses=expensesPlusVat, profit=income-expenses;
+
+  const peopleOptions=useMemo(()=>[{value:"all",label:"Все специалисты"},...people.filter(p=>p.active).map(p=>({value:p.id,label:p.name}))],[people]);
+
+  return(<div className="space-y-3">
+    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4">
+      <div className="flex items-center justify-between"><div className="text-xl font-bold">Воронка Панквеб</div></div>
+      <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-neutral-700">Специалист</label>
+          <select value={personFilter} onChange={e=>setPersonFilter(e.target.value)} className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">{peopleOptions.map(o=>(<option key={o.value} value={o.value}>{o.label}</option>))}</select>
+          <label className="ml-3 inline-flex items-center gap-2 text-sm text-neutral-700"><input type="checkbox" checked={includeVatAsExpense} onChange={e=>setIncludeVatAsExpense(e.target.checked)}/>Включать НДС как расход</label>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="segmented" role="tablist" aria-label="Период">
+            <button className={mode==="year"?"active":"idle"} onClick={()=>setMode("year")}>Год</button>
+            <button className={mode==="month"?"active":"idle"} onClick={()=>setMode("month")}>Месяц</button>
+          </div>
+          {mode==="year"?(<select value={year} onChange={e=>setYear(parseInt(e.target.value,10))} className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">{yearsRange.map(y=>(<option key={y} value={y}>{y}</option>))}</select>):(
+            <Fragment>
+              <select value={month} onChange={e=>setMonth(parseInt(e.target.value,10))} className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">
+                {RU_MONTHS.map((m,idx)=>(<option key={idx} value={idx+1}>{m} {year}</option>))}
+              </select>
+              <select value={year} onChange={e=>setYear(parseInt(e.target.value,10))} className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">
+                {yearsRange.map(y=>(<option key={y} value={y}>{y}</option>))}
+              </select>
+            </Fragment>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-[minmax(600px,1fr)_300px] gap-3 items-stretch">
+        <div className="overflow-hidden">
+          <ChartBarsTriple a={totalsBudget.sumBudgetVat} b={totalsBudget.sumBudgetNet} c={totalsBudget.sumFact} width={860} height={280}/>
+        </div>
+        <div className="w-[300px] shrink-0 self-center">
+          <div className="rounded-2xl p-3">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between"><span className="text-neutral-700">Доход</span><span className="font-semibold">{fmtMoney(income)}</span></div>
+              <div className="flex items-center justify-between"><span className="text-neutral-700">Расходы</span><span className="font-semibold">{fmtMoney(expenses)}</span></div>
+              <div className="flex items-center justify-between"><span className="text-neutral-700">Прибыль</span><span className={"font-semibold "+(profit>=0?"text-green-700":"text-red-700")}>{fmtMoney(profit)}</span></div>
+            </div>
+            <div className="mt-3"><button className="btn btn-sm w-full" onClick={()=>setView("analyticsMonthly")}>Статистика по месяцам</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="text-xl font-bold text-neutral-500">Проекты</div>
+    <div className="grid grid-cols-2 gap-3">
+      {projects.filter(p=>{if(!((parseDate(p.startDate)||new Date(1970,0,1))<= (parseDate(p.endDate)||new Date(2999,11,31)))) return false; return personFilter==="all" ? true : !!(projectTeams[p.id]?.has?.(personFilter));}).map(pr=>{const factMoney=sumFactCostForProjectWeeks(pr.id,periodMondays),budget=pr.budgetWithVAT||0; return(
+        <div key={pr.id} className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-2">
+          <div className="flex items-center gap-2 p-2 rounded-xl border border-neutral-200 bg-white mb-2"><span className="w-7 h-7 rounded-lg grid place-items-center text-white" style={{background:pr.color}}><StatusIcon status={pr.status}/></span><div className="font-semibold truncate">{pr.name}</div></div>
+          <ChartBarsMoney plan={budget} fact={factMoney} width={520} height={160} title={pr.name} planLabel="Бюджет с НДС" factLabel="Себестоимость (факт)"/>
+          <div className="mt-2 text-[11px] text-neutral-500 px-2">Сроки: {pr.startDate?new Date(pr.startDate).toLocaleDateString("ru-RU"):"—"} — {pr.endDate?new Date(pr.endDate).toLocaleDateString("ru-RU"):"—"}</div>
+        </div>
+      )})}
+    </div>
+  </div>);
+}
+
+/* ===== Analytics (monthly) — отдельная страница ===== */
+function AnalyticsMonthlyView({projects,assignments,weeksAll,rateFor,projectTeams,people}){
+  const now=new Date();
+  const [year,setYear]=useState(now.getFullYear());
+  const [personFilter,setPersonFilter]=useState("all");
+  const [includeVatAsExpense,setIncludeVatAsExpense]=useState(true);
+
+  const yearsRange=useMemo(()=>{const s=new Set(); for(let y=now.getFullYear()-5;y<=now.getFullYear()+10;y++) s.add(y);
+    projects.forEach(p=>{(p.contracts||[]).forEach(c=>{const d=parseDate(c.date); if(d) s.add(d.getFullYear());});}); return Array.from(s).sort((a,b)=>a-b);},[projects]);
+
+  const yearMondays=useMemo(()=>yearWeekMondays(year),[year]);
+
+  function projectWeekFactCost(projectId,weekISO){
+    const pr=projects.find(p=>p.id===projectId); if(!pr) return 0;
+    return assignments.filter(a=>a.projectId===projectId && a.weekStart===weekISO).reduce((s,a)=>{const person=people.find(p=>p.id===a.personId); if(!person) return s; const r=rateFor(person,pr.projectType||"external"); return s+effectiveFactHours(a,weekISO)*r;},0);
+  }
+  const monthlyStats=useMemo(()=>{const inc=Array(12).fill(0),exp=Array(12).fill(0);
+    const filtered=projects.filter(p=>{const hasContractsInYear=(p.contracts||[]).some(c=>{const d=parseDate(c.date); return d&&d.getFullYear()===year;}); const personOk=(personFilter==="all" ? true : (projectTeams[p.id]?.has?.(personFilter))); return hasContractsInYear||personOk;});
+    filtered.forEach(p=>{(p.contracts||[]).forEach(c=>{const d=parseDate(c.date); if(d&&d.getFullYear()===year&&(personFilter==="all" ? true : (projectTeams[p.id]?.has?.(personFilter)))){const m=d.getMonth(),val=Math.max(0,Number(c.amountNet)||0); inc[m]+=val; if(includeVatAsExpense) exp[m]+=val*VAT_RATE;}});});
+    yearMondays.forEach(w=>{const d=new Date(w),m=d.getMonth(); filtered.forEach(p=>{if(personFilter!=="all" && !(projectTeams[p.id]?.has?.(personFilter))) return; exp[m]+=projectWeekFactCost(p.id,w);});});
+    for(let m=0;m<12;m++){inc[m]=Math.round(inc[m]); exp[m]=Math.round(exp[m]);} return {inc,exp};
+  },[projects,assignments,people,projectTeams,rateFor,year,yearMondays,personFilter,includeVatAsExpense]);
+
+  const incomeYear=monthlyStats.inc.reduce((a,b)=>a+b,0), expenseYear=monthlyStats.exp.reduce((a,b)=>a+b,0), profit=incomeYear-expenseYear;
+
+  const peopleOptions=useMemo(()=>[{value:"all",label:"Все специалисты"},...people.filter(p=>p.active).map(p=>({value:p.id,label:p.name}))],[people]);
+
+  return(<div className="space-y-3">
+    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="text-xl font-bold">Статистика по месяцам</div>
+          <div className="text-sm text-neutral-600 -mt-0.5">Воронка Панквеб</div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-neutral-700">Специалист</label>
+            <select value={personFilter} onChange={e=>setPersonFilter(e.target.value)} className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">{peopleOptions.map(o=>(<option key={o.value} value={o.value}>{o.label}</option>))}</select>
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm text-neutral-700"><input type="checkbox" checked={includeVatAsExpense} onChange={e=>setIncludeVatAsExpense(e.target.checked)}/>Включать НДС как расход</label>
+        </div>
+      </div>
+
+      <div className="mt-3 overflow-auto no-scrollbar">
+        <ChartBarsMonthlyDual income={monthlyStats.inc} expense={monthlyStats.exp} widthPerGroup={64} height={280} yearLabel={String(year)}/>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between">
+        <div className="text-sm text-neutral-700">Итоги за {year}: доход {fmtMoney(incomeYear)}, расходы {fmtMoney(expenseYear)}, прибыль <span className={profit>=0?"text-green-700 font-semibold":"text-red-700 font-semibold"}>{fmtMoney(profit)}</span></div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-neutral-700">Год</label>
+          <select value={year} onChange={e=>setYear(parseInt(e.target.value,10))} className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">{yearsRange.map(y=>(<option key={y} value={y}>{y}</option>))}</select>
+        </div>
+      </div>
+    </div>
+  </div>);
+}
+
+/* ===== Modals ===== */
+function CreatePersonModal({open,onClose,name,setName,role,setRole,external,setExternal,onSubmit,roles}){
+  if(!open) return null;
+  return(<div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}><div className="absolute inset-0 bg-black/40"/><div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[460px] p-4" onClick={e=>e.stopPropagation()}>
+    <div className="text-base font-semibold mb-3">Новый сотрудник</div>
+    <div className="space-y-3">
+      <div><label className="block text-sm mb-1">Имя</label><input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/></div>
+      <div><label className="block text-sm mb-1">Роль</label><select value={role} onChange={e=>setRole(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2">{roles.map(r=>(<option key={r} value={r}>{r}</option>))}</select></div>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!external} onChange={e=>setExternal(e.target.checked)}/>Внешний сотрудник (не показывать во «Нагрузка»)</label>
+    </div>
+    <div className="mt-4 flex justify-end gap-2"><button className="btn btn-sm" onClick={onClose}>Отмена</button><button className="rounded-xl border border-green-300 bg-green-50 text-green-800 px-3 py-1" onClick={onSubmit}>Создать</button></div>
+  </div></div>);
+}
+function CreateProjectModal({open,onClose,name,setName,color,setColor,status,setStatus,onSubmit}){
+  if(!open) return null;
+  return(<div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}><div className="absolute inset-0 bg-black/40"/><div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[560px] max-height-[80vh] overflow-auto p-4" onClick={e=>e.stopPropagation()}>
+    <div className="text-base font-semibold mb-3">Новый проект</div>
+    <div className="grid grid-cols-2 gap-3">
+      <div><label className="block text-sm mb-1">Название</label><input value={name} onChange={e=>setName(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"/></div>
+      <div><label className="block text-sm mb-1">Статус</label><select value={status} onChange={e=>setStatus(e.target.value)} className="w-full border border-neutral-300 rounded-lg px-3 py-2"><option value="active">active</option><option value="onhold">onhold</option><option value="done">done</option><option value="planned">planned</option></select></div>
+      <div><label className="block text-sm mb-1">Цвет</label><input type="color" value={color} onChange={e=>setColor(e.target.value)} className="w-16 h-10 p-0 border border-neutral-300 rounded-lg"/></div>
+    </div>
+    <div className="mt-4 flex justify-end gap-2"><button className="btn btn-sm" onClick={onClose}>Отмена</button><button className="rounded-xl border border-green-300 bg-green-50 text-green-800 px-3 py-1" onClick={onSubmit}>Создать</button></div>
+  </div></div>);
+}
+
+/* sanity assertions */
+try{ console.assert(fmtFTE1(1.16)==="1.2","fmtFTE1 rounds to 1 decimal"); console.assert(scaleRatio(1.2)===1,"scaleRatio clamps to 1"); console.assert(fillRatio(40)===1,"fillRatio 40h = 100%"); }catch{}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
