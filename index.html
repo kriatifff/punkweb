@@ -105,7 +105,7 @@ function ChartBarsTriple({a=0,b=0,c=0,width=820,height=260,labels=["Бюджет
 }
 function ChartBarsMonthlyDual({income=[],expense=[],widthPerGroup=56,height=260,yearLabel=""}){
   const groups=Math.max(income.length,expense.length,12),padX=28,padY=30,groupGap=16,colW=Math.max(10,Math.floor((widthPerGroup-8)/2)),w=padX*2+groups*widthPerGroup+(groups-1)*groupGap,h=Math.max(height,220),innerH=h-padY*2,vals=Array.from({length:groups},(_,i)=>Math.max(0,income[i]||0,expense[i]||0)),maxVal=Math.max(10,...vals),yFor=v=>padY+(innerH*(1-(Math.max(0,Number(v)||0)/maxVal))),baselineY=padY+innerH,xGroup=i=>padX+i*(widthPerGroup+groupGap),grid=[0,.25,.5,.75,1].map((r,i)=>(<line key={i} x1={padX} y1={padY+innerH*r} x2={w-padX} y2={padY+innerH*r} stroke="#eef2f7"/>));
-  return(<svg width={w} height={h} role="img" aria-label={"Воронка Панквеб — статистика по месяцам "+yearLabel}><rect x="0" y="0" width={w} height={h} rx="16" ry="16" fill="#fff" stroke="#e5e7eb"/>{grid}<line x1={padX} y1={baselineY} x2={w-padX} y2={baselineY} stroke="#cbd5e1" strokeWidth="2"/>{Array.from({length:groups}).map((_,i)=>{const x=xGroup(i),inc=Math.max(0,income[i]||0),exp=Math.max(0,expense[i]||0),yi=yFor(inc),ye=yFor(exp);return(<g key={i}><rect x={x} y={yi} width={colW} height={baselineY-yi} fill="#16a34a" opacity=".9"/><rect x={x+colW+8} y={ye} width={colW} height={baselineY-ye} fill="#ef4444" opacity=".9"/><text x={x+colW/2} y={yi-6} fontSize="10" textAnchor="middle" fill="#14532d">{inc>0?fmtMoney(inc):""}</text><text x={x+colW+8+colW/2} y={ye-6} fontSize="10" textAnchor="middle" fill="#7f1d1d">{exp>0?fmtMoney(exp):""}</text><text x={x+colW} y={baselineY+14} fontSize="11" textAnchor="middle" fill="#0f172a">{ruMonthShort(i)}</text></g>);})}<g><rect x={w-190} y={8} width="170" height="22" rx="6" ry="6" fill="white" stroke="#e5e7eb"/><rect x={w-182} y={12} width="12" height="12" fill="#16a34a"/><text x={w-166} y={21} fontSize="11" fill="#111827">Доходы</text><rect x={w-110} y={12} width="12" height="12" fill="#ef4444"/><text x={w-94} y={21} fontSize="11" fill="#111827">Расходы</text></g></svg>);
+  return(<svg width={w} height={h} role="img" aria-label={"Воронка Панквеб — статистика "+yearLabel}><rect x="0" y="0" width={w} height={h} rx="16" ry="16" fill="#fff" stroke="#e5e7eb"/>{grid}<line x1={padX} y1={baselineY} x2={w-padX} y2={baselineY} stroke="#cbd5e1" strokeWidth="2"/>{Array.from({length:groups}).map((_,i)=>{const x=xGroup(i),inc=Math.max(0,income[i]||0),exp=Math.max(0,expense[i]||0),yi=yFor(inc),ye=yFor(exp);return(<g key={i}><rect x={x} y={yi} width={colW} height={baselineY-yi} fill="#16a34a" opacity=".9"/><rect x={x+colW+8} y={ye} width={colW} height={baselineY-ye} fill="#ef4444" opacity=".9"/><text x={x+colW/2} y={yi-6} fontSize="10" textAnchor="middle" fill="#14532d">{inc>0?fmtMoney(inc):""}</text><text x={x+colW+8+colW/2} y={ye-6} fontSize="10" textAnchor="middle" fill="#7f1d1d">{exp>0?fmtMoney(exp):""}</text><text x={x+colW} y={baselineY+14} fontSize="11" textAnchor="middle" fill="#0f172a">{ruMonthShort(i)}</text></g>);})}<g><rect x={w-190} y={8} width="170" height="22" rx="6" ry="6" fill="white" stroke="#e5e7eb"/><rect x={w-182} y={12} width="12" height="12" fill="#16a34a"/><text x={w-166} y={21} fontSize="11" fill="#111827">Доходы</text><rect x={w-110} y={12} width="12" height="12" fill="#ef4444"/><text x={w-94} y={21} fontSize="11" fill="#111827">Расходы</text></g></svg>);
 }
 
 /* ===== Window hook ===== */
@@ -226,7 +226,7 @@ function App(){
   function submitNewPerson(){const name=(newPersonName||"").trim(); if(!name) return; const id=rndId(); setPeople(p=>p.concat([{id,name,role:newPersonRole||"other",capacityPerWeek:1,active:true,external:!!newPersonExternal,rateInternal:1200,rateExternal:2200}])); setCreatePersonOpen(false); setNewPersonName(""); setNewPersonRole("other"); setNewPersonExternal(false);}
   const [createProjectOpen,setCreateProjectOpen]=useState(false);
   const [newProjectName,setNewProjectName]=useState(""),[newProjectColor,setNewProjectColor]=useState("#3b82f6"),[newProjectStatus,setNewProjectStatus]=useState("active");
-  function submitNewProject(){const name=(newProjectName||"").trim(); if(!name) return; const id=rndId(),color=newProjectColor||"#64748b",status=newProjectStatus; setProjects(ps=>ps.concat([{id,name,color,status,budgetWithVAT:0,budgetWithoutVAT:0,projectType:"external",costEditable:0,costEditableTouched:false,startDate:"",endDate:"",contracts:[]}])); setProjectTeams(pt=>{const copy={}; for(const k in pt){ if(Object.prototype.hasOwnProperty.call(pt,k)){ copy[k]=toSet(pt[k]); } } copy[id]=new Set(); return copy;}); setProjectMemberHours(prev=>{const c={...prev}; c[id]={}; return c;}); setCreateProjectOpen(false); setNewProjectName(""); setNewProjectStatus("active"); setView("project");}
+  function submitNewProject(){const name=(newProjectName||"").trim(); if(!name) return; const id=rndId(),color=newProjectColor||"#64748b",status=newProjectStatus; setProjects(ps=>ps.concat([{id,name,color,status,budgetWithVAT:0,budgetWithoutVAT:0,projectType:"external",costEditable:0,costEditableTouched:false,startDate:"",endDate:"",contracts:[]} ])); setProjectTeams(pt=>{const copy={}; for(const k in pt){ if(Object.prototype.hasOwnProperty.call(pt,k)){ copy[k]=toSet(pt[k]); } } copy[id]=new Set(); return copy;}); setProjectMemberHours(prev=>{const c={...prev}; c[id]={}; return c;}); setCreateProjectOpen(false); setNewProjectName(""); setNewProjectStatus("active"); setView("project");}
 
   const Legend=()=>(
     <div className="text-[11px] text-neutral-600">
@@ -255,7 +255,7 @@ function App(){
           <button className={view==="employees"?"active":"idle"} onClick={()=>setView("employees")} role="tab" aria-selected={view==="employees"}>Команда</button>
           <button className={view==="analyticsTeam"?"active":"idle"} onClick={()=>setView("analyticsTeam")} role="tab" aria-selected={view==="analyticsTeam"}>Аналитика</button>
           <button className={view==="analyticsProjects"?"active":"idle"} onClick={()=>setView("analyticsProjects")} role="tab" aria-selected={view==="analyticsProjects"}>Воронка</button>
-          <button className={view==="analyticsMonthly"?"active":"idle"} onClick={()=>setView("analyticsMonthly")} role="tab" aria-selected={view==="analyticsMonthly"}>Статистика по месяцам</button>
+          <button className={view==="analyticsMonthly"?"active":"idle"} onClick={()=>setView("analyticsMonthly")} role="tab" aria-selected={view==="analyticsMonthly"}>Статистика</button>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button onClick={()=>setCreateProjectOpen(true)} className="btn btn-sm">+ Проект</button>
@@ -454,7 +454,7 @@ function App(){
         <AnalyticsProjectsView projects={projects} assignments={assignments} weeksAll={weeks} sumFactCostForProjectWeeks={sumFactCostForProjectWeeks} rateFor={rateFor} projectTeams={projectTeams} people={people} setView={setView}/>
       )}
 
-      {/* ANALИТИКА ПО МЕСЯЦАМ */}
+      {/* АНАЛИТИКА ПО МЕСЯЦАМ */}
       {view==="analyticsMonthly"&&(
         <AnalyticsMonthlyView projects={projects} assignments={assignments} weeksAll={weeks} rateFor={rateFor} projectTeams={projectTeams} people={people}/>
       )}
@@ -515,18 +515,18 @@ function PersonPage({person,projects,assignments,teamByProject,projectMemberHour
             <button className={view==="employees"?"active":"idle"} onClick={()=>{setView("employees"); onClose();}}>Команда</button>
             <button className={view==="analyticsTeam"?"active":"idle"} onClick={()=>{setView("analyticsTeam"); onClose();}}>Аналитика</button>
             <button className={view==="analyticsProjects"?"active":"idle"} onClick={()=>{setView("analyticsProjects"); onClose();}}>Воронка</button>
-            <button className={view==="analyticsMonthly"?"active":"idle"} onClick={()=>{setView("analyticsMonthly"); onClose();}}>Статистика по месяцам</button>
+            <button className={view==="analyticsMonthly"?"active":"idle"} onClick={()=>{setView("analyticsMonthly"); onClose();}}>Статистика</button>
           </div>
           <div className="ml-auto"><button className="btn btn-sm" onClick={onClose}>Закрыть</button></div>
         </div>
       </div>
 
-      <div className="max-w-screen-2xl mx-auto px-4">
+      <div className="max-w-screen-2xl mx-auto px_4">
         <WeekNavigator onLeft={goLeft} onRight={goRight} onToday={goToday} showRoleFilter={false} stickyTopClass="top-[var(--app-header-h)]"
           leftNode={<Fragment>
             <EditableName person={person} setPeople={setPeople}/>
             <EditableRole person={person} setPeople={setPeople} roles={roles}/>
-            <div className="ml-2 inline-flex items-center gap-2 text-sm"><span className="text-xs text-neutral-600">Ставка внутр., ₽/ч</span><input value={ri} inputMode="numeric" onChange={e=>setRi(e.target.value)} onBlur={commitRates} className="w-24 px-2 py-1 border border-neutral-300 rounded-lg"/><span className="text-xs text-neutral-600">Ставка внеш., ₽/ч</span><input value={re} inputMode="numeric" onChange={e=>setRe(e.target.value)} onBlur={commitRates} className="w-24 px-2 py-1 border border-neutral-300 rounded-lg"/></div>
+            <div className="ml-2 inline-flex items-center gap-2 text_sm"><span className="text-xs text-neutral-600">Ставка внутр., ₽/ч</span><input value={ri} inputMode="numeric" onChange={e=>setRi(e.target.value)} onBlur={commitRates} className="w-24 px-2 py-1 border border-neutral-300 rounded-lg"/><span className="text-xs text-neutral-600">Ставка внеш., ₽/ч</span><input value={re} inputMode="numeric" onChange={e=>setRe(e.target.value)} onBlur={commitRates} className="w-24 px-2 py-1 border border-neutral-300 rounded-lg"/></div>
             <button onClick={()=>setVacOpen(true)} className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-800">🏖 Добавить отпуск</button>
           </Fragment>}
         />
@@ -552,9 +552,9 @@ function PersonPage({person,projects,assignments,teamByProject,projectMemberHour
             return(
               <Fragment key={pid}>
                 <div className="sticky left-0 z-50 bg-[#F7F8FA] border-r border-neutral-200 p-1" draggable onDragStart={()=>onDragStart(idx)} onDragOver={e=>e.preventDefault()} onDrop={()=>onDrop(idx)}>
-                  <div className="bg-white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none" style={{background:tint||"#fff"}}>
+                  <div className="bg_white rounded-2xl shadow-sm h-[120px] flex items-center gap-2 pl-5 pr-3 cursor-grab active:cursor-grabbing select-none" style={{background:tint||"#fff"}}>
                     <span className="text-neutral-400">⋮⋮</span>
-                    <button className="w-6 h-6 rounded-lg flex items-center justify-center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
+                    <button className="w-6 h-6 rounded-lg flex items-center justify_center" style={{background:pr.color}} title="Статус"><StatusIcon status={pr.status}/></button>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate" title={pr.name}>{pr.name}</div>
                       <div className="text-[11px] text-neutral-600 mt-0.5">Факт: {fmtMoney(factMoney)}</div>
@@ -600,9 +600,9 @@ function CellEditor({hoursPlan,factEffective,pr,pid,week,person,assignments,onSa
   </div></div>);
 }
 function VacationModal({vFrom,vTo,setVFrom,setVTo,vacTab,setVacTab,personVac,setPersonVac,saveVac,onClose}){
-  return(<div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}><div className="absolute inset-0 bg-black/40"/><div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max-h-[80vh] overflow-auto p-4" onClick={e=>e.stopPropagation()}>
+  return(<div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}><div className="absolute inset-0 bg-black/40"/><div className="relative bg-white rounded-2xl shadow-xl border border-neutral-200 w-[720px] max_h-[80vh] overflow-auto p-4" onClick={e=>e.stopPropagation()}>
     <div className="text-base font-semibold mb-3">Отпуск</div>
-    <div className="mb-3 inline-flex items-center gap-1 rounded-xl border border-neutral-200 p-1">
+    <div className="mb-3 inline-flex items-center gap-1 rounded-XL border border-neutral-200 p-1">
       <button className={"px-3 py-1 rounded-lg text-sm "+("range"==="range"?"bg-neutral-100 shadow":"")} onClick={()=>setVacTab("range")}>Диапазон дат</button>
       <button className={"px-3 py-1 rounded-lg text-sm "+(vacTab==="weeks"?"bg-neutral-100 shadow":"")} onClick={()=>setVacTab("weeks")}>По неделям</button>
     </div>
@@ -660,7 +660,7 @@ function EmployeesPage({people,setPeople,projects,projectTeams,setProjectTeams,d
             <select value={p.role||"other"} onChange={e=>setPeople(prev=>prev.map(x=>x.id===p.id?Object.assign({},x,{role:e.target.value}):x))} className="text:[12px] px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200">
               {["designer","dev","manager","pm","other"].map(r=>(<option key={r} value={r}>{r.toUpperCase()}</option>))}
             </select>
-            <label className="text-xs flex items-center gap-1 ml-2"><input type="checkbox" checked={!!p.external} onChange={e=>setPeople(prev=>prev.map(x=>x.id===p.id?Object.assign({},x,{external:e.target.checked}):x))}/>Внешний</label>
+            <label className="text-xs flex items_center gap-1 ml-2"><input type="checkbox" checked={!!p.external} onChange={e=>setPeople(prev=>prev.map(x=>x.id===p.id?Object.assign({},x,{external:e.target.checked}):x))}/>Внешний</label>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] items-center">
             <label className="inline-flex items-center gap-2">внутр. ₽/ч
@@ -785,7 +785,7 @@ function AnalyticsProjectsView({projects,assignments,weeksAll,sumFactCostForProj
               <div className="flex items-center justify-between"><span className="text-neutral-700">Расходы</span><span className="font-semibold">{fmtMoney(expenses)}</span></div>
               <div className="flex items-center justify-between"><span className="text-neutral-700">Прибыль</span><span className={"font-semibold "+(profit>=0?"text-green-700":"text-red-700")}>{fmtMoney(profit)}</span></div>
             </div>
-            <div className="mt-3"><button className="btn btn-sm w-full" onClick={()=>setView("analyticsMonthly")}>Статистика по месяцам</button></div>
+            <div className="mt-3"><button className="btn btn-sm w-full" onClick={()=>setView("analyticsMonthly")}>Статистика</button></div>
           </div>
         </div>
       </div>
@@ -844,7 +844,7 @@ function AnalyticsMonthlyView({projects,assignments,weeksAll,rateFor,projectTeam
     <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <div className="text-xl font-bold">Статистика по месяцам</div>
+          <div className="text-xl font-bold">Статистика</div>
           <div className="text-sm text-neutral-600 -mt-0.5">Воронка Панквеб</div>
         </div>
         <div className="flex items-center gap-2">
