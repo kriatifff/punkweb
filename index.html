@@ -224,6 +224,10 @@ function App(){
     </div>
   );
 
+  /* filter for projects by person */
+  const [projectPersonFilter,setProjectPersonFilter]=useState(loadJSON("projectPersonFilter","all"));
+  useEffect(()=>saveJSON({projectPersonFilter}),[projectPersonFilter]);
+
   if(!authed) return <LoginPage onLogin={()=>{setAuthed(true); setView("team");}}/>;
 
   /* drag helper for team rows */
@@ -239,7 +243,8 @@ function App(){
           <button className={view==="project"?"active":"idle"} onClick={()=>setView("project")} role="tab" aria-selected={view==="project"}>Проекты</button>
           <button className={view==="employees"?"active":"idle"} onClick={()=>setView("employees")} role="tab" aria-selected={view==="employees"}>Команда</button>
           <button className={view==="analyticsTeam"?"active":"idle"} onClick={()=>setView("analyticsTeam")} role="tab" aria-selected={view==="analyticsTeam"}>Аналитика (команда)</button>
-          <button className={view==="analyticsProjects"?"active":"idle"} onClick={()=>setView("analyticsProjects")} role="tab" aria-selected={view==="analyticsProjects"}>Аналитика (проекты)</button>
+          <button className={view==="analyticsProjects"?"active":"idle"} onClick={()=>setView("analyticsProjects")} role="tab" aria-selected={view==="analyticsProjects"}>Воронка</button>
+          <button className={view==="analyticsMonthly"?"active":"idle"} onClick={()=>setView("analyticsMonthly")} role="tab" aria-selected={view==="analyticsMonthly"}>Статистика по месяцам</button>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button onClick={()=>setCreateProjectOpen(true)} className="btn btn-sm">+ Проект</button>
@@ -293,9 +298,21 @@ function App(){
       {/* PROJECTS */}
       {view==="project"&&(
         <Fragment>
-          <RoleManager roles={roles} setRoles={setRoles} setRoleFilter={setRoleFilter} people={people} setPeople={setPeople}/>
+          <RoleManager roles={roles} setRoles={setRoles} setRoleFilter={setRoleFilter} people={people} setPeople={setPeople}
+            stickyTopClass='top-[var(--app-header-h)]'
+            rightNode={
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-neutral-700">Специалист</label>
+                <select className="border border-neutral-300 rounded-xl px-2 py-1 text-sm" value={projectPersonFilter} onChange={e=>setProjectPersonFilter(e.target.value)}>
+                  <option value="all">Все</option>
+                  {people.filter(p=>p.active).map(p=>(<option key={p.id} value={p.id}>{p.name}</option>))}
+                </select>
+              </div>
+            }/>
           <div className="grid" style={{gridTemplateColumns:"300px 1fr"}}>
-            {projects.map((project,idx)=>{
+            {projects
+              .filter(pr=>projectPersonFilter==="all" ? true : !!(projectTeams[pr.id]?.has?.(projectPersonFilter)))
+              .map((project,idx)=>{
               const factCost=sumFactCostForProject(project.id);
               return(
                 <Fragment key={project.id}>
@@ -411,9 +428,14 @@ function App(){
         </div>
       )}
 
-      {/* ANALYTICS PROJECTS */}
+      {/* ANALYTICS PROJECTS — ВОРОНКА */}
       {view==="analyticsProjects"&&(
-        <AnalyticsProjectsView projects={projects} assignments={assignments} weeksAll={weeks} sumFactCostForProjectWeeks={sumFactCostForProjectWeeks} rateFor={rateFor} projectTeams={projectTeams} people={people}/>
+        <AnalyticsProjectsView projects={projects} assignments={assignments} weeksAll={weeks} sumFactCostForProjectWeeks={sumFactCostForProjectWeeks} rateFor={rateFor} projectTeams={projectTeams} people={people} setView={setView}/>
+      )}
+
+      {/* ANALYTICS MONTHLY — СТРАНИЦА */}
+      {view==="analyticsMonthly"&&(
+        <AnalyticsMonthlyView projects={projects} assignments={assignments} weeksAll={weeks} rateFor={rateFor} projectTeams={projectTeams} people={people}/>
       )}
     </main>
 
@@ -471,7 +493,8 @@ function PersonPage({person,projects,assignments,teamByProject,projectMemberHour
             <button className={view==="project"?"active":"idle"} onClick={()=>{setView("project"); onClose();}}>Проекты</button>
             <button className={view==="employees"?"active":"idle"} onClick={()=>{setView("employees"); onClose();}}>Команда</button>
             <button className={view==="analyticsTeam"?"active":"idle"} onClick={()=>{setView("analyticsTeam"); onClose();}}>Аналитика (команда)</button>
-            <button className={view==="analyticsProjects"?"active":"idle"} onClick={()=>{setView("analyticsProjects"); onClose();}}>Аналитика (проекты)</button>
+            <button className={view==="analyticsProjects"?"active":"idle"} onClick={()=>{setView("analyticsProjects"); onClose();}}>Воронка</button>
+            <button className={view==="analyticsMonthly"?"active":"idle"} onClick={()=>{setView("analyticsMonthly"); onClose();}}>Статистика по месяцам</button>
           </div>
           <div className="ml-auto"><button className="btn btn-sm" onClick={onClose}>Закрыть</button></div>
         </div>
@@ -630,14 +653,17 @@ function PersonProjectsEditor({person,projects,projectTeams,setProjectTeams}){
 }
 
 /* ===== Roles ===== */
-function RoleManager({roles,setRoles,setRoleFilter,people,setPeople,stickyTopClass='top-[calc(var(--app-header-h)+48px)]'}){
+function RoleManager({roles,setRoles,setRoleFilter,people,setPeople,stickyTopClass='top-[calc(var(--app-header-h)+48px)]',rightNode=null}){
   const [adding,setAdding]=useState(""),[editing,setEditing]=useState(null),[val,setVal]=useState("");
   const add=()=>{const x=(adding||"").trim(); if(!x||roles.includes(x)) return; setRoles(roles.concat([x])); setAdding("");};
   const startEdit=r=>{setEditing(r); setVal(r);};
   const commit=()=>{if(!editing) return; const x=(val||"").trim(); setEditing(null); if(!x) return; setRoles(roles.map(r=>r===editing?x:r)); setRoleFilter(x);};
   const remove=r=>{if(!confirm("Удалить роль «"+r+"»? Людям с этой ролью будет проставлено OTHER.")) return; setRoles(roles.filter(x=>x!==r)); setPeople(prev=>prev.map(p=>p.role===r?Object.assign({},p,{role:"other"}):p)); setRoleFilter("all");};
   return(<div className={"bg-white rounded-2xl border border-neutral-200 shadow-sm p-3 sticky "+stickyTopClass+" z-50"}>
-    <div className="text-sm font-medium">Роли</div>
+    <div className="flex items-center justify-between gap-2">
+      <div className="text-sm font-medium">Роли</div>
+      {rightNode}
+    </div>
     <div className="mt-2 flex flex-wrap gap-2">
       {roles.map(r=>(
         <span key={r} className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-neutral-200 bg-neutral-50 text-xs">
@@ -655,10 +681,10 @@ function RoleManager({roles,setRoles,setRoleFilter,people,setPeople,stickyTopCla
   </div>);
 }
 
-/* ===== Analytics (projects) ===== */
-function AnalyticsProjectsView({projects,assignments,weeksAll,sumFactCostForProjectWeeks,rateFor,projectTeams,people}){
+/* ===== Analytics (projects) — Funnel ===== */
+function AnalyticsProjectsView({projects,assignments,weeksAll,sumFactCostForProjectWeeks,rateFor,projectTeams,people,setView}){
   const [mode,setMode]=useState("year"), now=new Date(), [year,setYear]=useState(now.getFullYear()), [month,setMonth]=useState(now.getMonth()+1);
-  const [personFilter,setPersonFilter]=useState("all"), [showMonthly,setShowMonthly]=useState(false), [monthlyYear,setMonthlyYear]=useState(now.getFullYear()), [includeVatAsExpense,setIncludeVatAsExpense]=useState(true);
+  const [personFilter,setPersonFilter]=useState("all"), [includeVatAsExpense,setIncludeVatAsExpense]=useState(true);
   const yearsRange=useMemo(()=>{const years=new Set(); for(let y=now.getFullYear()-5;y<=now.getFullYear()+10;y++) years.add(y);
     projects.forEach(p=>{const s=parseDate(p.startDate),e=parseDate(p.endDate); if(s) years.add(s.getFullYear()); if(e) years.add(e.getFullYear()); (p.contracts||[]).forEach(c=>{const d=parseDate(c.date); if(d) years.add(d.getFullYear());});}); return Array.from(years).sort((a,b)=>a-b);},[projects]);
 
@@ -679,18 +705,6 @@ function AnalyticsProjectsView({projects,assignments,weeksAll,sumFactCostForProj
   const income=contractsIncomeForPeriod.net, expenses=expensesPlusVat, profit=income-expenses;
 
   const peopleOptions=useMemo(()=>[{value:"all",label:"Все специалисты"},...people.filter(p=>p.active).map(p=>({value:p.id,label:p.name}))],[people]);
-  const yearMondays=useMemo(()=>yearWeekMondays(monthlyYear),[monthlyYear]);
-
-  function projectWeekFactCost(projectId,weekISO){
-    const pr=projects.find(p=>p.id===projectId); if(!pr) return 0;
-    return assignments.filter(a=>a.projectId===projectId && a.weekStart===weekISO).reduce((s,a)=>{const person=people.find(p=>p.id===a.personId); if(!person) return s; const r=rateFor(person,pr.projectType||"external"); return s+effectiveFactHours(a,weekISO)*r;},0);
-  }
-  const monthlyStats=useMemo(()=>{const inc=Array(12).fill(0),exp=Array(12).fill(0);
-    const filtered=projects.filter(p=>{const hasContractsInYear=(p.contracts||[]).some(c=>{const d=parseDate(c.date); return d&&d.getFullYear()===monthlyYear;}); const personOk=(personFilter==="all" ? true : (projectTeams[p.id]?.has?.(personFilter))); return hasContractsInYear||personOk;});
-    filtered.forEach(p=>{(p.contracts||[]).forEach(c=>{const d=parseDate(c.date); if(d&&d.getFullYear()===monthlyYear&&(personFilter==="all" ? true : (projectTeams[p.id]?.has?.(personFilter)))){const m=d.getMonth(),val=Math.max(0,Number(c.amountNet)||0); inc[m]+=val; if(includeVatAsExpense) exp[m]+=val*VAT_RATE;}});});
-    yearMondays.forEach(w=>{const d=new Date(w),m=d.getMonth(); filtered.forEach(p=>{if(personFilter!=="all" && !(projectTeams[p.id]?.has?.(personFilter))) return; exp[m]+=projectWeekFactCost(p.id,w);});});
-    for(let m=0;m<12;m++){inc[m]=Math.round(inc[m]); exp[m]=Math.round(exp[m]);} return {inc,exp};
-  },[projects,assignments,people,projectTeams,rateFor,monthlyYear,yearMondays,personFilter,includeVatAsExpense]);
 
   return(<div className="space-y-3">
     <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4">
@@ -725,13 +739,12 @@ function AnalyticsProjectsView({projects,assignments,weeksAll,sumFactCostForProj
         </div>
         <div className="w-[300px] shrink-0 self-center">
           <div className="rounded-2xl p-3">
-            <div className="text-sm text-neutral-500 mb-2 text-left">{period.start.toLocaleDateString("ru-RU")} — {period.end.toLocaleDateString("ru-RU")}</div>
             <div className="space-y-2">
               <div className="flex items-center justify-between"><span className="text-neutral-700">Доход</span><span className="font-semibold">{fmtMoney(income)}</span></div>
               <div className="flex items-center justify-between"><span className="text-neutral-700">Расходы</span><span className="font-semibold">{fmtMoney(expenses)}</span></div>
               <div className="flex items-center justify-between"><span className="text-neutral-700">Прибыль</span><span className={"font-semibold "+(profit>=0?"text-green-700":"text-red-700")}>{fmtMoney(profit)}</span></div>
             </div>
-            <div className="mt-3"><button className="btn btn-sm w-full" onClick={()=>setShowMonthly(v=>!v)}>Статистика по месяцам</button></div>
+            <div className="mt-3"><button className="btn btn-sm w-full" onClick={()=>setView("analyticsMonthly")}>Статистика по месяцам</button></div>
           </div>
         </div>
       </div>
@@ -739,22 +752,72 @@ function AnalyticsProjectsView({projects,assignments,weeksAll,sumFactCostForProj
 
     <div className="text-xl font-bold text-neutral-500">Проекты</div>
     <div className="grid grid-cols-2 gap-3">
-      {consideredProjects.map(pr=>{const factMoney=sumFactCostForProjectWeeks(pr.id,periodMondays),budget=pr.budgetWithVAT||0; return(
+      {projects.filter(p=>{if(!((parseDate(p.startDate)||new Date(1970,0,1))<= (parseDate(p.endDate)||new Date(2999,11,31)))) return false; return personFilter==="all" ? true : !!(projectTeams[p.id]?.has?.(personFilter));}).map(pr=>{const factMoney=sumFactCostForProjectWeeks(pr.id,periodMondays),budget=pr.budgetWithVAT||0; return(
         <div key={pr.id} className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-2">
           <div className="flex items-center gap-2 p-2 rounded-xl border border-neutral-200 bg-white mb-2"><span className="w-7 h-7 rounded-lg grid place-items-center text-white" style={{background:pr.color}}><StatusIcon status={pr.status}/></span><div className="font-semibold truncate">{pr.name}</div></div>
           <ChartBarsMoney plan={budget} fact={factMoney} width={520} height={160} title={pr.name} planLabel="Бюджет с НДС" factLabel="Себестоимость (факт)"/>
           <div className="mt-2 text-[11px] text-neutral-500 px-2">Сроки: {pr.startDate?new Date(pr.startDate).toLocaleDateString("ru-RU"):"—"} — {pr.endDate?new Date(pr.endDate).toLocaleDateString("ru-RU"):"—"}</div>
         </div>
       )})}
-      {consideredProjects.length===0&&(<div className="col-span-2 text-sm text-neutral-500 p-3">За выбранный период проектов не найдено.</div>)}
     </div>
+  </div>);
+}
 
-    {showMonthly&&(<div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4">
-      <div className="flex items-center justify-between"><div><div className="text-xl font-bold">Воронка Панквеб</div><div className="text-sm text-neutral-600 -mt-0.5">статистика по месяцам</div></div>
-        <div className="flex items-center gap-2"><label className="text-sm text-neutral-700">Год</label><select value={monthlyYear} onChange={e=>setMonthlyYear(parseInt(e.target.value,10))} className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">{yearsRange.map(y=>(<option key={y} value={y}>{y}</option>))}</select></div>
+/* ===== Analytics (monthly) — отдельная страница ===== */
+function AnalyticsMonthlyView({projects,assignments,weeksAll,rateFor,projectTeams,people}){
+  const now=new Date();
+  const [year,setYear]=useState(now.getFullYear());
+  const [personFilter,setPersonFilter]=useState("all");
+  const [includeVatAsExpense,setIncludeVatAsExpense]=useState(true);
+
+  const yearsRange=useMemo(()=>{const s=new Set(); for(let y=now.getFullYear()-5;y<=now.getFullYear()+10;y++) s.add(y);
+    projects.forEach(p=>{(p.contracts||[]).forEach(c=>{const d=parseDate(c.date); if(d) s.add(d.getFullYear());});}); return Array.from(s).sort((a,b)=>a-b);},[projects]);
+
+  const yearMondays=useMemo(()=>yearWeekMondays(year),[year]);
+
+  function projectWeekFactCost(projectId,weekISO){
+    const pr=projects.find(p=>p.id===projectId); if(!pr) return 0;
+    return assignments.filter(a=>a.projectId===projectId && a.weekStart===weekISO).reduce((s,a)=>{const person=people.find(p=>p.id===a.personId); if(!person) return s; const r=rateFor(person,pr.projectType||"external"); return s+effectiveFactHours(a,weekISO)*r;},0);
+  }
+  const monthlyStats=useMemo(()=>{const inc=Array(12).fill(0),exp=Array(12).fill(0);
+    const filtered=projects.filter(p=>{const hasContractsInYear=(p.contracts||[]).some(c=>{const d=parseDate(c.date); return d&&d.getFullYear()===year;}); const personOk=(personFilter==="all" ? true : (projectTeams[p.id]?.has?.(personFilter))); return hasContractsInYear||personOk;});
+    filtered.forEach(p=>{(p.contracts||[]).forEach(c=>{const d=parseDate(c.date); if(d&&d.getFullYear()===year&&(personFilter==="all" ? true : (projectTeams[p.id]?.has?.(personFilter)))){const m=d.getMonth(),val=Math.max(0,Number(c.amountNet)||0); inc[m]+=val; if(includeVatAsExpense) exp[m]+=val*VAT_RATE;}});});
+    yearMondays.forEach(w=>{const d=new Date(w),m=d.getMonth(); filtered.forEach(p=>{if(personFilter!=="all" && !(projectTeams[p.id]?.has?.(personFilter))) return; exp[m]+=projectWeekFactCost(p.id,w);});});
+    for(let m=0;m<12;m++){inc[m]=Math.round(inc[m]); exp[m]=Math.round(exp[m]);} return {inc,exp};
+  },[projects,assignments,people,projectTeams,rateFor,year,yearMondays,personFilter,includeVatAsExpense]);
+
+  const incomeYear=monthlyStats.inc.reduce((a,b)=>a+b,0), expenseYear=monthlyStats.exp.reduce((a,b)=>a+b,0), profit=incomeYear-expenseYear;
+
+  const peopleOptions=useMemo(()=>[{value:"all",label:"Все специалисты"},...people.filter(p=>p.active).map(p=>({value:p.id,label:p.name}))],[people]);
+
+  return(<div className="space-y-3">
+    <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-4">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="text-xl font-bold">Статистика по месяцам</div>
+          <div className="text-sm text-neutral-600 -mt-0.5">Воронка Панквеб</div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-neutral-700">Специалист</label>
+            <select value={personFilter} onChange={e=>setPersonFilter(e.target.value)} className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">{peopleOptions.map(o=>(<option key={o.value} value={o.value}>{o.label}</option>))}</select>
+          </div>
+          <label className="inline-flex items-center gap-2 text-sm text-neutral-700"><input type="checkbox" checked={includeVatAsExpense} onChange={e=>setIncludeVatAsExpense(e.target.checked)}/>Включать НДС как расход</label>
+        </div>
       </div>
-      <div className="mt-3 overflow-auto no-scrollbar"><ChartBarsMonthlyDual income={monthlyStats.inc} expense={monthlyStats.exp} widthPerGroup={64} height={280} yearLabel={String(monthlyYear)}/></div>
-    </div>)}
+
+      <div className="mt-3 overflow-auto no-scrollbar">
+        <ChartBarsMonthlyDual income={monthlyStats.inc} expense={monthlyStats.exp} widthPerGroup={64} height={280} yearLabel={String(year)}/>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between">
+        <div className="text-sm text-neutral-700">Итоги за {year}: доход {fmtMoney(incomeYear)}, расходы {fmtMoney(expenseYear)}, прибыль <span className={profit>=0?"text-green-700 font-semibold":"text-red-700 font-semibold"}>{fmtMoney(profit)}</span></div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-neutral-700">Год</label>
+          <select value={year} onChange={e=>setYear(parseInt(e.target.value,10))} className="border border-neutral-300 rounded-xl px-2 py-1 text-sm">{yearsRange.map(y=>(<option key={y} value={y}>{y}</option>))}</select>
+        </div>
+      </div>
+    </div>
   </div>);
 }
 
