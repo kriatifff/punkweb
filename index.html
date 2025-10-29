@@ -1,22 +1,70 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Button, TextField, Checkbox, FormControlLabel, Grid, Box, Typography, Card, CardContent, CardHeader, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
-import { BookOpen, CheckCircle2, Rocket, Image as IconImage } from 'lucide-react'; // Используем иконки для этапов проекта
 
-// Данные для этапов проекта
+// Простые стили
+const styles = {
+  container: {
+    fontFamily: 'Arial, sans-serif',
+    margin: '0 auto',
+    padding: '20px',
+    maxWidth: '1200px',
+  },
+  header: {
+    fontSize: '2em',
+    marginBottom: '20px',
+    textAlign: 'center',
+  },
+  button: {
+    padding: '10px 20px',
+    fontSize: '16px',
+    cursor: 'pointer',
+    backgroundColor: '#007bff',
+    color: 'white',
+    border: 'none',
+    borderRadius: '5px',
+    marginTop: '10px',
+  },
+  card: {
+    border: '1px solid #ddd',
+    padding: '20px',
+    borderRadius: '8px',
+    marginBottom: '20px',
+  },
+  progressBarContainer: {
+    width: '100%',
+    backgroundColor: '#f3f3f3',
+    borderRadius: '5px',
+    height: '20px',
+  },
+  progressBar: (progress) => ({
+    width: `${progress}%`,
+    backgroundColor: '#4caf50',
+    height: '100%',
+    borderRadius: '5px',
+  }),
+  input: {
+    padding: '10px',
+    fontSize: '16px',
+    marginBottom: '10px',
+    width: '100%',
+    borderRadius: '5px',
+    border: '1px solid #ccc',
+  },
+};
+
+// Моковые данные
 const stages = [
-  { key: 'brief', title: 'Бриф', icon: BookOpen, eta: '1–2 дня', progress: 80 },
-  { key: 'discovery', title: 'Исследование', icon: BookOpen, eta: '3–5 дней', progress: 60 },
-  { key: 'brand', title: 'Брендинг', icon: IconImage, eta: '5–7 дней', progress: 35 },
-  { key: 'design', title: 'Дизайн сайта', icon: IconImage, eta: '7–10 дней', progress: 20 },
-  { key: 'dev', title: 'Разработка', icon: Rocket, eta: '10–14 дней', progress: 10 },
-  { key: 'handoff', title: 'Сдача', icon: CheckCircle2, eta: '1 день', progress: 0 },
+  { key: 'brief', title: 'Бриф', eta: '1–2 дня', progress: 80 },
+  { key: 'discovery', title: 'Исследование', eta: '3–5 дней', progress: 60 },
+  { key: 'brand', title: 'Брендинг', eta: '5–7 дней', progress: 35 },
+  { key: 'design', title: 'Дизайн сайта', eta: '7–10 дней', progress: 20 },
+  { key: 'dev', title: 'Разработка', eta: '10–14 дней', progress: 10 },
+  { key: 'handoff', title: 'Сдача', eta: '1 день', progress: 0 },
 ];
 
 // Страница авторизации
 const AuthPage = ({ onLoginSuccess }) => {
   const [role, setRole] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
 
@@ -29,110 +77,75 @@ const AuthPage = ({ onLoginSuccess }) => {
   };
 
   return (
-    <Box sx={{ maxWidth: 400, margin: '0 auto', padding: 2 }}>
-      <Typography variant="h5" align="center" gutterBottom>Авторизация</Typography>
-      <FormControlLabel
-        control={<Checkbox checked={role === 'client'} onChange={() => setRole('client')} />}
-        label="Заказчик"
-      />
-      <FormControlLabel
-        control={<Checkbox checked={role === 'team'} onChange={() => setRole('team')} />}
-        label="Член команды"
-      />
-      <TextField
-        label="Логин"
+    <div style={styles.container}>
+      <h1 style={styles.header}>Авторизация</h1>
+      <div>
+        <label>
+          <input
+            type="radio"
+            name="role"
+            checked={role === 'client'}
+            onChange={() => setRole('client')}
+          /> Заказчик
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="role"
+            checked={role === 'team'}
+            onChange={() => setRole('team')}
+          /> Член команды
+        </label>
+      </div>
+      <input
+        type="text"
+        placeholder="Логин"
         value={login}
         onChange={(e) => setLogin(e.target.value)}
-        fullWidth
-        margin="normal"
+        style={styles.input}
       />
-      <TextField
-        label="Пароль"
+      <input
         type="password"
+        placeholder="Пароль"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        fullWidth
-        margin="normal"
+        style={styles.input}
       />
-      <FormControlLabel
-        control={<Checkbox checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} />}
-        label="Запомнить меня"
-      />
-      <Button variant="contained" color="primary" onClick={handleLogin} fullWidth sx={{ marginTop: 2 }}>
-        Войти
-      </Button>
-    </Box>
+      <button onClick={handleLogin} style={styles.button}>Войти</button>
+    </div>
   );
 };
 
 // Страница заказчика (Dashboard)
 const ClientDashboard = () => (
-  <Box sx={{ padding: 3 }}>
-    <Typography variant="h4" gutterBottom>Кабинет заказчика</Typography>
-    <Grid container spacing={3}>
-      <Grid item xs={12} md={8}>
-        {stages.map((stage) => (
-          <Card key={stage.key} sx={{ marginBottom: 2 }}>
-            <CardHeader
-              title={stage.title}
-              subheader={`ETA: ${stage.eta}`}
-              action={<CircularProgress variant="determinate" value={stage.progress} size={40} />}
-            />
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box display="flex" alignItems="center">
-                  <stage.icon className="w-6 h-6 text-teal-600" />
-                  <Typography variant="body2" sx={{ marginLeft: 1 }}>{stage.title}</Typography>
-                </Box>
-                <Box width="60%">
-                  <Box sx={{ height: 10, backgroundColor: '#ddd', borderRadius: '5px' }}>
-                    <Box sx={{
-                      height: '100%',
-                      width: `${stage.progress}%`,
-                      backgroundColor: '#4caf50',
-                      borderRadius: '5px'
-                    }} />
-                  </Box>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        ))}
-      </Grid>
-      <Grid item xs={12} md={4}>
-        <Card>
-          <CardHeader title="Мои материалы" subheader="Все логотипы, шрифты и цвета проекта" />
-          <CardContent>
-            <Box className="grid grid-cols-2 gap-2">
-              <div className="h-24 bg-gray-300 rounded-xl"></div>
-              <div className="h-24 bg-gray-300 rounded-xl"></div>
-            </Box>
-          </CardContent>
-        </Card>
-      </Grid>
-    </Grid>
-  </Box>
+  <div style={styles.container}>
+    <h1 style={styles.header}>Кабинет заказчика</h1>
+    {stages.map((stage) => (
+      <div key={stage.key} style={styles.card}>
+        <h3>{stage.title}</h3>
+        <p>ETA: {stage.eta}</p>
+        <div style={styles.progressBarContainer}>
+          <div style={styles.progressBar(stage.progress)}></div>
+        </div>
+        <p>Прогресс: {stage.progress}%</p>
+      </div>
+    ))}
+  </div>
 );
 
-// Страница члена команды (Kanban board)
+// Страница участника команды (Kanban board)
 const TeamDashboard = () => (
-  <Box sx={{ padding: 3 }}>
-    <Typography variant="h4" gutterBottom>Кабинет члена команды</Typography>
-    <Grid container spacing={3}>
-      <Grid item xs={12}>
-        <Card>
-          <CardHeader title="Проект 1" subheader="Текущие задачи" />
-          <CardContent>
-            <ul>
-              <li>Задача 1</li>
-              <li>Задача 2</li>
-              <li>Задача 3</li>
-            </ul>
-          </CardContent>
-        </Card>
-      </Grid>
-    </Grid>
-  </Box>
+  <div style={styles.container}>
+    <h1 style={styles.header}>Кабинет члена команды</h1>
+    <div style={styles.card}>
+      <h3>Задачи</h3>
+      <ul>
+        <li>Задача 1: Дизайн сайта</li>
+        <li>Задача 2: Разработка главной страницы</li>
+        <li>Задача 3: Интеграция с API</li>
+      </ul>
+    </div>
+  </div>
 );
 
 // Главный компонент для управления состоянием
@@ -146,7 +159,7 @@ const App = () => {
   };
 
   return (
-    <div className="app">
+    <div>
       {authPage ? (
         <AuthPage onLoginSuccess={handleLoginSuccess} />
       ) : role === 'client' ? (
