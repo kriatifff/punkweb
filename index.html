@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Button, Input, Textarea, Badge, Card, CardContent, CardHeader, CardTitle, CardDescription } from 'your-ui-library'; // Импортируй компоненты из UI-библиотеки
-import { BookOpen, Image as IconImage, CheckCircle2, Rocket } from 'lucide-react';
+
+// Компоненты UI
+import { Button, Input, Textarea, Badge, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@material-ui/core';
+import { BookOpen, CheckCircle2, Rocket, Image as IconImage } from 'lucide-react';
 
 // Этапы проекта
 const stages = [
@@ -19,7 +21,7 @@ const ClientDashboard = ({ onBriefClick }) => (
     <h1 className="text-3xl font-semibold">Кабинет заказчика</h1>
     <div className="flex items-center gap-4">
       <Badge variant="secondary">Проект в разработке</Badge>
-      <Button variant="outline" onClick={onBriefClick}>Заполнить бриф</Button>
+      <Button variant="outlined" onClick={onBriefClick}>Заполнить бриф</Button>
     </div>
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="col-span-2">
@@ -71,7 +73,7 @@ const BriefDialog = ({ open, onClose }) => (
     <Input placeholder="Название бренда" />
     <Textarea placeholder="Цели проекта" />
     <Button onClick={onClose}>Отправить</Button>
-    <Button variant="outline" onClick={onClose}>Закрыть</Button>
+    <Button variant="outlined" onClick={onClose}>Закрыть</Button>
   </div>
 );
 
