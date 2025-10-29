@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Button, TextField, Checkbox, FormControlLabel, Grid, Card, CardContent, CardHeader, Typography, Box, CircularProgress } from '@mui/material';
+import { Button, TextField, Checkbox, FormControlLabel, Grid, Box, Typography, Card, CardContent, CardHeader, CircularProgress } from '@mui/material';
 import { BookOpen, CheckCircle2, Rocket, Image as IconImage } from 'lucide-react';
 
-// Данные для страниц
+// Данные для этапов проекта
 const stages = [
   { key: 'brief', title: 'Бриф', icon: BookOpen, eta: '1–2 дня', progress: 80 },
   { key: 'discovery', title: 'Исследование', icon: BookOpen, eta: '3–5 дней', progress: 60 },
@@ -156,10 +156,6 @@ const App = () => {
       )}
     </div>
   );
-};
-
-ReactDOM.render(<App />, document.getElementById('root'));
-
 };
 
 ReactDOM.render(<App />, document.getElementById('root'));
