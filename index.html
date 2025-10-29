@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-
-// Компоненты UI
-import { Button, Input, Textarea, Badge, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@material-ui/core';
+import { Button, Input, Checkbox, FormControlLabel, TextField, Card, CardContent, CardHeader, CardTitle, CardDescription, Grid, Box } from '@mui/material';
 import { BookOpen, CheckCircle2, Rocket, Image as IconImage } from 'lucide-react';
 
-// Этапы проекта
+// Данные для страниц
 const stages = [
   { key: 'brief', title: 'Бриф', icon: BookOpen, eta: '1–2 дня', progress: 80 },
   { key: 'discovery', title: 'Исследование', icon: BookOpen, eta: '3–5 дней', progress: 60 },
@@ -15,79 +13,146 @@ const stages = [
   { key: 'handoff', title: 'Сдача', icon: CheckCircle2, eta: '1 день', progress: 0 },
 ];
 
-// Компонент для отображения страницы заказчика
-const ClientDashboard = ({ onBriefClick }) => (
-  <div className="space-y-6">
-    <h1 className="text-3xl font-semibold">Кабинет заказчика</h1>
-    <div className="flex items-center gap-4">
-      <Badge variant="secondary">Проект в разработке</Badge>
-      <Button variant="outlined" onClick={onBriefClick}>Заполнить бриф</Button>
+// Страница авторизации
+const AuthPage = ({ onLoginSuccess }) => {
+  const [role, setRole] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [login, setLogin] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleLogin = () => {
+    if (role && login && password) {
+      onLoginSuccess(role);
+    } else {
+      alert('Заполните все поля!');
+    }
+  };
+
+  return (
+    <div className="auth-page">
+      <h2>Авторизация</h2>
+      <div>
+        <FormControlLabel
+          control={<Checkbox checked={role === 'client'} onChange={() => setRole('client')} />}
+          label="Заказчик"
+        />
+        <FormControlLabel
+          control={<Checkbox checked={role === 'team'} onChange={() => setRole('team')} />}
+          label="Член команды"
+        />
+      </div>
+      <TextField
+        label="Логин"
+        value={login}
+        onChange={(e) => setLogin(e.target.value)}
+        fullWidth
+      />
+      <TextField
+        label="Пароль"
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        fullWidth
+      />
+      <FormControlLabel
+        control={<Checkbox checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} />}
+        label="Запомнить меня"
+      />
+      <Button onClick={handleLogin} fullWidth variant="contained">Войти</Button>
     </div>
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="col-span-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Этапы проекта</CardTitle>
-            <CardDescription>Посмотрите, на каком этапе находится ваш проект</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {stages.map((s) => (
-              <div key={s.key} className="flex items-center justify-between">
+  );
+};
+
+// Страница заказчика (Dashboard)
+const ClientDashboard = () => (
+  <div>
+    <h1>Кабинет заказчика</h1>
+    <Grid container spacing={3}>
+      <Grid item xs={12} md={8}>
+        {stages.map((stage) => (
+          <Card key={stage.key}>
+            <CardHeader>
+              <CardTitle>{stage.title}</CardTitle>
+              <CardDescription>ETA: {stage.eta}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <s.icon className="w-6 h-6 text-teal-600" />
-                  <span>{s.title}</span>
+                  <stage.icon className="w-6 h-6 text-teal-600" />
+                  <span>{stage.title}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span>{s.progress}%</span>
+                  <span>{stage.progress}%</span>
                   <div className="h-2 w-32 rounded-full bg-gray-200">
-                    <div className="h-full bg-teal-500" style={{ width: `${s.progress}%` }} />
+                    <div className="h-full bg-teal-500" style={{ width: `${stage.progress}%` }} />
                   </div>
                 </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-      <div className="col-span-1">
+            </CardContent>
+          </Card>
+        ))}
+      </Grid>
+      <Grid item xs={12} md={4}>
         <Card>
           <CardHeader>
             <CardTitle>Мои материалы</CardTitle>
             <CardDescription>Все логотипы, шрифты и цвета проекта</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-2">
+            <Box className="grid grid-cols-2 gap-2">
               <div className="h-24 bg-gray-300 rounded-xl"></div>
               <div className="h-24 bg-gray-300 rounded-xl"></div>
-            </div>
+            </Box>
           </CardContent>
         </Card>
-      </div>
+      </Grid>
+    </Grid>
+  </div>
+);
+
+// Страница члена команды (Kanban board)
+const TeamDashboard = () => (
+  <div>
+    <h1>Кабинет члена команды</h1>
+    <div>
+      <h2>Задачи:</h2>
+      <Card>
+        <CardHeader>
+          <CardTitle>Проект 1</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul>
+            <li>Задача 1</li>
+            <li>Задача 2</li>
+            <li>Задача 3</li>
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   </div>
 );
 
-// Компонент для модального окна брифа
-const BriefDialog = ({ open, onClose }) => (
-  <div className={`dialog ${open ? 'block' : 'hidden'}`}>
-    <h2>Бриф проекта</h2>
-    <Input placeholder="Название бренда" />
-    <Textarea placeholder="Цели проекта" />
-    <Button onClick={onClose}>Отправить</Button>
-    <Button variant="outlined" onClick={onClose}>Закрыть</Button>
-  </div>
-);
+// Главный компонент для управления состоянием
+const App = () => {
+  const [role, setRole] = useState('');
+  const [authPage, setAuthPage] = useState(true);
 
-// Основной компонент
-export default function App() {
-  const [briefOpen, setBriefOpen] = useState(false);
+  const handleLoginSuccess = (role) => {
+    setRole(role);
+    setAuthPage(false);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <ClientDashboard onBriefClick={() => setBriefOpen(true)} />
-      <BriefDialog open={briefOpen} onClose={() => setBriefOpen(false)} />
+    <div className="app">
+      {authPage ? (
+        <AuthPage onLoginSuccess={handleLoginSuccess} />
+      ) : role === 'client' ? (
+        <ClientDashboard />
+      ) : (
+        <TeamDashboard />
+      )}
     </div>
   );
-}
+};
 
-// Рендеринг приложения
 ReactDOM.render(<App />, document.getElementById('root'));
