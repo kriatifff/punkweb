@@ -1,105 +1,109 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Management App</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Кабинет клиента</title>
 </head>
+
 <body>
-
-<!-- HEADER -->
-<header class="header">
-    <div class="container">
-        <h1>Project Dashboard</h1>
-        <nav>
-            <ul>
-                <li><a href="#client-view">Client View</a></li>
-                <li><a href="#team-view">Team View</a></li>
-            </ul>
-        </nav>
+  <div id="authPage">
+    <h2>Авторизация</h2>
+    <div>
+      <label>
+        <input type="radio" name="role" id="client" /> Заказчик
+      </label>
+      <label>
+        <input type="radio" name="role" id="team" /> Член команды
+      </label>
     </div>
-</header>
+    <input type="text" id="login" placeholder="Логин" />
+    <input type="password" id="password" placeholder="Пароль" />
+    <button onclick="handleLogin()">Войти</button>
+  </div>
 
-<!-- CLIENT VIEW (Page for the Client) -->
-<section id="client-view" class="client-view">
-    <div class="container">
-        <h2>Client Dashboard</h2>
-        <div class="project-stage">
-            <h3>Project Overview</h3>
-            <div class="overview">
-                <!-- Project Stage Sections with client related information -->
-                <div class="stage">
-                    <h4>Project Stage 1: Planning</h4>
-                    <p>Status: In Progress</p>
-                    <button class="btn">See Details</button>
-                </div>
-                <div class="stage">
-                    <h4>Project Stage 2: Development</h4>
-                    <p>Status: Pending</p>
-                    <button class="btn">See Details</button>
-                </div>
-                <div class="stage">
-                    <h4>Project Stage 3: Final Review</h4>
-                    <p>Status: Not Started</p>
-                    <button class="btn">See Details</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
+  <div id="clientDashboard" style="display:none;">
+    <h2>Кабинет заказчика</h2>
+    <div id="stages"></div>
+    <h3>Общий прогресс: <span id="overallProgress"></span>%</h3>
+  </div>
 
-<!-- TEAM VIEW (Page for the Team) -->
-<section id="team-view" class="team-view">
-    <div class="container">
-        <h2>Team Dashboard</h2>
-        <div class="project-switcher">
-            <label for="project-select">Choose Project:</label>
-            <select id="project-select">
-                <option value="project1">Project 1</option>
-                <option value="project2">Project 2</option>
-                <option value="project3">Project 3</option>
-            </select>
-        </div>
+  <div id="teamDashboard" style="display:none;">
+    <h2>Кабинет члена команды</h2>
+    <div id="teamMembers"></div>
+  </div>
 
-        <!-- Trello Board - Kanban View for tasks -->
-        <div class="trello-board">
-            <div class="column todo">
-                <h3>To Do</h3>
-                <div class="task">
-                    <p>Task 1: Design the homepage</p>
-                    <button class="btn">View Task</button>
-                </div>
-                <div class="task">
-                    <p>Task 2: Research user needs</p>
-                    <button class="btn">View Task</button>
-                </div>
-            </div>
-            <div class="column in-progress">
-                <h3>In Progress</h3>
-                <div class="task">
-                    <p>Task 3: Set up project environment</p>
-                    <button class="btn">View Task</button>
-                </div>
-            </div>
-            <div class="column done">
-                <h3>Done</h3>
-                <div class="task">
-                    <p>Task 4: Create wireframes</p>
-                    <button class="btn">View Task</button>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
+  <script>
+    const stages = [
+      { key: "brief", title: "Бриф", eta: "1–2 дня", progress: 80, color: "#4caf50" },
+      { key: "discovery", title: "Исследование", eta: "3–5 дней", progress: 60, color: "#2196f3" },
+      { key: "brand", title: "Брендинг", eta: "5–7 дней", progress: 35, color: "#9c27b0" },
+      { key: "design", title: "Дизайн сайта", eta: "7–10 дней", progress: 20, color: "#ff9800" },
+      { key: "dev", title: "Разработка", eta: "10–14 дней", progress: 10, color: "#f44336" },
+      { key: "handoff", title: "Сдача", eta: "1 день", progress: 0, color: "#9e9e9e" }
+    ];
 
-<!-- FOOTER -->
-<footer class="footer">
-    <div class="container">
-        <p>Project Management App © 2025</p>
-    </div>
-</footer>
+    const members = [
+      { id: 1, name: "Анна", role: "Аккаунт-менеджер", initials: "A" },
+      { id: 2, name: "Илья", role: "Проджект-лид", initials: "I" },
+      { id: 3, name: "Мария", role: "Дизайнер", initials: "M" },
+      { id: 4, name: "Олег", role: "Разработчик", initials: "O" },
+      { id: 5, name: "Кира", role: "Маркетолог", initials: "K" }
+    ];
 
-<script src="scripts.js"></script>
+    function handleLogin() {
+      const role = document.querySelector('input[name="role"]:checked');
+      const login = document.getElementById("login").value;
+      const password = document.getElementById("password").value;
+
+      if (!role || !login || !password) {
+        alert("Заполните все поля!");
+        return;
+      }
+
+      if (role.id === "client") {
+        document.getElementById("authPage").style.display = "none";
+        document.getElementById("clientDashboard").style.display = "block";
+        loadClientDashboard();
+      } else {
+        document.getElementById("authPage").style.display = "none";
+        document.getElementById("teamDashboard").style.display = "block";
+        loadTeamDashboard();
+      }
+    }
+
+    function loadClientDashboard() {
+      const stagesContainer = document.getElementById("stages");
+      let overallProgress = 0;
+
+      stages.forEach(stage => {
+        const stagePill = document.createElement("div");
+        stagePill.innerHTML = `
+          <h3>${stage.title}</h3>
+          <p>ETA: ${stage.eta}</p>
+          <div>Прогресс: ${stage.progress}%</div>
+        `;
+        stagesContainer.appendChild(stagePill);
+        overallProgress += stage.progress;
+      });
+
+      document.getElementById("overallProgress").innerText = Math.round(overallProgress / stages.length);
+    }
+
+    function loadTeamDashboard() {
+      const teamMembersContainer = document.getElementById("teamMembers");
+
+      members.forEach(member => {
+        const memberCard = document.createElement("div");
+        memberCard.innerHTML = `
+          <h3>${member.name}</h3>
+          <p>${member.role}</p>
+        `;
+        teamMembersContainer.appendChild(memberCard);
+      });
+    }
+  </script>
 </body>
+
 </html>
