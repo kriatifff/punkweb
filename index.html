@@ -1,275 +1,230 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Кабинет заказчика</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
-      color: #333;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard заказчика</title>
+    <style>
+        /* Общие стили для страницы */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
 
-    .container {
-      width: 80%;
-      margin: 0 auto;
-      padding-top: 30px;
-    }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+        }
 
-    .card {
-      background-color: #fff;
-      padding: 20px;
-      margin-bottom: 30px;
-      border-radius: 10px;
-      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-      transition: all 0.3s ease-in-out;
-    }
+        header {
+            background-color: #333;
+            color: white;
+            padding: 15px;
+        }
 
-    .card-header {
-      font-size: 18px;
-      font-weight: bold;
-      margin-bottom: 10px;
-    }
+        header h1 {
+            display: inline-block;
+        }
 
-    .card-content {
-      font-size: 14px;
-      color: #666;
-    }
+        nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            float: right;
+        }
 
-    .progress-bar-container {
-      background-color: #e0e0e0;
-      border-radius: 5px;
-      height: 10px;
-      margin-top: 10px;
-      width: 100%;
-    }
+        nav ul li {
+            display: inline;
+            margin-left: 15px;
+        }
 
-    .progress-bar {
-      height: 100%;
-      border-radius: 5px;
-      transition: width 0.5s ease;
-    }
+        nav ul li a {
+            color: white;
+            text-decoration: none;
+        }
 
-    .stage-item {
-      padding: 10px;
-      background-color: #f1f1f1;
-      margin: 15px 0;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
+        section {
+            padding: 30px 0;
+        }
 
-    .stage-item:hover {
-      background-color: #e0e0e0;
-    }
+        /* Блоки для отображения этапов проекта */
+        .project-stage {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
 
-    .team-card {
-      background-color: #cfcfcf;
-      padding: 20px;
-      border-radius: 8px;
-      width: 200px;
-    }
+        .stage {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            width: 30%;
+            margin-bottom: 20px;
+        }
 
-    .team-card h4 {
-      font-size: 16px;
-    }
+        .btn {
+            background-color: #008cba;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
 
-    .team-card p {
-      font-size: 14px;
-      color: #555;
-    }
+        .btn:hover {
+            background-color: #005f6b;
+        }
 
-    .button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      margin-right: 10px;
-      transition: background-color 0.3s ease;
-    }
+        .checklist {
+            margin-top: 20px;
+            list-style-type: none;
+            padding-left: 0;
+        }
 
-    .button-primary {
-      background-color: #2196f3;
-      color: white;
-    }
+        .checklist li {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
 
-    .button-primary:hover {
-      background-color: #1976d2;
-    }
+        .checklist li input {
+            margin-right: 10px;
+        }
 
-    .button-success {
-      background-color: #4caf50;
-      color: white;
-    }
+        /* Стиль для переключения между проектами */
+        .project-switcher {
+            margin-bottom: 20px;
+        }
 
-    .button-success:hover {
-      background-color: #388e3c;
-    }
+        .project-switcher label {
+            font-size: 18px;
+        }
 
-    .card-hero {
-      background: linear-gradient(135deg, #4caf50, #2196f3);
-      padding: 40px;
-      color: white;
-      border-radius: 10px;
-      text-align: center;
-      margin-bottom: 30px;
-    }
+        .project-switcher select {
+            padding: 10px;
+            font-size: 16px;
+        }
 
-    .milestone-item {
-      background-color: #ff9800;
-      padding: 20px;
-      width: 200px;
-      border-radius: 8px;
-      text-align: center;
-    }
+        footer {
+            background-color: #333;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
 
-    .milestone-item h4 {
-      margin: 10px 0;
-    }
+        /* Адаптация под мобильные устройства */
+        @media (max-width: 768px) {
+            .container {
+                width: 95%;
+            }
 
-    .milestone-item p {
-      font-size: 14px;
-    }
-  </style>
+            .project-stage {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .stage {
+                width: 100%;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
 </head>
-
 <body>
-  <div class="container">
-    <!-- Дашборд заказчика -->
-    <div class="card">
-      <h2 class="card-header">Кабинет заказчика</h2>
 
-      <!-- Общий прогресс -->
-      <div class="card-content">
-        <h3>Общий прогресс</h3>
-        <div class="progress-bar-container">
-          <div id="overallProgressBar" class="progress-bar" style="width: 65%; background-color: #4caf50;"></div>
-        </div>
-        <p id="overallProgressText">65%</p>
-      </div>
-
-      <!-- Этапы проекта -->
-      <div class="card-content">
-        <h3>Этапы проекта</h3>
-        <div id="stageList"></div>
-      </div>
+<!-- HEADER -->
+<header class="header">
+    <div class="container">
+        <h1>Dashboard заказчика</h1>
+        <nav>
+            <ul>
+                <li><a href="#project-view">Проект</a></li>
+                <li><a href="#client-info">Информация</a></li>
+            </ul>
+        </nav>
     </div>
+</header>
 
-    <!-- Визуализация и материалы проекта -->
-    <div class="card" style="background: #fafafa;">
-      <h3>Предпросмотр логотипов и артефактов</h3>
-      <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-        <div style="background: #9e9e9e; height: 100px; width: 100px; border-radius: 8px;"></div>
-        <div style="background: #4caf50; height: 100px; width: 100px; border-radius: 8px;"></div>
-        <div style="background: #f44336; height: 100px; width: 100px; border-radius: 8px;"></div>
-      </div>
-      <div>
-        <button onclick="downloadPDF()" class="button button-primary">Загрузить PDF</button>
-        <button onclick="approveDesign()" class="button button-success">Утвердить вариант</button>
-      </div>
-    </div>
-
-    <!-- Ожидаемые вехи проекта -->
-    <div class="card" style="background: #e8e8e8;">
-      <h3>Дорожная карта</h3>
-      <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-        <div class="milestone-item">
-          <h4>Презентация концепции</h4>
-          <p>Дата: 05.11.2025</p>
+<!-- ПРЕГЛЯД ПРОЕКТА (Client Dashboard) -->
+<section id="project-view" class="client-view">
+    <div class="container">
+        <h2>Обзор проекта</h2>
+        <div class="project-switcher">
+            <label for="project-select">Выберите проект:</label>
+            <select id="project-select">
+                <option value="project1">Проект 1</option>
+                <option value="project2">Проект 2</option>
+                <option value="project3">Проект 3</option>
+            </select>
         </div>
-        <div class="milestone-item">
-          <h4>Дизайн: главная + 2 экрана</h4>
-          <p>Дата: 12.11.2025</p>
+
+        <!-- Блоки для отображения стадий проекта -->
+        <div class="project-stage">
+            <div class="stage">
+                <h4>Этап проекта 1: Планирование</h4>
+                <p>Статус: В процессе</p>
+                <button class="btn">Подробнее</button>
+                <ul class="checklist">
+                    <li><input type="checkbox">План составлен</li>
+                    <li><input type="checkbox">Задачи распределены</li>
+                </ul>
+            </div>
+
+            <div class="stage">
+                <h4>Этап проекта 2: Разработка</h4>
+                <p>Статус: Ожидает</p>
+                <button class="btn">Подробнее</button>
+                <ul class="checklist">
+                    <li><input type="checkbox">Создана база</li>
+                    <li><input type="checkbox">Технические требования согласованы</li>
+                </ul>
+            </div>
+
+            <div class="stage">
+                <h4>Этап проекта 3: Финальная проверка</h4>
+                <p>Статус: Не начат</p>
+                <button class="btn">Подробнее</button>
+                <ul class="checklist">
+                    <li><input type="checkbox">Протестированы все функции</li>
+                    <li><input type="checkbox">Согласование с клиентом</li>
+                </ul>
+            </div>
         </div>
-        <div class="milestone-item">
-          <h4>Запуск MVP</h4>
-          <p>Дата: 20.11.2025</p>
+    </div>
+</section>
+
+<!-- ИНФОРМАЦИЯ О КЛИЕНТЕ -->
+<section id="client-info" class="client-info">
+    <div class="container">
+        <h2>Информация о проекте</h2>
+        <div class="overview">
+            <h3>Описание</h3>
+            <p>Это ваш основной проект, который включает все ключевые этапы. Пожалуйста, просматривайте текущие задачи и следите за их выполнением.</p>
+
+            <h3>Примечания</h3>
+            <p>Здесь будут появляться важные заметки по ходу выполнения проекта. Например, информация о сроках и возможных задержках.</p>
         </div>
-      </div>
     </div>
+</section>
 
-    <!-- Команда проекта -->
-    <div class="card">
-      <h3>Команда проекта</h3>
-      <div id="teamMembers" class="flex"></div>
+<!-- FOOTER -->
+<footer class="footer">
+    <div class="container">
+        <p>Project Management App © 2025</p>
     </div>
-  </div>
+</footer>
 
-  <script>
-    // Моковые данные для этапов проекта
-    const stages = [
-      { key: "brief", title: "Бриф", eta: "1–2 дня", progress: 80, color: "#4caf50" },
-      { key: "discovery", title: "Исследование", eta: "3–5 дней", progress: 60, color: "#2196f3" },
-      { key: "brand", title: "Брендинг", eta: "5–7 дней", progress: 35, color: "#9c27b0" },
-      { key: "design", title: "Дизайн сайта", eta: "7–10 дней", progress: 20, color: "#ff9800" },
-      { key: "dev", title: "Разработка", eta: "10–14 дней", progress: 10, color: "#f44336" },
-      { key: "handoff", title: "Сдача", eta: "1 день", progress: 0, color: "#9e9e9e" }
-    ];
-
-    const members = [
-      { id: 1, name: "Анна", role: "Аккаунт-менеджер", initials: "A" },
-      { id: 2, name: "Илья", role: "Проджект-лид", initials: "I" },
-      { id: 3, name: "Мария", role: "Дизайнер", initials: "M" },
-      { id: 4, name: "Олег", role: "Разработчик", initials: "O" },
-      { id: 5, name: "Кира", role: "Маркетолог", initials: "K" }
-    ];
-
-    function loadClientDashboard() {
-      const stageList = document.getElementById("stageList");
-      let overallProgress = 0;
-
-      stages.forEach(stage => {
-        const stagePill = document.createElement("div");
-        stagePill.classList.add("stage-item");
-        stagePill.innerHTML = `
-          <h4>${stage.title}</h4>
-          <p>ETA: ${stage.eta}</p>
-          <div class="progress-bar-container">
-            <div class="progress-bar" style="width: ${stage.progress}%; background-color: ${stage.color};"></div>
-          </div>
-          <p>Прогресс: ${stage.progress}%</p>
-        `;
-        stageList.appendChild(stagePill);
-        overallProgress += stage.progress;
-      }
-
-      const overallProgressText = Math.round(overallProgress / stages.length);
-      document.getElementById("overallProgressText").textContent = overallProgressText + "%";
-      document.getElementById("overallProgressBar").style.width = overallProgressText + "%";
-    }
-
-    function loadTeamMembers() {
-      const teamMembersContainer = document.getElementById("teamMembers");
-
-      members.forEach(member => {
-        const memberCard = document.createElement("div");
-        memberCard.classList.add("team-card");
-        memberCard.innerHTML = `
-          <h4>${member.name}</h4>
-          <p>${member.role}</p>
-        `;
-        teamMembersContainer.appendChild(memberCard);
-      });
-    }
-
-    // Инициализация
-    loadClientDashboard();
-    loadTeamMembers();
-
-    // Дополнительные функции
-    function downloadPDF() {
-      alert("Загрузка PDF...");
-    }
-
-    function approveDesign() {
-      alert("Дизайн утвержден!");
-    }
-  </script>
+<script>
+    // Простой скрипт для обработки переключения между проектами
+    document.getElementById('project-select').addEventListener('change', function () {
+        const selectedProject = this.value;
+        console.log('Выбран проект:', selectedProject);
+        // Здесь можно добавить логику для обновления контента в зависимости от выбранного проекта
+    });
+</script>
 
 </body>
-
 </html>
