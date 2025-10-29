@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Button, Input, Checkbox, FormControlLabel, TextField, Card, CardContent, CardHeader, CardTitle, CardDescription, Grid, Box } from '@mui/material';
+import { Button, TextField, Checkbox, FormControlLabel, Grid, Card, CardContent, CardHeader, Typography, Box, CircularProgress } from '@mui/material';
 import { BookOpen, CheckCircle2, Rocket, Image as IconImage } from 'lucide-react';
 
 // Данные для страниц
@@ -29,23 +29,22 @@ const AuthPage = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="auth-page">
-      <h2>Авторизация</h2>
-      <div>
-        <FormControlLabel
-          control={<Checkbox checked={role === 'client'} onChange={() => setRole('client')} />}
-          label="Заказчик"
-        />
-        <FormControlLabel
-          control={<Checkbox checked={role === 'team'} onChange={() => setRole('team')} />}
-          label="Член команды"
-        />
-      </div>
+    <Box sx={{ maxWidth: 400, margin: '0 auto', padding: 2 }}>
+      <Typography variant="h5" align="center" gutterBottom>Авторизация</Typography>
+      <FormControlLabel
+        control={<Checkbox checked={role === 'client'} onChange={() => setRole('client')} />}
+        label="Заказчик"
+      />
+      <FormControlLabel
+        control={<Checkbox checked={role === 'team'} onChange={() => setRole('team')} />}
+        label="Член команды"
+      />
       <TextField
         label="Логин"
         value={login}
         onChange={(e) => setLogin(e.target.value)}
         fullWidth
+        margin="normal"
       />
       <TextField
         label="Пароль"
@@ -53,51 +52,56 @@ const AuthPage = ({ onLoginSuccess }) => {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         fullWidth
+        margin="normal"
       />
       <FormControlLabel
         control={<Checkbox checked={rememberMe} onChange={() => setRememberMe(!rememberMe)} />}
         label="Запомнить меня"
       />
-      <Button onClick={handleLogin} fullWidth variant="contained">Войти</Button>
-    </div>
+      <Button variant="contained" color="primary" onClick={handleLogin} fullWidth sx={{ marginTop: 2 }}>
+        Войти
+      </Button>
+    </Box>
   );
 };
 
 // Страница заказчика (Dashboard)
 const ClientDashboard = () => (
-  <div>
-    <h1>Кабинет заказчика</h1>
+  <Box sx={{ padding: 3 }}>
+    <Typography variant="h4" gutterBottom>Кабинет заказчика</Typography>
     <Grid container spacing={3}>
       <Grid item xs={12} md={8}>
         {stages.map((stage) => (
-          <Card key={stage.key}>
-            <CardHeader>
-              <CardTitle>{stage.title}</CardTitle>
-              <CardDescription>ETA: {stage.eta}</CardDescription>
-            </CardHeader>
+          <Card key={stage.key} sx={{ marginBottom: 2 }}>
+            <CardHeader
+              title={stage.title}
+              subheader={`ETA: ${stage.eta}`}
+              action={<CircularProgress variant="determinate" value={stage.progress} size={40} />}
+            />
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box display="flex" alignItems="center">
                   <stage.icon className="w-6 h-6 text-teal-600" />
-                  <span>{stage.title}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span>{stage.progress}%</span>
-                  <div className="h-2 w-32 rounded-full bg-gray-200">
-                    <div className="h-full bg-teal-500" style={{ width: `${stage.progress}%` }} />
-                  </div>
-                </div>
-              </div>
+                  <Typography variant="body2" sx={{ marginLeft: 1 }}>{stage.title}</Typography>
+                </Box>
+                <Box width="60%">
+                  <Box sx={{ height: 10, backgroundColor: '#ddd', borderRadius: '5px' }}>
+                    <Box sx={{
+                      height: '100%',
+                      width: `${stage.progress}%`,
+                      backgroundColor: '#4caf50',
+                      borderRadius: '5px'
+                    }} />
+                  </Box>
+                </Box>
+              </Box>
             </CardContent>
           </Card>
         ))}
       </Grid>
       <Grid item xs={12} md={4}>
         <Card>
-          <CardHeader>
-            <CardTitle>Мои материалы</CardTitle>
-            <CardDescription>Все логотипы, шрифты и цвета проекта</CardDescription>
-          </CardHeader>
+          <CardHeader title="Мои материалы" subheader="Все логотипы, шрифты и цвета проекта" />
           <CardContent>
             <Box className="grid grid-cols-2 gap-2">
               <div className="h-24 bg-gray-300 rounded-xl"></div>
@@ -107,29 +111,28 @@ const ClientDashboard = () => (
         </Card>
       </Grid>
     </Grid>
-  </div>
+  </Box>
 );
 
 // Страница члена команды (Kanban board)
 const TeamDashboard = () => (
-  <div>
-    <h1>Кабинет члена команды</h1>
-    <div>
-      <h2>Задачи:</h2>
-      <Card>
-        <CardHeader>
-          <CardTitle>Проект 1</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul>
-            <li>Задача 1</li>
-            <li>Задача 2</li>
-            <li>Задача 3</li>
-          </ul>
-        </CardContent>
-      </Card>
-    </div>
-  </div>
+  <Box sx={{ padding: 3 }}>
+    <Typography variant="h4" gutterBottom>Кабинет члена команды</Typography>
+    <Grid container spacing={3}>
+      <Grid item xs={12}>
+        <Card>
+          <CardHeader title="Проект 1" subheader="Текущие задачи" />
+          <CardContent>
+            <ul>
+              <li>Задача 1</li>
+              <li>Задача 2</li>
+              <li>Задача 3</li>
+            </ul>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+  </Box>
 );
 
 // Главный компонент для управления состоянием
@@ -156,3 +159,8 @@ const App = () => {
 };
 
 ReactDOM.render(<App />, document.getElementById('root'));
+
+};
+
+ReactDOM.render(<App />, document.getElementById('root'));
+
