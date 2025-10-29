@@ -1,174 +1,156 @@
-import React, { useState } from 'react';
-import ReactDOM from 'react-dom';
+import React, { useState, useEffect, useMemo } from "react";
+import ReactDOM from "react-dom";
+import { motion } from "framer-motion";
+import { Progress } from "@mui/material";
+import { Button } from "@mui/material";
+import { TextField, Checkbox, FormControlLabel } from "@mui/material";
+import { Avatar, Badge, Tooltip, Card, CardContent, CardHeader, CardFooter } from "@mui/material";
+import { LayoutDashboard, CheckCircle2, FileCheck2, Rocket, Play, BookOpen, PenLine, Image as IconImage } from "lucide-react";
 
-// Простые стили
-const styles = {
-  container: {
-    fontFamily: 'Arial, sans-serif',
-    margin: '0 auto',
-    padding: '20px',
-    maxWidth: '1200px',
-  },
-  header: {
-    fontSize: '2em',
-    marginBottom: '20px',
-    textAlign: 'center',
-  },
-  button: {
-    padding: '10px 20px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    marginTop: '10px',
-  },
-  card: {
-    border: '1px solid #ddd',
-    padding: '20px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-  },
-  progressBarContainer: {
-    width: '100%',
-    backgroundColor: '#f3f3f3',
-    borderRadius: '5px',
-    height: '20px',
-  },
-  progressBar: (progress) => ({
-    width: `${progress}%`,
-    backgroundColor: '#4caf50',
-    height: '100%',
-    borderRadius: '5px',
-  }),
-  input: {
-    padding: '10px',
-    fontSize: '16px',
-    marginBottom: '10px',
-    width: '100%',
-    borderRadius: '5px',
-    border: '1px solid #ccc',
-  },
-};
-
-// Моковые данные
+// Mock data
 const stages = [
-  { key: 'brief', title: 'Бриф', eta: '1–2 дня', progress: 80 },
-  { key: 'discovery', title: 'Исследование', eta: '3–5 дней', progress: 60 },
-  { key: 'brand', title: 'Брендинг', eta: '5–7 дней', progress: 35 },
-  { key: 'design', title: 'Дизайн сайта', eta: '7–10 дней', progress: 20 },
-  { key: 'dev', title: 'Разработка', eta: '10–14 дней', progress: 10 },
-  { key: 'handoff', title: 'Сдача', eta: '1 день', progress: 0 },
+  { key: "brief", title: "Бриф", eta: "1–2 дня", progress: 80, icon: BookOpen, color: "from-emerald-400 to-teal-500" },
+  { key: "discovery", title: "Исследование", eta: "3–5 дней", progress: 60, icon: PenLine, color: "from-cyan-400 to-blue-500" },
+  { key: "brand", title: "Брендинг", eta: "5–7 дней", progress: 35, icon: PenLine, color: "from-violet-400 to-fuchsia-500" },
+  { key: "design", title: "Дизайн сайта", eta: "7–10 дней", progress: 20, icon: IconImage, color: "from-amber-400 to-orange-500" },
+  { key: "dev", title: "Разработка", eta: "10–14 дней", progress: 10, icon: Rocket, color: "from-rose-400 to-red-500" },
+  { key: "handoff", title: "Сдача", eta: "1 день", progress: 0, icon: FileCheck2, color: "from-slate-400 to-slate-600" },
 ];
 
-// Страница авторизации
-const AuthPage = ({ onLoginSuccess }) => {
-  const [role, setRole] = useState('');
-  const [login, setLogin] = useState('');
-  const [password, setPassword] = useState('');
-
-  const handleLogin = () => {
-    if (role && login && password) {
-      onLoginSuccess(role);
-    } else {
-      alert('Заполните все поля!');
-    }
-  };
-
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.header}>Авторизация</h1>
-      <div>
-        <label>
-          <input
-            type="radio"
-            name="role"
-            checked={role === 'client'}
-            onChange={() => setRole('client')}
-          /> Заказчик
-        </label>
-        <label>
-          <input
-            type="radio"
-            name="role"
-            checked={role === 'team'}
-            onChange={() => setRole('team')}
-          /> Член команды
-        </label>
-      </div>
-      <input
-        type="text"
-        placeholder="Логин"
-        value={login}
-        onChange={(e) => setLogin(e.target.value)}
-        style={styles.input}
-      />
-      <input
-        type="password"
-        placeholder="Пароль"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={styles.input}
-      />
-      <button onClick={handleLogin} style={styles.button}>Войти</button>
-    </div>
-  );
-};
-
-// Страница заказчика (Dashboard)
-const ClientDashboard = () => (
-  <div style={styles.container}>
-    <h1 style={styles.header}>Кабинет заказчика</h1>
-    {stages.map((stage) => (
-      <div key={stage.key} style={styles.card}>
-        <h3>{stage.title}</h3>
-        <p>ETA: {stage.eta}</p>
-        <div style={styles.progressBarContainer}>
-          <div style={styles.progressBar(stage.progress)}></div>
+// Component for Stage Progress
+const StagePill = ({ active, title, eta, progress, icon: Icon, color }) => (
+  <button className={`group w-full text-left`}>
+    <Card className={`border-none bg-gradient-to-br ${color} text-white shadow-lg shadow-black/10 transition hover:brightness-105`}>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-white/20 backdrop-blur"><Icon /></div>
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <p className="font-medium">{title}</p>
+              <Badge variant="secondary" className="bg-white/25 text-white">ETA {eta}</Badge>
+            </div>
+            <div className="mt-2">
+              <div className="text-xs opacity-90 mb-1">Готовность: {progress}%</div>
+              <div className="h-2 w-full rounded-full bg-white/20 overflow-hidden">
+                <motion.div initial={{width:0}} animate={{width:`${progress}%`}} transition={{type:"spring", stiffness:120, damping:20}} className="h-full bg-white/90" />
+              </div>
+            </div>
+          </div>
         </div>
-        <p>Прогресс: {stage.progress}%</p>
+      </CardContent>
+    </Card>
+  </button>
+);
+
+// Mock Data for Users and Milestones
+const members = [
+  { id: 1, name: "Анна", role: "Аккаунт-менеджер", initials: "A" },
+  { id: 2, name: "Илья", role: "Проджект-лид", initials: "I" },
+  { id: 3, name: "Мария", role: "Дизайнер", initials: "M" },
+  { id: 4, name: "Олег", role: "Разработчик", initials: "O" },
+  { id: 5, name: "Кира", role: "Маркетолог", initials: "K" },
+];
+
+const sampleMilestones = [
+  { date: "2025-11-05", title: "Презентация концепции", type: "meeting" },
+  { date: "2025-11-12", title: "Дизайн: главная + 2 экрана", type: "delivery" },
+  { date: "2025-11-20", title: "Запуск MVP", type: "release" },
+];
+
+// Helper Component for Member
+const MemberCard = ({ m }) => (
+  <Card className="rounded-2xl">
+    <CardContent className="p-4 flex items-center gap-3">
+      <Avatar className="h-10 w-10">{m.initials}</Avatar>
+      <div className="leading-tight">
+        <div className="font-medium">{m.name}</div>
+        <div className="text-xs text-muted-foreground">{m.role}</div>
       </div>
-    ))}
-  </div>
+      <div className="ml-auto flex items-center gap-1">
+        <Badge variant="secondary" className="rounded-full">в онлайне</Badge>
+      </div>
+    </CardContent>
+  </Card>
 );
 
-// Страница участника команды (Kanban board)
-const TeamDashboard = () => (
-  <div style={styles.container}>
-    <h1 style={styles.header}>Кабинет члена команды</h1>
-    <div style={styles.card}>
-      <h3>Задачи</h3>
-      <ul>
-        <li>Задача 1: Дизайн сайта</li>
-        <li>Задача 2: Разработка главной страницы</li>
-        <li>Задача 3: Интеграция с API</li>
-      </ul>
-    </div>
-  </div>
-);
+// ----------- Main App ----------
+export default function App() {
+  const [activeStage, setActiveStage] = useState(stages[0].key);
+  const [briefOpen, setBriefOpen] = useState(false);
 
-// Главный компонент для управления состоянием
-const App = () => {
-  const [role, setRole] = useState('');
-  const [authPage, setAuthPage] = useState(true);
+  const overall = useMemo(() => Math.round(
+    (stages.reduce((acc, s) => acc + s.progress, 0) / (stages.length * 100)) * 100
+  ), []);
 
-  const handleLoginSuccess = (role) => {
-    setRole(role);
-    setAuthPage(false);
-  };
+  const current = stages.find(s => s.key === activeStage);
 
   return (
-    <div>
-      {authPage ? (
-        <AuthPage onLoginSuccess={handleLoginSuccess} />
-      ) : role === 'client' ? (
-        <ClientDashboard />
-      ) : (
-        <TeamDashboard />
-      )}
+    <div className="min-h-screen w-full bg-gradient-to-br from-zinc-50 to-white text-zinc-900">
+      {/* Top Bar */}
+      <div className="sticky top-0 z-30 backdrop-blur border-b bg-white/70">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-9 grid place-items-center rounded-xl bg-gradient-to-br from-black to-zinc-700 text-white shadow"><Rocket className="w-5 h-5" /></div>
+            <div className="font-semibold">StudioFlow</div>
+            <Badge variant="secondary" className="ml-1">Кабинет клиента</Badge>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="ghost" size="icon"><LayoutDashboard className="w-4 h-4" /></Button>
+            <Button variant="default" className="rounded-full">Оставить отзыв</Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar: Stages */}
+        <div className="lg:col-span-1 space-y-3">
+          {stages.map((s) => (
+            <div key={s.key} onClick={() => setActiveStage(s.key)}>
+              <StagePill active={activeStage === s.key} icon={s.icon} title={s.title} eta={s.eta} progress={s.progress} color={s.color} />
+            </div>
+          ))}
+        </div>
+
+        {/* Main Content */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Hero / Visualization */}
+          <Card className="rounded-3xl border-zinc-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row md:items-center gap-6">
+                <div className="flex-1 space-y-3">
+                  <div className="text-xs uppercase tracking-widest text-zinc-500">Текущий этап</div>
+                  <div className="flex items-center gap-2">
+                    {React.createElement(current.icon, { className: "w-5 h-5 text-zinc-700" })}
+                    <h2 className="text-2xl font-semibold">{current.title}</h2>
+                    <Badge variant="outline" className="rounded-full">ETA {current.eta}</Badge>
+                  </div>
+                  <p className="text-zinc-600">Ниже — «живой» предпросмотр артефактов этапа, статусы задач и ближайшие вехи. Управляйте параметрами справа — как в Drinkit вы настраиваете напиток, здесь вы управляете проектом.</p>
+                  <div className="flex items-center gap-3">
+                    <Button onClick={() => setBriefOpen(true)} className="rounded-full"><BookOpen className="w-4 h-4 mr-2" />Заполнить бриф</Button>
+                    <Button variant="outline" className="rounded-full"><Play className="w-4 h-4 mr-2" />Поделиться</Button>
+                    <div className="flex items-center gap-2 ml-auto text-sm"><Checkbox />Уведомления</div>
+                  </div>
+                </div>
+                <div className="md:w-[48%]">
+                  <div className="relative w-full h-64 md:h-80 rounded-2xl overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900">
+                    <div className="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,.25),transparent_40%)]" />
+                    <div className="absolute inset-0 animate-pulse bg-[repeating-linear-gradient(45deg,rgba(255,255,255,.05)_0px,rgba(255,255,255,.05)_2px,transparent_2px,transparent_6px)]" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="flex items-center gap-3 text-white/90">
+                        <Play className="w-6 h-6" />
+                        <span className="text-sm uppercase tracking-widest">Предпросмотр</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
-};
+}
 
 ReactDOM.render(<App />, document.getElementById('root'));
