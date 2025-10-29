@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,42 +8,24 @@
 </head>
 
 <body>
-  <div>
+  <div style="padding: 20px; background-color: #f4f4f4; font-family: Arial, sans-serif;">
     <!-- Дашборд заказчика -->
-    <div style="padding: 20px; background: #f4f4f4;">
-      <h2>Кабинет заказчика</h2>
-      <div style="display: flex; gap: 20px;">
-        <div style="flex: 1; background-color: #2196f3; color: white; padding: 20px; border-radius: 8px;">
-          <h3>Общий прогресс</h3>
-          <div style="background-color: #ddd; border-radius: 5px; height: 10px; margin-bottom: 10px;">
-            <div style="width: 65%; background-color: white; border-radius: 5px; height: 100%;"></div>
-          </div>
-          <p>65%</p>
+    <h2>Кабинет заказчика</h2>
+
+    <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+      <!-- Общий прогресс -->
+      <div style="flex: 1; background-color: #2196f3; color: white; padding: 20px; border-radius: 8px;">
+        <h3>Общий прогресс</h3>
+        <div style="background-color: #ddd; border-radius: 5px; height: 10px; margin-bottom: 10px;">
+          <div id="overallProgressBar" style="width: 65%; background-color: white; border-radius: 5px; height: 100%;"></div>
         </div>
-        <div style="flex: 2; background-color: #ffffff; color: #333; padding: 20px; border-radius: 8px;">
-          <h3>Этапы проекта</h3>
-          <div style="margin-bottom: 15px;">
-            <h4>Бриф</h4>
-            <p>Прогресс: 80%</p>
-            <div style="background-color: #ddd; border-radius: 5px; height: 10px; margin-bottom: 10px;">
-              <div style="width: 80%; background-color: green; border-radius: 5px; height: 100%;"></div>
-            </div>
-          </div>
-          <div style="margin-bottom: 15px;">
-            <h4>Исследование</h4>
-            <p>Прогресс: 60%</p>
-            <div style="background-color: #ddd; border-radius: 5px; height: 10px; margin-bottom: 10px;">
-              <div style="width: 60%; background-color: blue; border-radius: 5px; height: 100%;"></div>
-            </div>
-          </div>
-          <div style="margin-bottom: 15px;">
-            <h4>Дизайн</h4>
-            <p>Прогресс: 20%</p>
-            <div style="background-color: #ddd; border-radius: 5px; height: 10px; margin-bottom: 10px;">
-              <div style="width: 20%; background-color: orange; border-radius: 5px; height: 100%;"></div>
-            </div>
-          </div>
-        </div>
+        <p id="overallProgressText">65%</p>
+      </div>
+
+      <!-- Этапы проекта -->
+      <div style="flex: 2; background-color: #ffffff; color: #333; padding: 20px; border-radius: 8px;">
+        <h3>Этапы проекта</h3>
+        <div id="stageList"></div>
       </div>
     </div>
 
@@ -55,8 +38,8 @@
         <div style="background: #f44336; height: 100px; width: 100px; border-radius: 8px;"></div>
       </div>
       <div>
-        <button style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px;">Загрузить PDF</button>
-        <button style="padding: 10px 20px; background-color: #4caf50; color: white; border: none; border-radius: 5px; margin-left: 10px;">Утвердить вариант</button>
+        <button onclick="downloadPDF()" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px;">Загрузить PDF</button>
+        <button onclick="approveDesign()" style="padding: 10px 20px; background-color: #4caf50; color: white; border: none; border-radius: 5px; margin-left: 10px;">Утвердить вариант</button>
       </div>
     </div>
 
@@ -82,24 +65,82 @@
     <!-- Команда проекта -->
     <div style="padding: 20px; background: #ffffff; margin-top: 20px;">
       <h3>Команда проекта</h3>
-      <div style="display: flex; gap: 20px;">
-        <div style="background: #cfcfcf; padding: 20px; width: 200px; border-radius: 8px;">
-          <h4>Анна</h4>
-          <p>Аккаунт-менеджер</p>
-        </div>
-        <div style="background: #cfcfcf; padding: 20px; width: 200px; border-radius: 8px;">
-          <h4>Илья</h4>
-          <p>Проджект-лид</p>
-        </div>
-        <div style="background: #cfcfcf; padding: 20px; width: 200px; border-radius: 8px;">
-          <h4>Мария</h4>
-          <p>Дизайнер</p>
-        </div>
-      </div>
+      <div id="teamMembers" style="display: flex; gap: 20px;"></div>
     </div>
   </div>
 
+  <script>
+    // Моковые данные
+    const stages = [
+      { key: "brief", title: "Бриф", eta: "1–2 дня", progress: 80, color: "#4caf50" },
+      { key: "discovery", title: "Исследование", eta: "3–5 дней", progress: 60, color: "#2196f3" },
+      { key: "brand", title: "Брендинг", eta: "5–7 дней", progress: 35, color: "#9c27b0" },
+      { key: "design", title: "Дизайн сайта", eta: "7–10 дней", progress: 20, color: "#ff9800" },
+      { key: "dev", title: "Разработка", eta: "10–14 дней", progress: 10, color: "#f44336" },
+      { key: "handoff", title: "Сдача", eta: "1 день", progress: 0, color: "#9e9e9e" }
+    ];
+
+    const members = [
+      { id: 1, name: "Анна", role: "Аккаунт-менеджер", initials: "A" },
+      { id: 2, name: "Илья", role: "Проджект-лид", initials: "I" },
+      { id: 3, name: "Мария", role: "Дизайнер", initials: "M" },
+      { id: 4, name: "Олег", role: "Разработчик", initials: "O" },
+      { id: 5, name: "Кира", role: "Маркетолог", initials: "K" }
+    ];
+
+    function loadClientDashboard() {
+      const stageList = document.getElementById("stageList");
+      let overallProgress = 0;
+
+      stages.forEach(stage => {
+        const stagePill = document.createElement("div");
+        stagePill.innerHTML = `
+          <h4>${stage.title}</h4>
+          <p>ETA: ${stage.eta}</p>
+          <div style="background-color: #ddd; border-radius: 5px; height: 10px; margin-bottom: 10px;">
+            <div style="width: ${stage.progress}%; background-color: ${stage.color}; border-radius: 5px; height: 100%;"></div>
+          </div>
+          <p>Прогресс: ${stage.progress}%</p>
+        `;
+        stageList.appendChild(stagePill);
+        overallProgress += stage.progress;
+      }
+
+      const overallProgressText = Math.round(overallProgress / stages.length);
+      document.getElementById("overallProgressText").textContent = overallProgressText + "%";
+      document.getElementById("overallProgressBar").style.width = overallProgressText + "%";
+    }
+
+    function loadTeamMembers() {
+      const teamMembersContainer = document.getElementById("teamMembers");
+
+      members.forEach(member => {
+        const memberCard = document.createElement("div");
+        memberCard.style.backgroundColor = "#cfcfcf";
+        memberCard.style.padding = "20px";
+        memberCard.style.borderRadius = "8px";
+        memberCard.style.width = "200px";
+        memberCard.innerHTML = `
+          <h4>${member.name}</h4>
+          <p>${member.role}</p>
+        `;
+        teamMembersContainer.appendChild(memberCard);
+      });
+    }
+
+    // Инициализация
+    loadClientDashboard();
+    loadTeamMembers();
+
+    // Дополнительные функции
+    function downloadPDF() {
+      alert("Загрузка PDF...");
+    }
+
+    function approveDesign() {
+      alert("Дизайн утвержден!");
+    }
+  </script>
 </body>
 
 </html>
-
